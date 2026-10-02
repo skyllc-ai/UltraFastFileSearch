@@ -128,7 +128,7 @@ pub(crate) fn run_search(args: &[String]) -> Result<()> {
 
     // Phase 3.1 NUL fast path: `--no-output` (explicit or auto-injected
     // for NUL stdout) skips every client-side stdout write.
-    let suppress_stdout = args_owned.iter().any(|arg| arg == "--no-output");
+    let suppress_stdout = args_owned.iter().any(|arg| arg == "--no-output" || arg == "--benchmark");
 
     if !daemon_wrote_file && !suppress_stdout {
         write_search_payload_to_stdout(response.payload, args)?;
