@@ -573,21 +573,18 @@ async fn preload_warm_to_hot_does_not_bump_promotions_total() {
     assert_eq!(
         row.promotions_total, 0,
         "Warm→Hot is a tier-marker flip; promotions_total counts \
-         Cold→Hot transitions only"
+         only promotions back from Parked or Cold"
     );
 }
 
-/// Phase 9 — the `Parked → Hot` source arm of `promote_letter_to_hot`
-/// **does** pay a body-decrypt cost (drops the parked bloom + trie
-/// and re-runs the body loader; see
+/// The `Parked → Hot` source arm of `promote_letter_to_hot` pays the
+/// same body re-load from the on-disk cache as `Cold → Hot` (it drops
+/// the parked bloom + trie and re-runs the body loader; see
 /// `crate::index::tiering_ops::IndexManager::preload_drive` source
-/// arms), but the `promotions_total` counter still must **not** bump
-/// — the contract is named for the `Cold → Hot` tier transition,
-/// not for "transitions that paid a decrypt cost".  This guard test
-/// pins that distinction so a future refactor that consolidates the
-/// Cold/Parked source arms can't silently broaden the bump.
+/// arms), so it counts in `promotions_total` exactly once.  Until
+/// v0.6.46 it did not, and a drive re-warmed from Parked read 0.
 #[tokio::test]
-async fn preload_parked_to_hot_does_not_bump_promotions_total() {
+async fn preload_parked_to_hot_bumps_promotions_total_once() {
     let (tx, _rx) = crate::events::event_channel();
     let body = Arc::new(build_test_drive());
     let loader = Arc::new(FixedBodyLoader {
@@ -616,8 +613,7 @@ async fn preload_parked_to_hot_does_not_bump_promotions_total() {
         panic!("expected exactly 1 drive; got {}", response.drives.len());
     };
     assert_eq!(
-        row.promotions_total, 0,
-        "Parked→Hot pays a decrypt cost but is NOT a Cold→Hot \
-         transition; promotions_total must stay at 0"
+        row.promotions_total, 1,
+        "Parked→Hot re-loads the body from disk; promotions_total must be 1"
     );
 }

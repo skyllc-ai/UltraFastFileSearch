@@ -436,6 +436,9 @@ impl ShardRegistry {
         }
         let restored_mb = (body.heap_size_bytes().total / 1_048_576) as u64;
         let stats = Arc::clone(&old_arc.stats);
+        // Source is Parked or Cold (checked above): the body was re-read
+        // from the on-disk cache, which is what the counter measures.
+        stats.record_promote_from_demoted();
         let drive = old_arc.drive;
         let new_arc = Arc::new(ShardEntry::new_warm_with_stats(drive, body, stats));
         let shards: Vec<Arc<ShardEntry>> = self
@@ -507,18 +510,12 @@ impl ShardRegistry {
         let restored_mb = (body.heap_size_bytes().total / 1_048_576) as u64;
         let stats = Arc::clone(&old_arc.stats);
         let drive = old_arc.drive;
-        // Phase 9: bump the Cold → Hot promotion counter only when
-        // the source tier was actually Cold.  Already-Warm preload
-        // calls (where the body is in RAM and only the tier marker
-        // flips Warm → Hot) are not "Cold → Hot" — we want the
-        // wire field to count expensive re-decrypts, not cheap
-        // tier-marker flips.  Parked → Hot is also excluded (the
-        // body is constructed from the existing parked_body bloom
-        // + trie, NOT from a re-decrypt of the on-disk encrypted
-        // cache); the wire docstring explicitly scopes
-        // `promotions_total` to Cold → Hot only.
-        if from_state == ShardState::Cold {
-            stats.record_cold_to_hot_promote();
+        // Count the expensive promotes: a `Parked` or `Cold` source
+        // means the caller re-read the body from the on-disk cache.
+        // An already-Warm preload only flips the tier marker of a body
+        // in RAM and does not count.
+        if matches!(from_state, ShardState::Parked | ShardState::Cold) {
+            stats.record_promote_from_demoted();
         }
         let new_arc = Arc::new(ShardEntry::new_hot_with_stats(drive, body, stats));
         let shards: Vec<Arc<ShardEntry>> = self

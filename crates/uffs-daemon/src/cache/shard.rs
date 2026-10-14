@@ -254,10 +254,12 @@ impl ShardEntry {
         drive: uffs_mft::platform::DriveLetter,
         body: Arc<DriveCompactIndex>,
     ) -> Self {
+        let stats = Arc::new(DriveStats::new());
+        stats.set_last_known_records(body.records.len() as u64);
         Self {
             drive,
             state: AtomicU8::new(ShardState::Warm as u8),
-            stats: Arc::new(DriveStats::new()),
+            stats,
             body: Some(body),
             parked_body: None,
             pin_until_ms: AtomicU64::new(0),
@@ -270,11 +272,12 @@ impl ShardEntry {
     /// is lifted into the new `Warm` `ShardEntry` so the per-drive
     /// query counters survive the round-trip through demote-and-back.
     #[must_use]
-    pub(crate) const fn new_warm_with_stats(
+    pub(crate) fn new_warm_with_stats(
         drive: uffs_mft::platform::DriveLetter,
         body: Arc<DriveCompactIndex>,
         stats: Arc<DriveStats>,
     ) -> Self {
+        stats.set_last_known_records(body.records.len() as u64);
         Self {
             drive,
             state: AtomicU8::new(ShardState::Warm as u8),
@@ -299,11 +302,12 @@ impl ShardEntry {
     /// query counters and `last_query_at_ms` survive the round-trip
     /// through Cold/Parked → Warm → Hot.
     #[must_use]
-    pub(crate) const fn new_hot_with_stats(
+    pub(crate) fn new_hot_with_stats(
         drive: uffs_mft::platform::DriveLetter,
         body: Arc<DriveCompactIndex>,
         stats: Arc<DriveStats>,
     ) -> Self {
+        stats.set_last_known_records(body.records.len() as u64);
         Self {
             drive,
             state: AtomicU8::new(ShardState::Hot as u8),

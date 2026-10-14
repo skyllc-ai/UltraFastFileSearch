@@ -2120,6 +2120,7 @@ fn status_drives_response_round_trip() {
                 last_query_at_ms: 1_700_000_000_000_i64,
                 promotions_total: 3_u64,
                 pin_until_unix_ms: 1_700_001_800_000_i64,
+                loading: false,
             },
             DriveTierStatus {
                 letter: uffs_mft::platform::DriveLetter::D,
@@ -2129,6 +2130,7 @@ fn status_drives_response_round_trip() {
                 last_query_at_ms: 0_i64,
                 promotions_total: 0_u64,
                 pin_until_unix_ms: 0_i64,
+                loading: true,
             },
         ],
     };

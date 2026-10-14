@@ -465,6 +465,12 @@ fn print_drive_line(palette: Palette, dr: &DriveInfo, memory: &[DriveMemoryInfo]
                 }
             }
         }
+        Some(ShardTier::Parked | ShardTier::Cold) if dr.loading == Some(true) => {
+            println!(
+                "  {glyph} {letter} {}",
+                palette.dim(&warming_note(dr.records_when_warm))
+            );
+        }
         Some(ShardTier::Parked) => {
             println!(
                 "  {glyph} {letter} {}",
@@ -530,7 +536,12 @@ fn print_physical_drive_line(palette: Palette, drive: &PhysicalDrive, loaded: &[
                     info.tier,
                     Some(ShardTier::Parked | ShardTier::Cold | ShardTier::Evicting)
                 );
-                let note = if parked {
+                let note = if parked && info.loading == Some(true) {
+                    format!(
+                        " \u{b7} {}",
+                        palette.dim(&format!("{:<8} (search waiting on it)", "loading"))
+                    )
+                } else if parked {
                     // Name the actual tier: a hibernated drive is `cold`,
                     // not `parked`, and calling both "parked" hides which
                     // rung of the ladder a drive is actually on.
@@ -645,6 +656,17 @@ pub(crate) fn print_not_running() {
     let _ignored = render_not_running(false);
 }
 
+/// The detail line for a demoted drive whose index is being paged back in.
+fn warming_note(records_when_warm: Option<u64>) -> String {
+    match records_when_warm {
+        Some(records) if records > 0 => format!(
+            "loading now \u{b7} paging {} records back in from the on-disk cache",
+            uffs_client::format::format_number_commas(records)
+        ),
+        _ => "loading now \u{b7} paging its index back in from the on-disk cache".to_owned(),
+    }
+}
+
 /// Format a whole-second duration for display.
 fn fmt_secs(secs: u64) -> String {
     uffs_client::format::format_duration(core::time::Duration::from_secs(secs))
@@ -677,4 +699,22 @@ fn hit_rate_percent(hits: u64, lookups: u64) -> f64 {
         return 0.0_f64;
     }
     (hits as f64 / lookups as f64) * 100.0_f64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::warming_note;
+
+    /// A drive mid-promote must read as loading, with its record count
+    /// when the daemon knows it — never as idle "body released".
+    #[test]
+    fn warming_note_names_the_load_and_its_size() {
+        assert_eq!(
+            warming_note(Some(30_752_882)),
+            "loading now \u{b7} paging 30,752,882 records back in from the on-disk cache"
+        );
+        let unknown = warming_note(None);
+        assert!(unknown.starts_with("loading now"), "{unknown}");
+        assert_eq!(warming_note(Some(0)), unknown);
+    }
 }

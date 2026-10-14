@@ -406,7 +406,7 @@ fn promote_letter_already_warm_returns_none() {
     );
 }
 
-// ── Phase 9 — Cold → Hot promotion counter on `promote_letter_to_hot` ──
+// ── Promotion counter: every promote back from Parked or Cold counts ──
 
 /// `promote_letter_to_hot` from a `Cold` source bumps the per-shard
 /// `promotions_total` counter by 1 — the canonical
@@ -451,8 +451,7 @@ fn promote_letter_to_hot_bumps_promotions_total_when_source_is_cold() {
 
 /// `promote_letter_to_hot` from a `Warm` source does NOT bump the
 /// counter — that's an "already in RAM, just flip the tier marker"
-/// path, not the expensive Cold-source re-decrypt path the wire
-/// docstring scopes the field to.
+/// path, not an expensive re-read from the on-disk cache.
 #[test]
 fn promote_letter_to_hot_does_not_bump_promotions_total_when_source_is_warm() {
     use crate::cache::{ShardRegistry, ShardState};
@@ -482,18 +481,16 @@ fn promote_letter_to_hot_does_not_bump_promotions_total_when_source_is_warm() {
         c.stats.promotions_total(),
         0,
         "Warm → Hot promote must NOT bump promotions_total \
-         (only Cold → Hot counts per the wire docstring)",
+         (the body was already in RAM)",
     );
 }
 
-/// `promote_letter_to_hot` from a `Parked` source does NOT bump the
-/// counter — the body is materialised from the existing
-/// `parked_body` bloom + trie, NOT from a re-decrypt of the
-/// on-disk encrypted compact cache, so it doesn't match the
-/// "expensive re-promote" semantics `promotions_total` is meant
-/// to measure.
+/// `promote_letter_to_hot` from a `Parked` source bumps the counter:
+/// the body the caller passes in was re-read from the on-disk cache
+/// (`load_or_join_in_flight` → `DiskBodyLoader`), the same expensive
+/// re-promote a `Cold` source costs.
 #[test]
-fn promote_letter_to_hot_does_not_bump_promotions_total_when_source_is_parked() {
+fn promote_letter_to_hot_bumps_promotions_total_when_source_is_parked() {
     use crate::cache::{ShardRegistry, ShardState};
 
     let body_c = Arc::new(build_test_drive());
@@ -514,11 +511,38 @@ fn promote_letter_to_hot_does_not_bump_promotions_total_when_source_is_parked() 
     assert_eq!(c.state(), ShardState::Hot);
     assert_eq!(
         c.stats.promotions_total(),
-        0,
-        "Parked → Hot promote must NOT bump promotions_total \
-         (only Cold → Hot counts; Parked source uses the live \
-         parked_body, no re-decrypt cost)",
+        1,
+        "Parked → Hot promote must bump promotions_total by exactly one",
     );
+}
+
+/// Field 2026-10-14: a search that re-warmed parked D: left the
+/// PROMOTIONS column at 0.  The search path (`promote_letter`,
+/// Parked/Cold → Warm) must count like the `preload` path does.
+#[test]
+fn promote_letter_bumps_promotions_total_from_parked_and_cold() {
+    use crate::cache::{ShardRegistry, ShardState};
+
+    let body_c = Arc::new(build_test_drive());
+    let mut reg = ShardRegistry::new().add(Arc::clone(&body_c));
+    for (round, source) in [(1_u64, ShardState::Parked), (2_u64, ShardState::Cold)] {
+        reg = reg
+            .demote_letter(uffs_mft::platform::DriveLetter::C, source)
+            .expect("demote");
+        reg = reg
+            .promote_letter(uffs_mft::platform::DriveLetter::C, Arc::clone(&body_c))
+            .expect("promote_letter from a demoted tier");
+        let c = reg
+            .iter()
+            .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
+            .expect("C present post-promote");
+        assert_eq!(c.state(), ShardState::Warm);
+        assert_eq!(
+            c.stats.promotions_total(),
+            round,
+            "after promote from {source}"
+        );
+    }
 }
 
 /// Two consecutive Cold → Hot promotes (e.g. operator runs

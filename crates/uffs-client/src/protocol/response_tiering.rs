@@ -230,11 +230,21 @@ pub struct DriveTierStatus {
     /// queried since daemon start).
     #[serde(default)]
     pub last_query_at_ms: i64,
-    /// Cumulative `Cold → Hot` promotion count since daemon start.
+    /// Cumulative count of promotions back from `Parked` or `Cold`
+    /// since daemon start, by a search or a `preload` (each re-reads
+    /// the drive's index from disk).  Daemons before v0.6.46 counted
+    /// only `Cold → Hot`.
     #[serde(default)]
     pub promotions_total: u64,
     /// Pin expiry as Unix-millis.  `0` when the shard is not pinned
     /// (no `preload` in flight, or pin already elapsed).
     #[serde(default)]
     pub pin_until_unix_ms: i64,
+    /// `true` while this drive's index is being paged back in from a
+    /// demoted tier (a search or `preload` is waiting on it).  `tier`
+    /// still names the pre-promote tier until the swap lands, so
+    /// without this a drive mid-load reads as idle `parked`.  `false`
+    /// from daemons before v0.6.46.
+    #[serde(default)]
+    pub loading: bool,
 }

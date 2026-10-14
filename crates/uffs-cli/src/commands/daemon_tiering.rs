@@ -239,21 +239,16 @@ pub(crate) fn daemon_forget(drives: &[uffs_mft::platform::DriveLetter], force: b
 /// F      cold    0 B         0.00   -                 -                         0
 /// ```
 ///
-/// The `PROMOTIONS` column surfaces the cumulative `Cold → Hot`
-/// promotion count for each drive (Phase 9 — see
+/// The `PROMOTIONS` column counts each drive's promotions back from
+/// `Parked` or `Cold` since daemon start, by a search or a `preload`
+/// (see
 /// [`uffs_client::protocol::response::DriveTierStatus::promotions_total`]).
-/// It bumps once per `preload <drive>` against a fully-evicted
-/// (Cold-state) drive, when the daemon has to re-decrypt the
-/// encrypted compact cache from disk.  Already-Warm preloads (cheap
-/// tier-marker flip — no body load) and `Parked → Hot` promotes do
-/// **not** bump it.  Note that `Parked → Hot` *does* pay a
-/// body-decrypt cost (the parked bloom + trie are dropped and the
-/// body loader is re-run, see `crates/uffs-daemon/src/index/
-/// tiering_ops.rs` source arms) — the counter still skips because
-/// its contract is named for the `Cold → Hot` *tier transition*,
-/// not for "promotes that paid a decrypt cost".  See
-/// `crates/uffs-daemon/src/cache/registry.rs::promote_letter_to_hot`
-/// for the bump site (`if from_state == ShardState::Cold`).
+/// Each one re-reads the drive's index from the on-disk cache; an
+/// already-Warm `preload` (a tier-marker flip) does not count.
+///
+/// A drive whose index is being paged back in right now shows
+/// `loading` in the `TIER` column instead of its pre-promote tier
+/// ([`uffs_client::protocol::response::DriveTierStatus::loading`]).
 #[expect(clippy::print_stdout, reason = "CLI user-facing output")]
 pub(crate) fn daemon_status_drives() -> Result<()> {
     // Read-only commands match `daemon status`'s graceful "daemon
@@ -319,10 +314,17 @@ fn print_status_drive_row(drive: &DriveTierStatus) {
     } else {
         "-".to_owned()
     };
+    // Mid-promote, the daemon still reports the pre-promote tier; say what
+    // is actually happening instead of an idle-looking `parked`.
+    let tier = if drive.loading {
+        "loading"
+    } else {
+        drive.tier.as_str()
+    };
     println!(
         "{:<6} {:<7} {:<10} {:<7.2} {:<17} {:<16} {:>10}",
         drive.letter,
-        drive.tier,
+        tier,
         format_bytes(drive.resident_bytes),
         drive.query_rate_per_min,
         last_query,

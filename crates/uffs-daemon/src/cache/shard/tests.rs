@@ -679,3 +679,35 @@ fn save_bound_patch_folds_delta_apply_only_keeps_it() {
         "the created record must survive the fold"
     );
 }
+
+/// Field 2026-10-14: a drive loaded at startup and parked before any
+/// `drives` RPC ran had no warm-progress denominator, so status read
+/// "100% warmed" while its 30 M records were still loading.  Every
+/// body-carrying constructor must record the resident count itself, and
+/// the count must survive the demotion to `Parked`.
+#[test]
+fn body_constructors_record_resident_count_for_rewarm_progress() {
+    let letter = uffs_mft::platform::DriveLetter::C;
+    let body = Arc::new(make_test_body(letter));
+    let records = body.records.len() as u64;
+    assert!(records > 0, "fixture must hold records");
+
+    let warm = ShardEntry::new_warm(letter, Arc::clone(&body));
+    assert_eq!(warm.stats.last_known_records(), records);
+
+    let stats = Arc::new(DriveStats::new());
+    let promoted = ShardEntry::new_warm_with_stats(letter, Arc::clone(&body), Arc::clone(&stats));
+    assert_eq!(promoted.stats.last_known_records(), records);
+
+    let fresh = Arc::new(DriveStats::new());
+    let hot = ShardEntry::new_hot_with_stats(letter, Arc::clone(&body), Arc::clone(&fresh));
+    assert_eq!(hot.stats.last_known_records(), records);
+
+    let parked = ShardEntry::new_parked(
+        letter,
+        Arc::clone(&warm.stats),
+        Arc::new(make_test_parked_body(letter, 1)),
+    );
+    assert!(parked.body().is_none());
+    assert_eq!(parked.stats.last_known_records(), records);
+}
