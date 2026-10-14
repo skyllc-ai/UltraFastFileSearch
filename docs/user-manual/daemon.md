@@ -280,6 +280,18 @@ keeps the **process** alive, while the tiering ladder still parks the
 drives underneath it.  A resident daemon left idle overnight still pays
 the page-in on the next first query unless it was preloaded.
 
+**A search that needs a parked drive waits for it.**  Bringing a
+`Parked` or `Cold` drive back re-reads its index from disk, which can
+take minutes on a large HDD volume.  `uffs` waits silently while that
+happens: it prints the result and nothing else, so scripts that read its
+output are unaffected.  The daemon log records each warm-up and how long
+it took.  The wait is capped by the client limit, `UFFS_CLIENT_TIMEOUT_SECS`
+(default 600 s = 10 minutes; `0` means no limit).  If the limit runs out,
+`uffs` exits with an error that names what had not finished: the
+daemon's own index load, the drives still being brought back, or a
+daemon that no longer answers.  Set the variable lower if you would
+rather get that error sooner, for example `UFFS_CLIENT_TIMEOUT_SECS=120`.
+
 ---
 
 ## 5  Management Commands

@@ -10,7 +10,8 @@
 //! 995) when the worker thread that issued it is reaped. The daemon's own read
 //! primitive ([`uffs-mft`'s `read_handle_at`]) already retries that transient;
 //! this is the client-side belt-and-suspenders so a user never sees a raw I/O
-//! error for a recoverable warm-up hiccup — and gets a "warming" note instead.
+//! error for a recoverable warm-up hiccup. The retry is silent: the caller
+//! waits for a result and gets nothing else; the daemon logs the re-warm.
 //!
 //! Only an error the **daemon** reported is a candidate for the retry.  The
 //! client's own per-RPC deadline (`UFFS_CLIENT_TIMEOUT_SECS`, enforced on
@@ -51,8 +52,9 @@ pub(crate) fn search_cli_with_warm_retry(
         match client.search_cli_raw(args) {
             Ok(response) => return Ok(response),
             Err(err) if attempt < WARM_RETRY_MAX && is_index_warming_abort(&err) => {
+                // Silent on purpose: the caller waits for a result and gets
+                // nothing else; the daemon logs the re-warm it raced.
                 attempt += 1;
-                report_index_warming(attempt);
                 std::thread::sleep(WARM_RETRY_BACKOFF);
             }
             Err(err) => return Err(err),
@@ -75,13 +77,6 @@ fn is_index_warming_abort(err: &ClientError) -> bool {
         return false;
     };
     message.contains("os error 995") || message.contains("operation has been aborted")
-}
-
-/// Tell the user (on stderr, so it never pollutes stdout/CSV) that the index is
-/// warming and the search is being retried.
-#[expect(clippy::print_stderr, reason = "user-facing progress note, off stdout")]
-fn report_index_warming(attempt: u32) {
-    eprintln!("UFFS index is warming up — retrying search ({attempt}/{WARM_RETRY_MAX})…");
 }
 
 #[cfg(test)]

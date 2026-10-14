@@ -16,24 +16,28 @@ use crate::connect_sync::UffsClientSync;
 use crate::daemon_ctl::socket_path;
 use crate::error::ClientError;
 
-/// Default per-RPC deadline applied at connect time.
+/// Default per-RPC deadline applied at connect time: 10 minutes.
 ///
-/// Every blocking read / write on the IPC transport will fail with
-/// `ClientError::Io("...timed out")` after this duration.  The cap is
-/// deliberately generous — a cold index load can push a single `search`
-/// RPC into the tens of seconds on slow disks — but still short enough
-/// that a *hung* daemon (stuck kernel-mode I/O, deadlocked worker, etc.)
-/// surfaces as an actionable error instead of a CLI that never returns.
+/// Every blocking read / write on the IPC transport fails with
+/// `ClientError::Timeout` after this duration.  A long wait is normal,
+/// not an error: a search that touches a parked drive waits while the
+/// daemon re-reads that drive's MFT, which takes minutes on a large HDD
+/// volume, and a script that just wants the result must get it.  The
+/// deadline exists only so a daemon that is truly stuck (hung kernel
+/// I/O, deadlocked worker) eventually surfaces as an error instead of a
+/// command that never returns.  It was 60 s until v0.6.46, which failed
+/// ordinary parked-drive searches.
 ///
-/// Overridable with the `UFFS_CLIENT_TIMEOUT_SECS` environment variable.
-const DEFAULT_RPC_DEADLINE_SECS: u64 = 60;
+/// Overridable with the `UFFS_CLIENT_TIMEOUT_SECS` environment variable
+/// (a shorter limit for callers that prefer an early error).
+const DEFAULT_RPC_DEADLINE_SECS: u64 = 600;
 
 /// Resolve the per-RPC deadline from env + default.
 ///
 /// * `UFFS_CLIENT_TIMEOUT_SECS=0` → disables the timeout (useful when attaching
 ///   a debugger).
 /// * `UFFS_CLIENT_TIMEOUT_SECS=N` → `N`-second deadline.
-/// * unset or unparseable → `DEFAULT_RPC_DEADLINE_SECS` (60 s).
+/// * unset or unparseable → `DEFAULT_RPC_DEADLINE_SECS` (600 s).
 #[must_use]
 pub fn rpc_deadline() -> Option<core::time::Duration> {
     let secs = std::env::var("UFFS_CLIENT_TIMEOUT_SECS")
@@ -65,6 +69,22 @@ impl UffsClientSync {
     /// instance. Shares every other behavior (deadline, buffering) with
     /// [`Self::platform_connect`].
     pub(crate) fn platform_connect_at(sock_path: &std::path::Path) -> Result<Self, ClientError> {
+        Self::platform_connect_at_with_deadline(sock_path, rpc_deadline())
+    }
+
+    /// [`Self::platform_connect`] with an explicit per-RPC `deadline`
+    /// instead of the env-configured one (`None` disables it).
+    pub(crate) fn platform_connect_with_deadline(
+        deadline: Option<core::time::Duration>,
+    ) -> Result<Self, ClientError> {
+        Self::platform_connect_at_with_deadline(&socket_path(), deadline)
+    }
+
+    /// Shared body of the Unix connect paths.
+    fn platform_connect_at_with_deadline(
+        sock_path: &std::path::Path,
+        deadline: Option<core::time::Duration>,
+    ) -> Result<Self, ClientError> {
         let stream = std::os::unix::net::UnixStream::connect(sock_path)
             .map_err(|err| ClientError::ConnectionFailed(err.to_string()))?;
 
@@ -72,7 +92,6 @@ impl UffsClientSync {
         // either direction — blocked kernel I/O on response, or a full
         // pipe buffer on request — and we want both cases to surface as
         // a `ClientError::Io(timed out)` instead of the CLI hanging.
-        let deadline = rpc_deadline();
         stream
             .set_read_timeout(deadline)
             .map_err(|err| ClientError::ConnectionFailed(err.to_string()))?;
@@ -94,8 +113,8 @@ impl UffsClientSync {
 #[cfg(windows)]
 impl UffsClientSync {
     /// Construct a fresh [`crate::windows_deadline::WindowsDeadlineGuard`]
-    /// for this client using the env-configured deadline, or return
-    /// `None` if the deadline is disabled (`UFFS_CLIENT_TIMEOUT_SECS=0`).
+    /// for this client with `deadline`, or return `None` if the deadline
+    /// is disabled (`None`, e.g. `UFFS_CLIENT_TIMEOUT_SECS=0`).
     ///
     /// Called from `platform_connect` right after the pipe handle
     /// is opened.  The guard captures the *current* thread as its
@@ -103,8 +122,10 @@ impl UffsClientSync {
     /// the thread that will subsequently own the client — which is
     /// the contract today (CLI, MCP stdio loop both call `connect`
     /// then immediately use the result on the same thread).
-    fn build_deadline_guard() -> Option<crate::windows_deadline::WindowsDeadlineGuard> {
-        let duration = rpc_deadline()?;
+    fn build_deadline_guard(
+        deadline: Option<core::time::Duration>,
+    ) -> Option<crate::windows_deadline::WindowsDeadlineGuard> {
+        let duration = deadline?;
         match crate::windows_deadline::WindowsDeadlineGuard::new(duration) {
             Ok(guard) => Some(guard),
             Err(err) => {
@@ -162,6 +183,24 @@ impl UffsClientSync {
     /// daemon instance. Shares every other behavior (busy-retry,
     /// deadline guard) with [`Self::platform_connect`].
     pub(crate) fn platform_connect_at(pipe_path: &str) -> Result<Self, ClientError> {
+        Self::platform_connect_at_with_deadline(pipe_path, rpc_deadline())
+    }
+
+    /// [`Self::platform_connect`] with an explicit per-RPC `deadline`
+    /// instead of the env-configured one (`None` disables it).
+    pub(crate) fn platform_connect_with_deadline(
+        deadline: Option<core::time::Duration>,
+    ) -> Result<Self, ClientError> {
+        let name = crate::daemon_ctl::pipe_name()
+            .map_err(|err| ClientError::ConnectionFailed(err.to_string()))?;
+        Self::platform_connect_at_with_deadline(name.as_str(), deadline)
+    }
+
+    /// Shared body of the Windows connect paths.
+    fn platform_connect_at_with_deadline(
+        pipe_path: &str,
+        deadline: Option<core::time::Duration>,
+    ) -> Result<Self, ClientError> {
         use std::fs::{File, OpenOptions};
 
         /// `ERROR_PIPE_BUSY` — transient, retry with backoff.
@@ -207,7 +246,7 @@ impl UffsClientSync {
         // the watchdog captures the caller's thread (not some future
         // thread the client might be sent to).  A failure to spawn
         // the watchdog is non-fatal — see `build_deadline_guard`.
-        let deadline_guard = Self::build_deadline_guard();
+        let deadline_guard = Self::build_deadline_guard(deadline);
 
         Ok(Self::from_parts_with_deadline_guard(
             BufReader::new(Box::new(pipe) as Box<dyn Read + Send>),
@@ -263,7 +302,7 @@ mod rpc_deadline_tests {
         drop(guard);
     }
 
-    /// Unset env → default deadline applies.  Locks the 60 s default
+    /// Unset env → default deadline applies.  Locks the 600 s default
     /// in place; changing the constant should require a deliberate
     /// test update so nobody silently shrinks or removes it.
     #[test]

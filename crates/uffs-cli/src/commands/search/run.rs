@@ -16,8 +16,15 @@ use uffs_client::protocol::response::SearchPayload;
 
 use super::args::{extract_spawn_args, inject_no_output_for_null_stdout, resolve_out_path};
 use super::dispatch::{write_aggregations, write_rows, write_rows_into};
+use super::unfinished;
 use crate::client_profile::{ClientProfile, OutputCost, PayloadSummary, print_client_profile};
 use crate::{args, dispatch, search_retry};
+
+/// Readiness wait used when `UFFS_CLIENT_TIMEOUT_SECS=0` switches the client
+/// limit off: one year, which is no limit in practice while keeping
+/// `await_ready`'s `Instant` arithmetic (it adds up to five times this) far
+/// from overflow.
+const NO_LIMIT: core::time::Duration = core::time::Duration::from_hours(365 * 24);
 
 /// Forward raw search args to the daemon via `search_cli` RPC.
 ///
@@ -67,11 +74,7 @@ pub(crate) fn run_search(args: &[String]) -> Result<()> {
     let connect_ms = t_connect.elapsed().as_millis();
 
     let t_ready = std::time::Instant::now();
-    // 2 minutes — `from_mins` is nightly-only as of 2026-04.
-    let ready_timeout = core::time::Duration::from_secs(120);
-    client
-        .await_ready(ready_timeout)
-        .with_context(|| "Daemon did not become ready in time")?;
+    wait_until_ready(&mut client)?;
     let ready_ms = t_ready.elapsed().as_millis();
 
     let t_search = std::time::Instant::now();
@@ -86,7 +89,11 @@ pub(crate) fn run_search(args: &[String]) -> Result<()> {
     let args_owned: Vec<String> = inject_no_output_for_null_stdout(resolve_out_path(args));
     let raw_response = match search_retry::search_cli_with_warm_retry(&mut client, &args_owned) {
         Ok(response) => response,
-        Err(ClientError::Timeout) => anyhow::bail!(client_timeout_message()),
+        Err(ClientError::Timeout) => anyhow::bail!(unfinished::timeout_message(
+            unfinished::Stage::Search,
+            uffs_client::rpc_deadline(),
+            &unfinished::probe_daemon(),
+        )),
         Err(err) => return Err(err).with_context(|| "Daemon search_cli failed"),
     };
     let ipc_ms = t_search.elapsed().as_millis();
@@ -250,6 +257,25 @@ const fn payload_byte_hint(payload: &SearchPayload) -> u64 {
     }
 }
 
+/// Wait for the daemon to finish loading its indexes.
+///
+/// Uses the same client limit as the search itself (10 minutes unless
+/// `UFFS_CLIENT_TIMEOUT_SECS` says otherwise): a daemon still loading is a
+/// wait, not an error.  `await_ready` treats it as an idle budget, renewed
+/// while the load makes progress.
+fn wait_until_ready(client: &mut uffs_client::connect_sync::UffsClientSync) -> Result<()> {
+    let limit = uffs_client::rpc_deadline();
+    match client.await_ready(limit.unwrap_or(NO_LIMIT)) {
+        Ok(()) => Ok(()),
+        Err(ClientError::Timeout) => anyhow::bail!(unfinished::timeout_message(
+            unfinished::Stage::Ready,
+            limit,
+            &unfinished::probe_daemon(),
+        )),
+        Err(err) => Err(err).with_context(|| "Daemon did not become ready"),
+    }
+}
+
 /// Write the aggregation results (if any) to stdout.
 fn write_aggregation_values(
     aggregations: &[uffs_client::protocol::AggregateResultWire],
@@ -269,28 +295,6 @@ fn write_aggregation_values(
         .filter_map(|agg| serde_json::to_value(agg).ok())
         .collect();
     write_aggregations(&agg_values, args)
-}
-
-/// The message for a search the client stopped waiting for.
-///
-/// Honest about what happened: the daemon has not failed and is still
-/// running the search — in practice it is paging parked drives back in,
-/// which re-reads the MFT and can take minutes on a large HDD volume.
-/// Before this the client mistook its own deadline for the "index
-/// warming" transient, printed a retry note, and re-sent the search up
-/// to five times.
-fn client_timeout_message() -> String {
-    let budget = uffs_client::rpc_deadline().map_or_else(
-        || "the client deadline".to_owned(),
-        |budget| format!("the client deadline of {}s", budget.as_secs()),
-    );
-    format!(
-        "the daemon did not answer within {budget} (UFFS_CLIENT_TIMEOUT_SECS).\n\
-         The search is still running on the daemon. Most likely it is paging \
-         parked drives back in, which re-reads the MFT and can take minutes on a \
-         large HDD volume. Re-run once it has finished, or raise \
-         UFFS_CLIENT_TIMEOUT_SECS for this query."
-    )
 }
 
 /// Write the daemon's search payload to stdout, picking the fastest

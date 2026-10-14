@@ -14,5 +14,7 @@ pub(crate) mod args;
 pub mod dispatch;
 /// The `search_cli` round trip and payload-to-stdout writer.
 mod run;
+/// The error for a search the client stopped waiting for.
+mod unfinished;
 
 pub(crate) use run::run_search;

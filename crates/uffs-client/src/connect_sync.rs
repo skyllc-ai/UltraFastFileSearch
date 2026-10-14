@@ -14,7 +14,6 @@
 //! | macOS/Linux | `std::os::unix::net::UnixStream`                   |
 //! | Windows     | Named pipe via `std::fs::OpenOptions` (no Winsock) |
 
-use core::sync::atomic::{AtomicBool, Ordering};
 use std::io::{self, BufRead as _, BufReader, Read, Write};
 
 use crate::connect_sync_autostart::auto_start_daemon;
@@ -22,26 +21,6 @@ use crate::daemon_ctl::{pid_file_path, socket_path};
 use crate::daemon_spawn::{ElevationPolicy, resolve_elevation_policy};
 use crate::error::ClientError;
 use crate::protocol::response::DaemonStatus;
-
-/// When set, the auto-start connect loop suppresses its user-facing
-/// `[uffs] connect attempt …` retry chatter (default off). A caller driving a
-/// daemon (re)start *behind its own progress UI* — the uninstall deep-sweep
-/// coverage reload, which runs under a spinner on another thread — sets this so
-/// the retry lines do not garble that display. Process-wide, best set via a
-/// scoped guard on the caller's side so it never sticks.
-static QUIET_AUTOSTART: AtomicBool = AtomicBool::new(false);
-
-/// Suppress (or restore) the auto-start connect retry chatter (the
-/// `[uffs] connect attempt …` lines). The caller owns balancing this back to
-/// `false` — best via a scoped guard so it never sticks.
-pub fn set_quiet_autostart(quiet: bool) {
-    QUIET_AUTOSTART.store(quiet, Ordering::Relaxed);
-}
-
-/// Whether the auto-start retry chatter is currently suppressed.
-fn quiet_autostart() -> bool {
-    QUIET_AUTOSTART.load(Ordering::Relaxed)
-}
 
 /// Synchronous thin client for the UFFS daemon.
 ///
@@ -173,6 +152,21 @@ impl UffsClientSync {
     /// Returns `ConnectionFailed` if no daemon is listening.
     pub fn connect_raw() -> Result<Self, ClientError> {
         Self::platform_connect()
+            .map_err(|err| ClientError::ConnectionFailed(format!("No daemon is running: {err}")))
+    }
+
+    /// Connect without auto-starting the daemon, with an explicit
+    /// per-RPC `deadline` in place of `UFFS_CLIENT_TIMEOUT_SECS`.
+    ///
+    /// For a short diagnostic probe — e.g. asking the daemon what it is
+    /// still busy with after the main request outlived its own deadline —
+    /// which must not inherit the long default and hang on a stuck daemon.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ConnectionFailed` if no daemon is listening.
+    pub fn connect_probe(deadline: core::time::Duration) -> Result<Self, ClientError> {
+        Self::platform_connect_with_deadline(Some(deadline))
             .map_err(|err| ClientError::ConnectionFailed(format!("No daemon is running: {err}")))
     }
 
@@ -347,19 +341,17 @@ impl UffsClientSync {
 
             delay_ms = (delay_ms * 2).min(2000);
 
-            // Log sparingly — eprintln is intentional user-facing output
-            // during daemon auto-start retries (no tracing in thin client).
-            if !quiet_autostart() && (attempt <= 3 || attempt == max_attempts) {
-                #[expect(
-                    clippy::print_stderr,
-                    reason = "intentional user-facing retry progress"
-                )]
-                {
-                    let sock_state = if sock.exists() { "exists" } else { "missing" };
-                    eprintln!(
-                        "[uffs] connect attempt {attempt}/{max_attempts} (socket: {sock_state})"
-                    );
-                }
+            // Logged, never printed: a waiting command writes nothing but
+            // its result, so scripts reading stdout or stderr are not handed
+            // progress lines they have no way to tell apart from output.
+            if attempt <= 3 || attempt == max_attempts {
+                let sock_state = if sock.exists() { "exists" } else { "missing" };
+                tracing::info!(
+                    attempt,
+                    max_attempts,
+                    socket = sock_state,
+                    "auto-start: daemon not reachable yet, retrying connect"
+                );
             }
         }
 

@@ -48,9 +48,6 @@ struct QuietGuard;
 impl Drop for QuietGuard {
     fn drop(&mut self) {
         QUIET.store(false, core::sync::atomic::Ordering::Relaxed);
-        // Restore the thin client's auto-start retry chatter (a quiet reload
-        // may have (re)started the daemon, driving that connect loop).
-        uffs_client::connect_sync::set_quiet_autostart(false);
     }
 }
 
@@ -65,11 +62,6 @@ impl Drop for QuietGuard {
 /// Exactly [`daemon`]'s errors.
 pub(crate) fn daemon_quiet(action: &DaemonAction) -> Result<()> {
     QUIET.store(true, core::sync::atomic::Ordering::Relaxed);
-    // Also silence the thin client's own auto-start retry chatter, which prints
-    // straight to stderr from a layer below this flag (the QuietGuard restores
-    // it). Otherwise a background reload's "[uffs] connect attempt …" bleeds
-    // onto the caller's spinner line.
-    uffs_client::connect_sync::set_quiet_autostart(true);
     let _guard = QuietGuard;
     daemon(action)
 }

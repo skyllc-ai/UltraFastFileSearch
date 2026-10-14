@@ -16,7 +16,7 @@
 //!   `mpsc::unbounded_channel()` rate-bounded by the daemon's
 //!   `broadcast::Sender` capacity (Phase 10d C5 verdict).
 //! * [`connect_sync::UffsClientSync`] (sync) — synchronous I/O on the caller
-//!   thread.  Per-RPC deadline 60 s default, env-overridable via
+//!   thread.  Per-RPC deadline 600 s default, env-overridable via
 //!   `UFFS_CLIENT_TIMEOUT_SECS`; Windows path uses
 //!   `windows_deadline::WindowsDeadlineGuard` (a `CancelSynchronousIo`
 //!   watchdog, `#[cfg(windows)]`-only) to enforce the deadline on blocking pipe
@@ -81,7 +81,7 @@
 //! |---|---|---|---|
 //! | `CARGO_PKG_VERSION` | `string` | (set by Cargo) | Read via `env!()` for `ResponseStatus::version`.  CARGO semver class. |
 //! | `UFFS_CLIENT_SKIP_HEALTH_CHECK` | `bool` | `false` | Skips post-connect health probe in [`daemon_ctl`].  Used by `just ship` cross-check.  INTERNAL semver class. |
-//! | `UFFS_CLIENT_TIMEOUT_SECS` | `int` (seconds) | `5` | Sync connect timeout override in `connect_sync_platform`.  INTERNAL semver class. |
+//! | `UFFS_CLIENT_TIMEOUT_SECS` | `int` (seconds) | `600` | Per-RPC deadline override (`0` disables it); sync default 600 s in `connect_sync_platform`, async default 300 s in `connect`.  INTERNAL semver class. |
 //! | `UFFS_ELEVATE` | `string` (`auto` / `never` / `always` / `prefer`) | `auto` | Elevation policy for daemon spawn; read in `daemon_spawn::resolve_elevation_policy` (private module).  INTERNAL semver class. |
 //! | `XDG_RUNTIME_DIR` | `path` | (XDG: `/run/user/$UID`) | Linux daemon-socket location in [`daemon_ctl`].  STANDARD semver class. |
 
