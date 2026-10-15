@@ -149,7 +149,9 @@ uffs-client = { path = "crates/uffs-client", version = "0.6.45" }
 # `uffs-daemon::broker_client` (the handle consumer).  Pure-logic
 # Layer-0 lib — cross-platform tests run on every CI lane.  Added in
 # F5 (issue #205) so neither side duplicates `BROKER_PIPE_NAME` /
-# wire-format byte literals.
+# wire-format byte literals.  Also holds the VSS `HRESULT` retry table
+# (`vss_hresult`) shared by `uffs-vss-requestor` and uffs-products'
+# Content Coordinator.
 uffs-broker-protocol = { path = "crates/uffs-broker-protocol", version = "0.6.45" }
 # `uffs-winsvc` — native Windows service control (SCM query/start/stop) +
 # the non-connecting broker-pipe readiness probe.  Layer-0 leaf: its only

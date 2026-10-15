@@ -83,11 +83,11 @@ const RETRY_BACKOFF_BASE: core::time::Duration = core::time::Duration::from_secs
 
 /// Create a `VSS_CTX_FILE_SHARE_BACKUP` snapshot of `volume_path`,
 /// retrying with backoff on the small set of `HRESULT`s VSS documents as
-/// transient ([`crate::hresult::RETRYABLE`]). Each attempt is a fully fresh
-/// [`VssSnapshotSession::create`] call — a brand-new `IVssBackupComponents`
-/// session — which is exactly what Microsoft's own guidance requires:
-/// retrying a transient VSS failure means restarting the whole sequence,
-/// never resuming mid-sequence.
+/// transient ([`uffs_broker_protocol::vss_hresult::RETRYABLE`]). Each attempt
+/// is a fully fresh [`VssSnapshotSession::create`] call — a brand-new
+/// `IVssBackupComponents` session — which is exactly what Microsoft's own
+/// guidance requires: retrying a transient VSS failure means restarting the
+/// whole sequence, never resuming mid-sequence.
 ///
 /// # Errors
 /// Returns the last attempt's [`VssRequestError`] if every attempt
@@ -102,7 +102,8 @@ fn create_snapshot_with_retry(
         match VssSnapshotSession::create(volume_path) {
             Ok(created) => return Ok(created),
             Err(err)
-                if attempt < MAX_SNAPSHOT_ATTEMPTS && crate::hresult::is_retryable(err.hresult) =>
+                if attempt < MAX_SNAPSHOT_ATTEMPTS
+                    && uffs_broker_protocol::vss_hresult::is_retryable(err.hresult) =>
             {
                 debug_log(&format!(
                     "snapshot creation attempt {attempt}/{MAX_SNAPSHOT_ATTEMPTS} failed with \
@@ -214,7 +215,7 @@ pub(crate) fn run() -> anyhow::Result<()> {
             // A permanent failure with a known remedy (e.g. the volume's
             // shadow-copy limit) carries it, so the Broker's caller can act
             // instead of seeing a generic failure.
-            let message = match crate::hresult::failure_hint(hresult) {
+            let message = match uffs_broker_protocol::vss_hresult::failure_hint(hresult) {
                 Some(hint) => format!("{} — {hint}", err.message),
                 None => err.message,
             };

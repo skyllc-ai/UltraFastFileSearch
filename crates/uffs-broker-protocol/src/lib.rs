@@ -4,6 +4,10 @@
 //! Wire protocol between `uffs-broker` (elevated handle vendor) and
 //! `uffs-daemon::broker_client` (handle consumer).
 //!
+//! Also the Snapshot Manager messages ([`snapshot_manager`]) and the VSS
+//! `HRESULT` table ([`vss_hresult`]) every component classifies a
+//! snapshot failure by.
+//!
 //! This crate is a dedicated cross-platform Layer-0 library — pure
 //! byte-shuffling, no Windows FFI, no I/O.  Both sides of the wire
 //! (the broker binary on Windows, the daemon-side client also on
@@ -49,6 +53,7 @@
 use thiserror::Error;
 
 pub mod snapshot_manager;
+pub mod vss_hresult;
 
 /// Named-pipe path the broker listens on.
 ///

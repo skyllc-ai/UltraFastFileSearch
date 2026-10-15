@@ -54,6 +54,10 @@ uffs-version.workspace = true
 # for the identical rationale (F5 / issue #205).
 [target.'cfg(windows)'.dependencies]
 anyhow.workspace = true
+# The VSS HRESULT table (`vss_hresult`): which codes to retry, which carry
+# an operator remedy.  Shared with the Content Coordinator, which reads the
+# same code off the Broker's error response.
+uffs-broker-protocol.workspace = true
 windows.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
