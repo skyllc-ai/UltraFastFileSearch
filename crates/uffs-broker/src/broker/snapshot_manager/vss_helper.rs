@@ -37,7 +37,7 @@ use windows::Win32::System::JobObjects::{
     SetInformationJobObject,
 };
 use windows::Win32::System::Pipes::{
-    ConnectNamedPipe, CreateNamedPipeW, PIPE_READMODE_BYTE, PIPE_TYPE_BYTE, PIPE_WAIT,
+    CreateNamedPipeW, PIPE_READMODE_BYTE, PIPE_TYPE_BYTE, PIPE_WAIT,
 };
 use windows::Win32::System::Threading::{
     CREATE_SUSPENDED, CreateProcessW, PROCESS_INFORMATION, ResumeThread, STARTUPINFOW,
@@ -535,19 +535,12 @@ fn create_control_pipe(pipe_name: &str) -> anyhow::Result<HANDLE> {
 }
 
 /// Block until the helper connects to `pipe_handle`.
-#[expect(unsafe_code, reason = "ConnectNamedPipe is an FFI call")]
+///
+/// The helper is launched before this wait starts, so it can connect first;
+/// the shared Broker accept wait treats that (`ERROR_PIPE_CONNECTED`) as the
+/// success it is.
 fn connect_pipe(pipe_handle: HANDLE) -> anyhow::Result<()> {
-    // SAFETY: `pipe_handle` is a valid, freshly created pipe instance
-    // HANDLE; `None` requests a synchronous (blocking) connect wait.
-    let result = unsafe { ConnectNamedPipe(pipe_handle, None) };
-    if let Err(win_err) = result {
-        // ERROR_PIPE_CONNECTED means the client connected before this
-        // call ran — not an error.
-        if win_err.code().0 != 535_i32 {
-            anyhow::bail!("ConnectNamedPipe failed: {win_err}");
-        }
-    }
-    Ok(())
+    super::super::wait_for_client(pipe_handle)
 }
 
 /// Locate `uffs-vss-requestor.exe`.

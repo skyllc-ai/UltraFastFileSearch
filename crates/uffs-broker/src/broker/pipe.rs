@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2025-2026 SKY, LLC.
 
-//! Broker named-pipe creation with its SDDL security descriptor.
+//! Broker named-pipe creation with its SDDL security descriptor, and the
+//! accept wait every Broker pipe shares.
 //!
 //! Split out of `broker.rs` to keep that file under the 800-LOC ceiling
 //! (alongside `service.rs`, `process_handle.rs`, `authenticode.rs`,
 //! `owned_handle.rs`).  The accept loop, connection handling, and pipe I/O
-//! stay in `broker.rs`; this module owns only *creating* a listening instance
-//! with the right ACL + integrity label.
+//! stay in `broker.rs`; this module owns *creating* a listening instance
+//! with the right ACL + integrity label and *waiting* for its client.
 
 #[cfg(windows)]
 use uffs_broker_protocol::PIPE_NAME;
@@ -159,5 +160,66 @@ impl Drop for PipeSecurity {
                 )))
             };
         }
+    }
+}
+
+/// Wait for a client to connect to the pipe.
+///
+/// Shared by every pipe the Broker serves: the daemon-facing handle pipe,
+/// the Snapshot Manager pipe and the VSS helper's control pipe.
+#[cfg(windows)]
+#[expect(unsafe_code, reason = "ConnectNamedPipe is an FFI call")]
+pub(super) fn wait_for_client(pipe: windows::Win32::Foundation::HANDLE) -> anyhow::Result<()> {
+    use windows::Win32::System::Pipes::ConnectNamedPipe;
+
+    // SAFETY: `pipe` is an owned valid pipe HANDLE (HANDLE is Copy); the
+    // second argument is None (synchronous wait).
+    let result = unsafe { ConnectNamedPipe(pipe, None) };
+
+    match result {
+        Ok(()) => Ok(()),
+        Err(win_err) if client_connected_first(&win_err) => Ok(()),
+        Err(win_err) => anyhow::bail!("ConnectNamedPipe failed: {win_err}"),
+    }
+}
+
+/// Whether a `ConnectNamedPipe` error is `ERROR_PIPE_CONNECTED`: the client
+/// opened the instance before the call ran, so the pipe IS connected.
+///
+/// `windows::core::Error::code()` is an HRESULT (`0x80070217`), never the
+/// bare Win32 code 535.  Comparing against `535` never matched, so this
+/// success was treated as a failure and the instance was disconnected under
+/// a client that had connected fine.  It happens whenever a client arrives in
+/// the gap between `CreateNamedPipeW` and `ConnectNamedPipe` — two
+/// Coordinators asking for a lease in the same instant, or a VSS helper that
+/// connects before the Broker starts waiting for it — and the dropped client
+/// read `ERROR_PIPE_NOT_CONNECTED` (233).  Field capture 2026-10-15
+/// 03:43:42Z, Broker log: `ConnectNamedPipe failed: There is a process on
+/// other end of the pipe. (0x80070217)`.
+#[cfg(windows)]
+fn client_connected_first(err: &windows::core::Error) -> bool {
+    err.code() == windows::Win32::Foundation::ERROR_PIPE_CONNECTED.to_hresult()
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(windows)]
+    use windows::Win32::Foundation::{ERROR_NO_DATA, ERROR_PIPE_CONNECTED};
+
+    #[cfg(windows)]
+    use super::client_connected_first;
+
+    #[cfg(windows)]
+    #[test]
+    fn pipe_connected_error_counts_as_a_connected_client() {
+        let err = windows::core::Error::from(ERROR_PIPE_CONNECTED.to_hresult());
+        assert!(client_connected_first(&err), "{err}");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn other_connect_errors_are_failures() {
+        let err = windows::core::Error::from(ERROR_NO_DATA.to_hresult());
+        assert!(!client_connected_first(&err), "{err}");
     }
 }

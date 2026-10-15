@@ -504,13 +504,14 @@ mod windows_impl {
                 true
             }
             Err(err) => {
-                // ERROR_ACCESS_DENIED (5) = pid exists but ACL
-                // forbids us.  Treat as alive (don't stomp on a
-                // protected or other-user process).
-                err.code().0
-                    == windows::Win32::Foundation::ERROR_ACCESS_DENIED
-                        .0
-                        .cast_signed()
+                // ERROR_ACCESS_DENIED = pid exists but ACL forbids us.
+                // Treat as alive (don't stomp on a protected or
+                // other-user process).  `code()` is an HRESULT
+                // (`0x80070005`), so compare against the HRESULT form:
+                // the bare Win32 value 5 never matched, and a live
+                // process we may not open read as dead, its runtime
+                // directory swept as an orphan.
+                err.code() == windows::Win32::Foundation::ERROR_ACCESS_DENIED.to_hresult()
             }
         }
     }
