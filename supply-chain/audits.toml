@@ -1499,6 +1499,12 @@ access, and no new dependencies — only the existing `webpki` 0.103.5 ->
 0.103.14 and `zeroize`-family minimums move.
 """
 
+[[audits.rustls]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.23.45 -> 0.23.46"
+notes = "Delta reviewed 2026-10-14 (cargo vet diff, 23 files, 1160/167 lines; the manifest changes only the version). The two advisories: RUSTSEC-2026-0346, hand-written Debug for Tls13ClientSessionValue, ClientSessionCommon and ServerSessionValue that leave the session secret and master secret out (finish_non_exhaustive), with tests asserting the secret bytes are absent; RUSTSEC-2026-0347, the ECH-rejected check now runs BEFORE start_traffic so no buffered application data reaches the outer server, a hello-retry-request decision on ECH is remembered and a server hello that varies it is a fatal illegal_parameter (RFC 9849 6.1.5/6.1.6), the kx hint is stored only after Finished. Beside them: TLS 1.3 key update taken before the record that would use the last sequence number (pre_encrypt_action >= bound, a write crossing the limit is not sent in part, the pending flag cleared after the update); a protected change_cipher_spec record is an unexpected_message alert (RFC 9846 5); write/flush return a prior fatal error; stream flush drains all TLS output and flushes the transport, prepare_read serves buffered plaintext without I/O; zlib and brotli certificate decompressors require full input consumption (trailing data refused, brotli strict mode); HPKE uses LessSafeKey with an explicit nonce and a failed open no longer consumes the sequence number; LimitedCache evicts by an explicit max instead of the VecDeque capacity; early data only when the first PSK was selected; a non-empty certificate_request_context from the client is a decode_error. No new unsafe, no process, filesystem, environment or network access, no build-script change. Tightens negotiation, parsing and caching; no new surface. Here reached through reqwest 0.12 (hyper-rustls, tokio-rustls): uffs-fetch, uffs-update, and polars-io via uffs-polars. Audit carried over from the docenta ledger (docenta fb64b688), same reviewer and the same 0.23.45 -> 0.23.46 tarball diff."
+
 [[audits.rustls-native-certs]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
