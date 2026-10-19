@@ -375,7 +375,7 @@ jobs:
         # Pinned to commit SHA of the v0.5.128 tag (resolved 2026-05-08)
         # for supply-chain hygiene.  Bump alongside other action pins
         # via the standard Dependabot or manual-refresh process.
-        uses: release-plz/action@f393a7b38aca9d9b4c58447b291dbac963901df6 # v0.5.141
+        uses: release-plz/action@8921286633dfa0c4020f7f30bd1c14fe19cbb10e # v0.5.142
         with:
           command: release-pr
           config: release-plz.toml
@@ -431,7 +431,7 @@ jobs:
         # job runs on every push but only does work when the PR
         # actually merged.
         id: release-plz
-        uses: release-plz/action@f393a7b38aca9d9b4c58447b291dbac963901df6 # v0.5.141
+        uses: release-plz/action@8921286633dfa0c4020f7f30bd1c14fe19cbb10e # v0.5.142
         with:
           command: release
           config: release-plz.toml
