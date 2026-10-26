@@ -230,7 +230,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-sanity
           save-if: 'false'
@@ -256,7 +256,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-sanity
           save-if: 'false'
@@ -280,7 +280,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-sanity
           save-if: 'false'
@@ -309,7 +309,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-sanity
           save-if: 'false'
@@ -368,7 +368,7 @@ jobs:
           df -h /
 
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-sanity
           cache-on-failure: 'true'
@@ -410,7 +410,7 @@ jobs:
           df -h /
 
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-sanity
           save-if: 'false'
@@ -442,7 +442,7 @@ jobs:
           df -h /
 
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-clippy-no-default
           save-if: 'false'
@@ -474,7 +474,7 @@ jobs:
           df -h /
 
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-sanity
           save-if: 'false'
@@ -511,7 +511,7 @@ jobs:
           df -h /
 
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-test-build
           cache-on-failure: 'true'
@@ -548,7 +548,7 @@ jobs:
           df -h /
 
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-test-build
           save-if: 'false'
@@ -589,7 +589,7 @@ jobs:
           fetch-depth: 0
 
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-security
 
@@ -672,7 +672,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - run: rustup show
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: pr-fast-windows
 
