@@ -138,8 +138,8 @@ when = "2026-05-20"
 trusted-publisher = "github:RustCrypto/block-modes"
 
 [[publisher.ctutils]]
-version = "0.4.3"
-when = "2026-10-05"
+version = "0.4.6"
+when = "2026-10-25"
 trusted-publisher = "github:RustCrypto/utils"
 
 [[publisher.digest]]
