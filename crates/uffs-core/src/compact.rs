@@ -23,7 +23,8 @@ pub use crate::compact_loader::apply_usn_patch;
 // Re-export loader types and functions so callers can still use `compact::*`.
 #[expect(deprecated, reason = "re-export kept for backward compatibility")]
 pub use crate::compact_loader::{
-    IndexSource, LoadTiming, MftSource, PatchStats, load_drive, load_mft_file, refresh_drive,
+    IndexSource, LoadTiming, MftSource, PatchStats, load_drive, load_drive_then, load_mft_file,
+    refresh_drive,
 };
 use crate::compact_storage::ColumnStorage;
 use crate::path_trie::PathTrie;

@@ -109,6 +109,28 @@ pub fn load_drive(
     source: &MftSource,
     no_cache: bool,
 ) -> anyhow::Result<(DriveCompactIndex, LoadTiming)> {
+    load_drive_then(source, no_cache, || {})
+}
+
+/// [`load_drive`], running `on_cache_written` once the background compact
+/// cache save has written the file (never when no save runs or it fails).
+///
+/// A caller that persists anything describing the saved body — the daemon's
+/// USN cursor — must do it here, not when this function returns: the save
+/// is still running then, and a crash before it finishes would leave the
+/// description ahead of the file on disk.
+///
+/// # Errors
+///
+/// Returns an error if the MFT data cannot be read or parsed.
+pub fn load_drive_then<F>(
+    source: &MftSource,
+    no_cache: bool,
+    on_cache_written: F,
+) -> anyhow::Result<(DriveCompactIndex, LoadTiming)>
+where
+    F: FnOnce() + Send + 'static,
+{
     let drive_letter = match source {
         MftSource::File(path, drive_override) => drive_override.unwrap_or_else(|| {
             let stem = path
@@ -173,7 +195,9 @@ pub fn load_drive(
     // point-in-time capture (see `MftSource::is_ephemeral_device`).
     if !no_cache && !source.is_ephemeral_device() {
         let t_compact_save = Instant::now();
-        if let Err(err) = crate::compact_cache::save_compact_cache_background(&compact) {
+        if let Err(err) =
+            crate::compact_cache::save_compact_cache_background_then(&compact, on_cache_written)
+        {
             tracing::warn!(drive = %drive_letter, error = %err, "Failed to start compact cache save");
         }
         let compact_save_ms = t_compact_save.elapsed().as_millis();

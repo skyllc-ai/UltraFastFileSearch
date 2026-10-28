@@ -1079,6 +1079,21 @@ fn refuse_delta_carrying(index: &DriveCompactIndex) -> io::Result<()> {
 /// # Errors
 /// Returns an error only if compression or directory creation fails.
 pub fn save_compact_cache_background(index: &DriveCompactIndex) -> io::Result<()> {
+    save_compact_cache_background_then(index, || {})
+}
+
+/// [`save_compact_cache_background`], running `on_written` on the background
+/// thread once the atomic write has succeeded (not when it fails).
+///
+/// # Errors
+/// Returns an error only if compression or directory creation fails.
+pub fn save_compact_cache_background_then<F>(
+    index: &DriveCompactIndex,
+    on_written: F,
+) -> io::Result<()>
+where
+    F: FnOnce() + Send + 'static,
+{
     // Boundary enforcement of the "on-disk cache is always delta-free"
     // invariant (see `refuse_delta_carrying`).
     refuse_delta_carrying(index)?;
@@ -1111,8 +1126,11 @@ pub fn save_compact_cache_background(index: &DriveCompactIndex) -> io::Result<()
     std::thread::Builder::new()
         .name(format!("compact-save-{drive}"))
         .spawn(move || {
-            if let Err(err) = encrypt_and_write(drive, compressed, &path, profile) {
-                tracing::warn!(drive = %drive, error = %err, "Background compact cache save failed");
+            match encrypt_and_write(drive, compressed, &path, profile) {
+                Ok(()) => on_written(),
+                Err(err) => {
+                    tracing::warn!(drive = %drive, error = %err, "Background compact cache save failed");
+                }
             }
         })
         .map_err(|err| io::Error::other(format!("spawn failed: {err}")))?;

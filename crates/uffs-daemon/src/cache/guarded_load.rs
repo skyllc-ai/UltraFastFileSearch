@@ -196,9 +196,9 @@ pub(crate) fn load_live_drive(
     }
 }
 
-/// Run the synchronous full rebuild ([`uffs_core::compact::load_drive`])
-/// and, on success, persist a cursor so a subsequent restart can take
-/// the fast path.
+/// Run the synchronous full rebuild ([`uffs_core::compact::load_drive_then`])
+/// and, once its cache file is written, persist a cursor so a subsequent
+/// restart can take the fast path.
 ///
 /// The persisted cursor is the journal's `next_usn` **captured before**
 /// the rebuild's MFT read.  The freshly built body reflects USN state up
@@ -214,23 +214,29 @@ fn full_rebuild(
     use crate::cache::cursor_store::DiskCursorStore;
     use crate::cache::journal_loop::CursorStore as _;
 
-    let result =
-        uffs_core::compact::load_drive(&uffs_core::compact::MftSource::Live(letter), no_cache)?;
-
     // Best-effort cursor seed so the next warm load is fast.  Only when
     // caching is enabled and we have a live journal reading; never
     // regress a newer persisted cursor (the journal loop may have
-    // advanced past this pre-read lower bound already).
-    if !no_cache && let Some(journal) = info {
-        let store = DiskCursorStore::new(uffs_mft::cache::cache_dir());
-        let pre_read = u64::try_from(journal.next_usn.raw()).unwrap_or(0);
-        let seed = store.load(letter).max(pre_read);
-        if seed != 0 {
+    // advanced past this pre-read lower bound already).  Stored only once
+    // the rebuilt body's cache file is on disk: seeding when `load_drive`
+    // returns (its save still running) let a crash in between leave the
+    // cursor ahead of the file, and the next warm load skip the changes
+    // in between for good.
+    let pre_read = info.filter(|_journal| !no_cache).map_or(0, |journal| {
+        u64::try_from(journal.next_usn.raw()).unwrap_or(0)
+    });
+    uffs_core::compact::load_drive_then(
+        &uffs_core::compact::MftSource::Live(letter),
+        no_cache,
+        move || {
+            if pre_read == 0 {
+                return;
+            }
+            let store = DiskCursorStore::new(uffs_mft::cache::cache_dir());
+            let seed = store.load(letter).max(pre_read);
             store.store(letter, seed);
-        }
-    }
-
-    Ok(result)
+        },
+    )
 }
 
 #[cfg(test)]
