@@ -623,6 +623,7 @@ async fn spawn_journal_loops_for_warm_shards(
         apply_interval_ms = config.apply_interval.as_millis(),
         save_threshold_events = config.save_threshold_events,
         save_threshold_age_secs = config.save_threshold_age.as_secs(),
+        save_min_interval_secs = config.save_min_interval.as_secs(),
         "Spawning per-shard journal loops",
     );
     let loop_count = letters.len();

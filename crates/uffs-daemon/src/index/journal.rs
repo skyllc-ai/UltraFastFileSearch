@@ -11,10 +11,9 @@
 //!   `DriveCompactIndex` body, applies the buffered
 //!   [`uffs_mft::usn::FileChange`] batch via
 //!   [`crate::cache::shard::ShardEntry::apply_usn_patch_to_body`], swaps the
-//!   new Arc into the registry, and persists via
-//!   [`uffs_core::compact_cache::save_compact_cache_background`]. Fast path:
-//!   ~600 ms patch + ~5 s background save on a 7M-record drive, vs ~7 s for the
-//!   full reload.
+//!   new Arc into the registry, and returns the body for the background persist
+//!   in [`super::journal_save`], which writes it and only then advances the
+//!   on-disk cursor.
 //!
 //! * [`IndexManager::handle_journal_refresh`] (Phase 7) — full per-shard body
 //!   refresh via [`uffs_core::compact_loader::load_drive_with_usn_refresh`]
@@ -127,32 +126,36 @@ impl IndexManager {
         self.apply_journal_body(letter, reason, body).await
     }
 
-    /// Phase 8 surgical-patch path: clone the Warm body, apply the
-    /// drained per-letter [`FileChange`] batch via
-    /// [`crate::cache::shard::ShardEntry::apply_usn_patch_to_body`], swap
-    /// the new Arc into the registry, and persist the patched body
-    /// via [`uffs_core::compact_cache::save_compact_cache_background`].
+    /// Phase 8 surgical-patch path for a save tick: patch the drained
+    /// per-letter [`FileChange`] batch into the Warm body (as an apply tick
+    /// does, so search goes live at once) and return the body that must be
+    /// persisted.
     ///
     /// Called by the [`crate::cache::journal_sink::RegistryPatchSink`]
     /// applier task on every `Save` message (events-exceeded /
     /// age-elapsed) — the *fast* counterpart to
     /// [`IndexManager::handle_journal_refresh`] (which the applier still
     /// uses for `Wrap` messages where the cursor reset invalidates
-    /// the buffered batch).
+    /// the buffered batch).  The heavy part — folding the delta and
+    /// writing the file — is the caller's background persist
+    /// ([`super::journal_save`]), off the applier task.
+    ///
+    /// An **empty** batch still returns the live body.  Apply ticks drain
+    /// the same buffer, so by the time a save tick fires every change may
+    /// already be applied in memory but not yet on disk; skipping the write
+    /// there while the caller advanced the cursor would leave the cursor
+    /// ahead of the file, and a cold start would never replay those changes.
     ///
     /// ## Returns
     ///
-    /// * `true` when the body was successfully Arc-swapped into the registry
-    ///   AND the background save task was spawned.  An empty `changes` batch
-    ///   also returns `true` (no-op short-circuit).
-    /// * `false` on every failure mode:
-    ///   - the shard for `letter` is not registered;
+    /// * `Some(body)` — the body to persist, already serving queries.
+    /// * `None` on every failure mode:
+    ///   - the shard for `letter` is not registered, or not warm;
     ///   - the patch task aborted (panic, runtime shutdown);
     ///   - the shard demoted to `Parked` / `Cold` between the trigger and the
     ///     patch (`apply_usn_patch_to_body` returns `None`); the next promote
-    ///     re-reads the cached body which a previous patch tick already
-    ///     updated, so the per-shard drift is bounded by the per-shard save
-    ///     cadence;
+    ///     re-reads the cached body which a previous save already wrote, so the
+    ///     per-shard drift is bounded by the per-shard save cadence;
     ///   - the body swap lost a separate demote race (`apply_journal_body`
     ///     returns `false`).
     pub(crate) async fn handle_journal_save(
@@ -160,17 +163,13 @@ impl IndexManager {
         letter: uffs_mft::platform::DriveLetter,
         reason: &str,
         changes: Vec<FileChange>,
-    ) -> bool {
-        // Save-bound: fold any delta overlay inside the patch task so
-        // the body handed to the disk writer is delta-free (the
-        // serialization invariant `fold_delta_for_save` documents).
-        match self.apply_to_body(letter, reason, changes, true).await {
-            BodyApplyOutcome::Applied(new_body) => {
-                spawn_compact_cache_save_task(letter, new_body);
-                true
-            }
-            BodyApplyOutcome::NoOp => true,
-            BodyApplyOutcome::Failed => false,
+    ) -> Option<Arc<uffs_core::compact::DriveCompactIndex>> {
+        if changes.is_empty() {
+            return self.snapshot_shard_for_letter(letter).await?.body();
+        }
+        match self.apply_to_body(letter, reason, changes).await {
+            BodyApplyOutcome::Applied(new_body) => Some(new_body),
+            BodyApplyOutcome::NoOp | BodyApplyOutcome::Failed => None,
         }
     }
 
@@ -204,7 +203,7 @@ impl IndexManager {
         // serialised on this tick, and folding every ~2 s apply would
         // be an O(total-records) rebuild per tick.
         !matches!(
-            self.apply_to_body(letter, reason, changes, false).await,
+            self.apply_to_body(letter, reason, changes).await,
             BodyApplyOutcome::Failed
         )
     }
@@ -221,7 +220,6 @@ impl IndexManager {
         letter: uffs_mft::platform::DriveLetter,
         reason: &str,
         changes: Vec<FileChange>,
-        fold_delta: bool,
     ) -> BodyApplyOutcome {
         if changes.is_empty() {
             log_save_empty_batch(letter, reason);
@@ -235,7 +233,7 @@ impl IndexManager {
         };
 
         let (new_body, stats) = match self
-            .run_surgical_patch_task(&shard, letter, reason, changes, fold_delta)
+            .run_surgical_patch_task(&shard, letter, reason, changes)
             .await
         {
             PatchTaskOutcome::Applied(body, stats) => (body, stats),
@@ -288,14 +286,13 @@ impl IndexManager {
         letter: uffs_mft::platform::DriveLetter,
         reason: &str,
         changes: Vec<FileChange>,
-        fold_delta: bool,
     ) -> PatchTaskOutcome {
         let background_io = Arc::clone(&self.background_io);
         let shard_for_patch = Arc::clone(shard);
         let change_count = changes.len();
         let patch_result = tokio::task::spawn_blocking(move || {
             let _bg_scope = crate::cache::background_io::BackgroundIoScope::enter(background_io);
-            shard_for_patch.apply_usn_patch_to_body(&changes, fold_delta)
+            shard_for_patch.apply_usn_patch_to_body(&changes)
         })
         .await;
         classify_patch_result(patch_result, letter, reason, change_count)
@@ -444,39 +441,6 @@ fn log_save_patch_applied(
         applied_skip = stats.skipped,
         "Surgical patch applied",
     );
-}
-
-/// Spawn a blocking task that persists the patched
-/// `DriveCompactIndex` to disk via
-/// [`uffs_core::compact_cache::save_compact_cache_background`].
-///
-/// **Why blocking?**  `save_compact_cache_background` does the heavy
-/// serialise + zstd compress synchronously on the calling thread;
-/// only the encrypt + write steps run on a child thread that the
-/// helper spawns internally.  We don't want the serialise +
-/// compress on the runtime's async workers — hence
-/// `tokio::task::spawn_blocking`.
-///
-/// **Best-effort.**  A save failure does NOT roll back the
-/// in-memory swap (the patched Arc is already serving queries via
-/// the `IndexManager` registry); the helper just warn-logs the
-/// failure for operator visibility.  The next save tick re-attempts
-/// from the latest in-memory body, so transient disk errors heal
-/// themselves.
-fn spawn_compact_cache_save_task(
-    letter: uffs_mft::platform::DriveLetter,
-    body: Arc<uffs_core::compact::DriveCompactIndex>,
-) {
-    let _save_join = tokio::task::spawn_blocking(move || {
-        if let Err(err) = uffs_core::compact_cache::save_compact_cache_background(&body) {
-            tracing::warn!(
-                target: "shard.journal",
-                drive = %letter,
-                error = %err,
-                "Background compact-cache save failed after surgical patch (in-memory body still serving fresh data)",
-            );
-        }
-    });
 }
 
 /// Outcome of [`IndexManager::apply_to_body`] — the shared body-patch

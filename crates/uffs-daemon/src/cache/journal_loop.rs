@@ -52,8 +52,8 @@ mod triggers;
 
 pub(crate) use poll::{MAX_POLL_BACKOFF, PollBackoff};
 pub(crate) use triggers::{
-    ApplyTrigger, DEFAULT_APPLY_DEBOUNCE_MS, DEFAULT_APPLY_INTERVAL_MS, DEFAULT_SAVE_THRESHOLD_AGE,
-    DEFAULT_SAVE_THRESHOLD_EVENTS, SaveReason, SaveTrigger,
+    ApplyTrigger, DEFAULT_APPLY_DEBOUNCE_MS, DEFAULT_APPLY_INTERVAL_MS, DEFAULT_SAVE_MIN_INTERVAL,
+    DEFAULT_SAVE_THRESHOLD_AGE, DEFAULT_SAVE_THRESHOLD_EVENTS, SaveReason, SaveTrigger,
 };
 
 /// Default poll interval for the per-shard journal loop (500 ms).
@@ -271,6 +271,9 @@ pub(crate) struct JournalLoopConfig {
     /// when at least one event is pending.  Default
     /// [`DEFAULT_SAVE_THRESHOLD_AGE`] (5 min).
     pub(crate) save_threshold_age: Duration,
+    /// Minimum gap between two events-driven saves.  Default
+    /// [`DEFAULT_SAVE_MIN_INTERVAL`] (60 s).
+    pub(crate) save_min_interval: Duration,
     /// Search-freshness apply **max-wait** cap (Phase 5) — the ceiling of the
     /// debounce model. A burst that never settles is force-applied at least
     /// this often, bounding both freshness lag and apply CPU under sustained
@@ -290,6 +293,7 @@ impl Default for JournalLoopConfig {
             initial_cursor: 0,
             save_threshold_events: DEFAULT_SAVE_THRESHOLD_EVENTS,
             save_threshold_age: DEFAULT_SAVE_THRESHOLD_AGE,
+            save_min_interval: DEFAULT_SAVE_MIN_INTERVAL,
             apply_interval: Duration::from_millis(DEFAULT_APPLY_INTERVAL_MS),
             apply_debounce: Duration::from_millis(DEFAULT_APPLY_DEBOUNCE_MS),
         }
@@ -577,9 +581,11 @@ fn fire_due_cadence(
     apply_trigger: &mut ApplyTrigger,
     config: &JournalLoopConfig,
 ) {
-    if let Some(reason) =
-        save_trigger.evaluate(config.save_threshold_events, config.save_threshold_age)
-    {
+    if let Some(reason) = save_trigger.evaluate(
+        config.save_threshold_events,
+        config.save_threshold_age,
+        config.save_min_interval,
+    ) {
         // A save drains + applies the buffer AND writes the body to
         // disk + persists the cursor — so it subsumes the apply tick.
         sink.trigger_save(letter, reason, cursor);

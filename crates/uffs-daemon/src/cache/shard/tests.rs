@@ -523,7 +523,7 @@ fn apply_usn_patch_to_body_returns_new_arc_on_warm() {
 
     // Empty change batch — the method must still produce a fresh
     // Arc so the caller's swap path is exercised even on no-op ticks.
-    let result = shard.apply_usn_patch_to_body(&[], false);
+    let result = shard.apply_usn_patch_to_body(&[]);
 
     let (new_body, stats) = result.expect("Warm shard must yield Some");
     assert!(
@@ -554,7 +554,7 @@ fn apply_usn_patch_to_body_returns_none_on_parked() {
         ..FileChange::default()
     }];
 
-    let result = shard.apply_usn_patch_to_body(&changes, false);
+    let result = shard.apply_usn_patch_to_body(&changes);
     assert!(
         result.is_none(),
         "Parked shard has no in-memory body — must return None"
@@ -570,7 +570,7 @@ fn apply_usn_patch_to_body_returns_none_on_cold() {
     let stats = Arc::new(DriveStats::new());
     let shard = ShardEntry::new_cold(uffs_mft::platform::DriveLetter::C, stats);
 
-    let result = shard.apply_usn_patch_to_body(&[], false);
+    let result = shard.apply_usn_patch_to_body(&[]);
     assert!(
         result.is_none(),
         "Cold shard has no in-memory body — must return None"
@@ -599,7 +599,7 @@ fn apply_usn_patch_to_body_lands_delete_on_new_arc() {
     }];
 
     let (new_body, stats) = shard
-        .apply_usn_patch_to_body(&changes, false)
+        .apply_usn_patch_to_body(&changes)
         .expect("Warm shard yields Some");
 
     assert_eq!(stats.deleted, 1, "exactly one delete should land");
@@ -631,52 +631,47 @@ fn apply_usn_patch_to_body_lands_delete_on_new_arc() {
     );
 }
 
-/// Save-bound patches fold the delta overlay; apply-only patches keep
-/// it.  The body handed to the background disk save must be
-/// delta-free — a delta-carrying index serialises its base children
-/// CSR against a grown record count and poisons the cache for the
-/// next start (`bloom k_hashes out of range`; see
-/// `DriveCompactIndex::fold_delta_for_save`).  A create is the
-/// trigger shape: it appends a record, which is exactly what desyncs
-/// the Arc-shared bases.
+/// A patch keeps the cheap delta overlay on the live body; the save path
+/// folds a private copy before it reaches the writer.  The body handed to
+/// the disk save must be delta-free — a delta-carrying index serialises its
+/// base children CSR against a grown record count and poisons the cache for
+/// the next start (`bloom k_hashes out of range`; see
+/// `DriveCompactIndex::fold_delta_for_save`).  A create is the trigger
+/// shape: it appends a record, which is exactly what desyncs the Arc-shared
+/// bases.
 #[test]
-fn save_bound_patch_folds_delta_apply_only_keeps_it() {
-    let create = || {
-        vec![FileChange {
-            frs: 77_u64.into(),
-            parent_frs: 5_u64.into(),
-            filename: "fresh.txt".to_owned(),
-            created: true,
-            ..FileChange::default()
-        }]
-    };
+fn patch_keeps_delta_and_save_folds_a_copy() {
+    let create = vec![FileChange {
+        frs: 77_u64.into(),
+        parent_frs: 5_u64.into(),
+        filename: "fresh.txt".to_owned(),
+        created: true,
+        ..FileChange::default()
+    }];
 
     let body = Arc::new(make_test_body(uffs_mft::platform::DriveLetter::C));
-    let shard = ShardEntry::new_warm(uffs_mft::platform::DriveLetter::C, Arc::clone(&body));
+    let shard = ShardEntry::new_warm(uffs_mft::platform::DriveLetter::C, body);
     let (applied, stats) = shard
-        .apply_usn_patch_to_body(&create(), false)
+        .apply_usn_patch_to_body(&create)
         .expect("Warm shard yields Some");
     assert_eq!(stats.created, 1, "the create must land");
     assert!(
         applied.delta.is_some(),
-        "apply-only patch must keep the cheap delta overlay"
+        "the patch must keep the cheap delta overlay"
     );
 
-    let shard2 = ShardEntry::new_warm(uffs_mft::platform::DriveLetter::C, body);
-    let (saved, stats2) = shard2
-        .apply_usn_patch_to_body(&create(), true)
-        .expect("Warm shard yields Some");
-    assert_eq!(
-        stats2.created, 1,
-        "the create must land on the save path too"
-    );
+    let saved = crate::index::journal_save::fold_for_save(&applied);
     assert!(
         saved.delta.is_none(),
-        "save-bound patch must fold the delta before the body reaches the writer"
+        "the save path must fold the delta before the body reaches the writer"
     );
     assert!(
         saved.records.len() > 2,
         "the created record must survive the fold"
+    );
+    assert!(
+        applied.delta.is_some(),
+        "folding for the save must not touch the live body"
     );
 }
 

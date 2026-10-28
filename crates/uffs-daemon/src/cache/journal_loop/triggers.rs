@@ -47,6 +47,18 @@ pub(crate) const DEFAULT_SAVE_THRESHOLD_EVENTS: u64 = 50_000;
 /// path without changing the operator-visible recovery window.
 pub(crate) const DEFAULT_SAVE_THRESHOLD_AGE: Duration = Duration::from_mins(5);
 
+/// Default minimum gap between two **events-driven** saves — 60 seconds.
+///
+/// Measured on the winbox 2026-10-28 (issue #639): one compact-cache save of a
+/// 4 M-record C: costs 15-35 CPU-seconds and 1-5 GB of transient memory, and a
+/// 200 k-file burst crossed [`DEFAULT_SAVE_THRESHOLD_EVENTS`] every ~18 s, so
+/// saves ran back to back for the whole burst.  The saves only bound how far a
+/// cold start must replay the journal; search freshness comes from the apply
+/// tick, which is unaffected.  One save a minute under sustained churn keeps
+/// that replay window small while giving the CPU back to whatever is causing
+/// the churn.  The [`DEFAULT_SAVE_THRESHOLD_AGE`] save is not gated by this.
+pub(crate) const DEFAULT_SAVE_MIN_INTERVAL: Duration = Duration::from_mins(1);
+
 /// Default apply **max-wait** cap for the per-shard journal loop — 2 seconds
 /// (Phase 5).
 ///
@@ -143,23 +155,29 @@ impl SaveTrigger {
     /// Returns `None` when no threshold is crossed *or* when no
     /// events are pending (zero-churn drives never produce
     /// no-op saves).
+    ///
+    /// The events threshold only fires once `save_min_interval` has passed
+    /// since the previous save, so a sustained burst saves at most once per
+    /// interval instead of on every threshold crossing.
     pub(super) fn evaluate(
         &mut self,
         save_threshold_events: u64,
         save_threshold_age: Duration,
+        save_min_interval: Duration,
     ) -> Option<SaveReason> {
         if self.events_since_save == 0 {
             return None;
         }
         let now = Instant::now();
         let elapsed = now.saturating_duration_since(self.last_save_at);
-        let reason = if self.events_since_save >= save_threshold_events {
-            Some(SaveReason::EventsExceeded)
-        } else if elapsed >= save_threshold_age {
-            Some(SaveReason::AgeElapsed)
-        } else {
-            None
-        };
+        let reason =
+            if self.events_since_save >= save_threshold_events && elapsed >= save_min_interval {
+                Some(SaveReason::EventsExceeded)
+            } else if elapsed >= save_threshold_age {
+                Some(SaveReason::AgeElapsed)
+            } else {
+                None
+            };
         if reason.is_some() {
             self.last_save_at = now;
             self.events_since_save = 0;

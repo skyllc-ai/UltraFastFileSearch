@@ -4496,6 +4496,7 @@ dependencies = [
  "mimalloc",
  "proptest",
  "rand",
+ "rayon",
  "serde",
  "serde_json",
  "tempfile",

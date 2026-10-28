@@ -19,10 +19,7 @@ use crate::index::usize_to_f64;
 ///
 /// Returns an I/O error if compression fails.
 pub fn compress_zstd_mt(data: &[u8], level: i32) -> std::io::Result<Vec<u8>> {
-    let mut encoder = zstd::Encoder::new(Vec::new(), level)?;
-    let workers_usize = std::thread::available_parallelism().map_or(4, |n| n.get().min(8));
-    let workers = u32::try_from(workers_usize).unwrap_or(8);
-    let _mt_result: Result<(), std::io::Error> = encoder.multithread(workers);
+    let mut encoder = new_zstd_mt_encoder(level)?;
     std::io::Write::write_all(&mut encoder, data)?;
     encoder.finish()
 }
@@ -36,9 +33,29 @@ pub fn compress_zstd_mt(data: &[u8], level: i32) -> std::io::Result<Vec<u8>> {
 ///
 /// Returns an I/O error if encoder initialisation fails.
 pub fn new_zstd_mt_encoder(level: i32) -> std::io::Result<zstd::Encoder<'static, Vec<u8>>> {
-    let mut encoder = zstd::Encoder::new(Vec::new(), level)?;
+    new_zstd_encoder_with_workers(level, default_zstd_workers())
+}
+
+/// The zstd worker count for foreground cache writes: one per core, at most 8.
+#[must_use]
+pub fn default_zstd_workers() -> u32 {
     let workers_usize = std::thread::available_parallelism().map_or(4, |n| n.get().min(8));
-    let workers = u32::try_from(workers_usize).unwrap_or(8);
+    u32::try_from(workers_usize).unwrap_or(8)
+}
+
+/// [`new_zstd_mt_encoder`] with an explicit worker count.
+///
+/// A background writer passes a small count so a cache save does not take
+/// every core away from the user's own work.
+///
+/// # Errors
+///
+/// Returns an I/O error if encoder initialisation fails.
+pub fn new_zstd_encoder_with_workers(
+    level: i32,
+    workers: u32,
+) -> std::io::Result<zstd::Encoder<'static, Vec<u8>>> {
+    let mut encoder = zstd::Encoder::new(Vec::new(), level)?;
     let _mt_result: Result<(), std::io::Error> = encoder.multithread(workers);
     Ok(encoder)
 }
@@ -62,10 +79,36 @@ pub fn compress_encrypt_write_streaming<F>(
 where
     F: FnOnce(&mut zstd::Encoder<'_, Vec<u8>>) -> std::io::Result<()>,
 {
+    compress_encrypt_write_streaming_with_workers(
+        write_fn,
+        path,
+        zstd_level,
+        default_zstd_workers(),
+        profile,
+        label,
+    )
+}
+
+/// [`compress_encrypt_write_streaming`] with an explicit zstd worker count.
+///
+/// # Errors
+///
+/// Returns an I/O error if compression, encryption, or file writing fails.
+pub fn compress_encrypt_write_streaming_with_workers<F>(
+    write_fn: F,
+    path: &Path,
+    zstd_level: i32,
+    zstd_workers: u32,
+    profile: bool,
+    label: &str,
+) -> std::io::Result<()>
+where
+    F: FnOnce(&mut zstd::Encoder<'_, Vec<u8>>) -> std::io::Result<()>,
+{
     let t_total = std::time::Instant::now();
 
     let t_compress = std::time::Instant::now();
-    let mut encoder = new_zstd_mt_encoder(zstd_level)?;
+    let mut encoder = new_zstd_encoder_with_workers(zstd_level, zstd_workers)?;
     write_fn(&mut encoder)?;
     let compressed = encoder.finish()?;
     let compress_ms = t_compress.elapsed().as_millis();

@@ -14,7 +14,9 @@
 use alloc::sync::Arc;
 use core::time::Duration;
 
-use super::super::{JournalLoopConfig, JournalSource, PatchSink, SaveReason, spawn_journal_loop};
+use super::super::{
+    JournalLoopConfig, JournalSource, PatchSink, SaveReason, SaveTrigger, spawn_journal_loop,
+};
 use super::{
     CONVERGENCE_DEADLINE, FakeJournalSource, RecordingSink, null_cursor_store, one_change, wait_for,
 };
@@ -42,6 +44,7 @@ async fn events_threshold_triggers_save() {
         initial_cursor: 0,
         save_threshold_events: 5,
         save_threshold_age: Duration::from_hours(24),
+        save_min_interval: Duration::ZERO,
         apply_interval: Duration::from_hours(24),
         apply_debounce: Duration::from_hours(24),
     };
@@ -93,6 +96,7 @@ async fn age_threshold_triggers_save_with_pending_events() {
         initial_cursor: 0,
         save_threshold_events: u64::MAX,
         save_threshold_age: Duration::from_millis(30),
+        save_min_interval: Duration::ZERO,
         apply_interval: Duration::from_hours(24),
         apply_debounce: Duration::from_hours(24),
     };
@@ -154,6 +158,7 @@ async fn zero_events_drive_does_not_trigger_save() {
         initial_cursor: 0,
         save_threshold_events: 1,
         save_threshold_age: Duration::from_millis(20),
+        save_min_interval: Duration::ZERO,
         apply_interval: Duration::from_hours(24),
         apply_debounce: Duration::from_hours(24),
     };
@@ -208,6 +213,7 @@ async fn counter_resets_after_save() {
         initial_cursor: 0,
         save_threshold_events: 5,
         save_threshold_age: Duration::from_hours(24),
+        save_min_interval: Duration::ZERO,
         apply_interval: Duration::from_hours(24),
         apply_debounce: Duration::from_hours(24),
     };
@@ -239,5 +245,44 @@ async fn counter_resets_after_save() {
         saves.len(),
         1,
         "exactly one save expected (counter reset after first); got {saves:?}"
+    );
+}
+
+/// Issue #639: a sustained burst must not save on every events-threshold
+/// crossing.  Inside the minimum interval the events threshold is held back;
+/// the counter keeps accumulating, so the save fires as soon as the interval
+/// has passed.
+#[test]
+fn events_threshold_waits_for_min_interval() {
+    let mut trigger = SaveTrigger::new();
+    trigger.record(10);
+    assert_eq!(
+        trigger.evaluate(5, Duration::from_hours(24), Duration::from_hours(1)),
+        None,
+        "events past the threshold must wait for the minimum interval",
+    );
+    trigger.record(10);
+    assert_eq!(
+        trigger.evaluate(5, Duration::from_hours(24), Duration::ZERO),
+        Some(SaveReason::EventsExceeded),
+        "once the interval has passed, the held-back events save fires",
+    );
+    assert_eq!(
+        trigger.evaluate(5, Duration::from_hours(24), Duration::ZERO),
+        None,
+        "the save reset the counter",
+    );
+}
+
+/// The age ceiling is the durability backstop and is never held back by the
+/// minimum interval: a drive with a few pending events still saves once the
+/// age threshold passes.
+#[test]
+fn age_threshold_ignores_min_interval() {
+    let mut trigger = SaveTrigger::new();
+    trigger.record(1);
+    assert_eq!(
+        trigger.evaluate(1_000, Duration::ZERO, Duration::from_hours(1)),
+        Some(SaveReason::AgeElapsed),
     );
 }

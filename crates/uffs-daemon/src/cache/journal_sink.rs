@@ -81,6 +81,7 @@ use uffs_mft::usn::FileChange;
 
 use super::journal_loop::{CursorStore, PatchSink, SaveReason};
 use crate::index::IndexManager;
+use crate::index::journal_save::SaveSlot;
 
 /// Cross-task message from a sync sink callback to the async applier.
 ///
@@ -373,6 +374,8 @@ async fn applier_task(
     // belong to the merged run (different letter, or a Save/Wrap); processed
     // on the next iteration before blocking on `recv`.
     let mut carried: Option<ApplyMsg> = None;
+    // One background save at a time across every drive (issue #639).
+    let save_slot = Arc::new(SaveSlot::default());
     loop {
         let msg = match carried.take() {
             Some(held) => held,
@@ -406,7 +409,7 @@ async fn applier_task(
         } else {
             msg
         };
-        dispatch_msg(&idx_strong, cursor_store.as_ref(), to_dispatch).await;
+        dispatch_msg(&idx_strong, &cursor_store, &save_slot, to_dispatch).await;
     }
     tracing::debug!(
         target: "shard.journal",
@@ -450,7 +453,12 @@ fn coalesce_apply_run(
 /// also keeps the `Weak::upgrade` lifecycle decision in the parent
 /// (visible at the recv-loop level) and the per-variant dispatch
 /// in this helper (focused, easy to extend).
-async fn dispatch_msg(idx: &Arc<IndexManager>, cursor_store: &dyn CursorStore, msg: ApplyMsg) {
+async fn dispatch_msg(
+    idx: &Arc<IndexManager>,
+    cursor_store: &Arc<dyn CursorStore>,
+    save_slot: &Arc<SaveSlot>,
+    msg: ApplyMsg,
+) {
     match msg {
         ApplyMsg::Save {
             letter,
@@ -459,20 +467,33 @@ async fn dispatch_msg(idx: &Arc<IndexManager>, cursor_store: &dyn CursorStore, m
             cursor,
         } => {
             let reason_str = save_reason_str(reason);
-            // Phase 8 surgical-patch path: hand the drained per-letter
-            // change buffer to `IndexManager::handle_journal_save`,
-            // which clones the Warm body, applies the patch, swaps
-            // the new Arc into the registry, and persists the patched
-            // body via `save_compact_cache_background`.
-            let applied = idx.handle_journal_save(letter, reason_str, changes).await;
-            // Persist the cursor in lockstep with the body save: only
-            // when the save actually happened (`applied`).  A parked
-            // shard returns `false` here, so its on-disk cursor stays
-            // pinned to the last real body save and the startup
-            // warm-load guard can never strand a delta past the
-            // persisted body.  See `cache::guarded_load`.
-            if applied {
-                cursor_store.store(letter, cursor);
+            // One save at a time: while the previous one is still
+            // writing, apply this batch in memory (search stays live)
+            // and leave the write to a later save tick.  The cursor is
+            // not stored, so a cold start replays from the last body
+            // that actually reached disk.
+            let Some(permit) = save_slot.try_acquire() else {
+                tracing::debug!(
+                    target: "shard.journal",
+                    drive = %letter,
+                    reason = reason_str,
+                    change_count = changes.len(),
+                    "Save deferred: the previous save is still writing; applied in memory only",
+                );
+                let _applied = idx
+                    .handle_journal_apply(letter, "save-deferred", changes)
+                    .await;
+                return;
+            };
+            // Patch the batch in (search goes live at once), then hand
+            // the body to the background persist, which writes it and
+            // only then stores the cursor — so the on-disk cursor never
+            // outruns the on-disk body.  A parked or missing shard
+            // yields `None`: nothing is written and the cursor stays
+            // pinned to the last real body save, which the startup
+            // warm-load guard relies on (`cache::guarded_load`).
+            if let Some(body) = idx.handle_journal_save(letter, reason_str, changes).await {
+                idx.spawn_journal_persist(letter, body, cursor, Arc::clone(cursor_store), permit);
             }
         }
         ApplyMsg::Apply { letter, changes } => {

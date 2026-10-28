@@ -52,7 +52,9 @@ pub use cache_dataframe::load_or_build_dataframe_cached;
 #[path = "cache_compress.rs"]
 mod cache_compress;
 pub use cache_compress::{
-    compress_encrypt_write, compress_encrypt_write_streaming, compress_zstd_mt, new_zstd_mt_encoder,
+    compress_encrypt_write, compress_encrypt_write_streaming,
+    compress_encrypt_write_streaming_with_workers, compress_zstd_mt, default_zstd_workers,
+    new_zstd_encoder_with_workers, new_zstd_mt_encoder,
 };
 
 /// Default TTL for cached indices (4 hours).

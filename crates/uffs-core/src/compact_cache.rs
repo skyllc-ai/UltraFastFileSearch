@@ -1006,6 +1006,26 @@ fn parse_compact_header(data: &[u8]) -> Result<(u64, usize, u16), &'static str> 
 /// # Errors
 /// Returns an error if compression, encryption, or file writing fails.
 pub fn save_compact_cache(index: &DriveCompactIndex) -> io::Result<()> {
+    save_compact_cache_with_workers(index, uffs_mft::cache::default_zstd_workers())
+}
+
+/// [`save_compact_cache`] with an explicit zstd worker count, blocking until
+/// the file is written.
+///
+/// The journal loop's background saves use this with a small count: a save
+/// that takes every core competes with the build or copy that caused the
+/// churn in the first place (issue #639).  Returning only after the atomic
+/// write is what lets a caller persist the USN cursor strictly after the body
+/// it describes.
+///
+/// # Errors
+/// Returns an error if `index` still carries a delta overlay, or if
+/// compression, encryption, or file writing fails.
+pub fn save_compact_cache_with_workers(
+    index: &DriveCompactIndex,
+    zstd_workers: u32,
+) -> io::Result<()> {
+    refuse_delta_carrying(index)?;
     let profile = std::env::var_os("UFFS_CACHE_PROFILE").is_some();
     let path = compact_cache_path(index.letter);
     if let Some(dir) = path.parent() {
@@ -1016,13 +1036,34 @@ pub fn save_compact_cache(index: &DriveCompactIndex) -> io::Result<()> {
     // hits an EISDIR rename failure.  No-op for cold-boot first saves
     // and for every save after the first successful one.
     purge_legacy_compact_cache_dir(&path, index.letter)?;
-    uffs_mft::cache::compress_encrypt_write_streaming(
+    uffs_mft::cache::compress_encrypt_write_streaming_with_workers(
         |encoder| serialize_compact_to_writer(index, encoder),
         &path,
         ZSTD_LEVEL,
+        zstd_workers,
         profile,
         "compact",
     )
+}
+
+/// Refuse to persist a delta-carrying index.
+///
+/// A delta-carrying index serialises a children CSR sized for the pre-patch
+/// record count while the header carries the post-patch count, mis-aligning
+/// every later section for the reader (see
+/// [`DriveCompactIndex::fold_delta_for_save`] for the full mechanism and the
+/// field incidents).  Callers fold the delta first; this guard turns any path
+/// that forgets into a loud error instead of a poisoned cache that
+/// quarantines on the next start.
+fn refuse_delta_carrying(index: &DriveCompactIndex) -> io::Result<()> {
+    if index.delta.is_some() {
+        return Err(io::Error::other(
+            "refusing to persist a delta-carrying compact index: fold the delta first \
+             (DriveCompactIndex::fold_delta_for_save) — its base sections are stale \
+             against the patched records and would serialize misaligned",
+        ));
+    }
+    Ok(())
 }
 
 /// Streams the compact index into a zstd encoder on the calling thread
@@ -1039,20 +1080,8 @@ pub fn save_compact_cache(index: &DriveCompactIndex) -> io::Result<()> {
 /// Returns an error only if compression or directory creation fails.
 pub fn save_compact_cache_background(index: &DriveCompactIndex) -> io::Result<()> {
     // Boundary enforcement of the "on-disk cache is always delta-free"
-    // invariant: a delta-carrying index serialises a children CSR sized
-    // for the pre-patch record count while the header carries the
-    // post-patch count, mis-aligning every later section for the reader
-    // (see `DriveCompactIndex::fold_delta_for_save` for the full
-    // mechanism + field incidents).  Callers fold the delta first; this
-    // guard turns any future path that forgets into a loud error
-    // instead of a poisoned cache that quarantines on the next start.
-    if index.delta.is_some() {
-        return Err(io::Error::other(
-            "refusing to persist a delta-carrying compact index: fold the delta first \
-             (DriveCompactIndex::fold_delta_for_save) — its base sections are stale \
-             against the patched records and would serialize misaligned",
-        ));
-    }
+    // invariant (see `refuse_delta_carrying`).
+    refuse_delta_carrying(index)?;
     let profile = std::env::var_os("UFFS_CACHE_PROFILE").is_some();
     let t_compress = Instant::now();
 
