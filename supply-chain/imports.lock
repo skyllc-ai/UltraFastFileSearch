@@ -838,8 +838,8 @@ user-login = "dtolnay"
 user-name = "David Tolnay"
 
 [[publisher.zstd-sys]]
-version = "2.1.1+zstd.1.5.7"
-when = "2026-10-09"
+version = "2.1.2+zstd.1.5.7"
+when = "2026-10-16"
 user-id = 3203
 user-login = "gyscos"
 user-name = "Alexandre Bury"
@@ -1121,6 +1121,18 @@ who = "Alex Crichton <alex@alexcrichton.com>"
 criteria = "safe-to-deploy"
 delta = "0.3.0 -> 0.4.0"
 notes = "Minor updates for a new `rand` crate version, nothing awry."
+
+[[audits.bytecode-alliance.audits.rustls-webpki]]
+who = "Alex Crichton <alex@alexcrichton.com>"
+criteria = "safe-to-deploy"
+delta = "0.103.13 -> 0.103.15"
+notes = "Minor updates and feature shufflings."
+
+[[audits.bytecode-alliance.audits.rustls-webpki]]
+who = "Alex Crichton <alex@alexcrichton.com>"
+criteria = "safe-to-deploy"
+delta = "0.103.15 -> 0.103.16"
+notes = "Updated with new certificates"
 
 [[audits.bytecode-alliance.audits.sharded-slab]]
 who = "Pat Hickey <phickey@fastly.com>"

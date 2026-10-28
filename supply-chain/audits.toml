@@ -2303,6 +2303,12 @@ criteria = "safe-to-deploy"
 delta = "0.14.0 -> 0.14.2"
 notes = "Read every src change; no unsafe added. Decompressor sizes its output from the summed frame content sizes (walked with zstd_safe::find_frame_compressed_size/get_frame_content_size, checked_add, slice get) and errors early with both numbers when the caller's capacity is too small; decode_all pre-reserves from the header's claimed size capped at 32 MiB via fallible try_reserve, so a hostile header cannot force a large allocation; dictionaries gain try_copy/try_new returning io errors instead of panicking; new compress_file/compress_sized helpers wrap existing safe APIs. Cargo.toml adds the with-rust-allocator passthrough feature (off for us) and new test targets."
 
+[[audits.zstd]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.14.2 -> 0.14.3"
+notes = "Read every src change (11 files, 312+/17-, most of it tests). The RUSTSEC-2026-0391 fix: Encoder/Decoder::with_context reset the reused context (ResetDirective::SessionOnly) so an abandoned stream cannot leak into the next. dict::from_continuous sums sample sizes with checked_add instead of a wrapping sum; the auto-finish/auto-flush wrappers skip finishing over a writer that panicked (zio::writer tracks it); the decoder's finish rejects an incomplete or empty trailing frame (zio::reader `started`). Manifest changes only the version and the zstd-safe 8.2.0 requirement. No unsafe added, no build.rs change, no process, network, filesystem or environment access."
+
 [[audits.zstd-safe]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -2320,6 +2326,12 @@ who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "8.0.0 -> 8.1.0"
 notes = "Read lib.rs, rust_allocator.rs and seekable.rs in full. New opt-in with-rust-allocator feature routes zstd's ZSTD_customMem through Rust's global allocator: rust_alloc uses checked_add and a fallible Layout (16-byte header holding the size, 16-byte alignment), returns NULL instead of unwinding across FFI, and rust_free rebuilds the identical layout from that header; sound. With the feature off (our build) every context/dictionary constructor is equivalent to 8.0.0. CCtx/DCtx clone now refuses a poisoned context; new try_create_by_reference returns None instead of panicking; two transmutes in seekable.rs become typed pointer casts; WriteBuf's safety contract is now documented. zstd-sys requirement 2.1.0 -> 2.1.1."
+
+[[audits.zstd-safe]]
+who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "8.1.0 -> 8.2.0"
+notes = "Soundness-hardening release (2334-line diff). Read lib.rs in full; seekable.rs (RUSTSEC-2026-0398) skimmed only, as the seekable feature is not enabled in this workspace. The RUSTSEC-2026-0403 fix: In/OutBufferWrapper::check() discards the position zstd reports after a failed call, so the legacy decoders can no longer mark unwritten output as initialized; OutBuffer::around_pos zero-fills initialized..pos within the WriteBuf-promised capacity before handing it to zstd; write_from asserts the reported length is within capacity; InBuffer::wrap panics on pos > src.len() before zstd reads from src + pos; Cursor filled_until handles n == 0 without running past the buffer. CCtx tracks multithreaded frames and refuses dictionary/parameter changes while worker jobs may still read them; one-shot compress calls reset the session; init_using_cdict now ties the dictionary lifetime to the context; DCtx copy carries the window limit and output-buffer mode and starts from a frame boundary; StableInBuffer(true) is refused (a borrowed InBuffer cannot uphold it); train_from_buffer sums sizes with checked_add. Every new unsafe block is an FFI call or the bounded zero-fill above. No build.rs change, no process, network, filesystem or environment access."
 
 [[audits.zstd-sys]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
