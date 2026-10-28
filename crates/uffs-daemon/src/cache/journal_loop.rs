@@ -199,6 +199,16 @@ pub(crate) trait PatchSink: Send + Sync + 'static {
     /// Fire-and-forget, same as `trigger_save`.
     fn trigger_apply(&self, letter: uffs_mft::platform::DriveLetter);
 
+    /// Whether changes for `letter` are buffered and not yet applied.
+    ///
+    /// The production sink puts a batch back when its drive is not warm
+    /// yet; reporting it here keeps the loop's apply cadence armed, so the
+    /// held changes are applied as soon as the drive is, even when no new
+    /// change arrives.  Sinks that never hold anything keep the default.
+    fn has_pending(&self, _letter: uffs_mft::platform::DriveLetter) -> bool {
+        false
+    }
+
     /// Notify the sink that the USN journal for `letter` was
     /// detected to have wrapped (Phase 7 task 7.7).
     ///
@@ -537,6 +547,9 @@ fn process_tick(
 ) {
     if changes.is_empty() {
         tracing::trace!(drive = %letter, "Journal poll: no changes");
+        if sink.has_pending(letter) {
+            apply_trigger.record();
+        }
     } else {
         let accepted = sink.accept(letter, changes);
         save_trigger.record(changes.len() as u64);

@@ -81,7 +81,16 @@ pub(crate) struct DiskBodyLoader;
 
 impl BodyLoader for DiskBodyLoader {
     fn load(&self, letter: uffs_mft::platform::DriveLetter) -> Option<Arc<DriveCompactIndex>> {
-        // Phase 5 (#94): primary path — USN-refreshed re-promote.
+        // Fast path: the compact cache plus the journal changes since its
+        // last save, replayed synchronously before the body is served.
+        // Seconds and one index's worth of memory instead of a full
+        // rebuild; `None` whenever the replay could not be exact.
+        #[cfg(windows)]
+        if let Some(body) = super::promote_load::load_parked_drive(letter) {
+            return Some(Arc::new(body));
+        }
+
+        // Phase 5 (#94): full rebuild — USN-refreshed re-promote.
         // On Windows this applies USN deltas to the cached MftIndex
         // and rebuilds the compact index, so the body served to the
         // search hot path reflects the live filesystem state since
@@ -91,13 +100,12 @@ impl BodyLoader for DiskBodyLoader {
         //
         // NB: the startup warm-load guard (`cache::guarded_load`) is
         // deliberately NOT used here.  Re-promote runs while the
-        // daemon is live, and the per-shard journal loop keeps
-        // advancing its persisted cursor while the shard is demoted
-        // (the apply no-ops with no warm body).  Serving the on-disk
-        // compact cache then deferring to that loop would strand the
-        // `[demote, now]` delta forever — the loop's cursor is already
-        // past it.  A synchronous refresh is the only correct choice
-        // on this path.
+        // daemon is live, and the per-shard journal loop's in-memory
+        // cursor moved on while the shard was demoted.  Serving the
+        // on-disk compact cache then deferring to that loop would
+        // strand the `[demote, now]` delta — so the delta is replayed
+        // synchronously, either by the fast path above or by this
+        // full rebuild.
         match uffs_core::compact_loader::load_drive_with_usn_refresh(letter) {
             Ok((body, _timing)) => return Some(Arc::new(body)),
             Err(err) => {

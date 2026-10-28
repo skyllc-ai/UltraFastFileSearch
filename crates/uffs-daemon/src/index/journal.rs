@@ -256,6 +256,14 @@ impl IndexManager {
         BodyApplyOutcome::Applied(new_body)
     }
 
+    /// Whether `letter` is registered with a body in memory (Warm or Hot),
+    /// so a journal batch for it can be applied.
+    pub(crate) async fn is_drive_warm(&self, letter: uffs_mft::platform::DriveLetter) -> bool {
+        self.snapshot_shard_for_letter(letter)
+            .await
+            .is_some_and(|shard| shard.body().is_some())
+    }
+
     /// Snapshot the shard for `letter` from the registry read-lock,
     /// cloning the `Arc<ShardEntry>` so subsequent registry
     /// mutations (demote, promote, `replace_warm_body`) leave this
