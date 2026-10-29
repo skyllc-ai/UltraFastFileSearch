@@ -278,7 +278,7 @@ shapes: `env::var(LITERAL)`, `env::var_os(LITERAL)`, `env!(LITERAL)` /
 | Name | Type | Default | Set by | Where read | Notes |
 |---|---|---|---|---|---|
 | `UFFS_CLIENT_SKIP_HEALTH_CHECK` | `bool` | `false` | `just ship` cross-check | `crates/uffs-client/src/daemon_ctl.rs` | Skips post-connect health probe (used by `just ship` cross-check).  INTERNAL class. |
-| `UFFS_CLIENT_TIMEOUT_SECS` | `int` (seconds) | `5` | operator | `crates/uffs-client/src/connect_sync_platform.rs` | Sync connect timeout override.  INTERNAL class. |
+| `UFFS_CLIENT_TIMEOUT_SECS` | `int` (seconds) | `600` | operator | `crates/uffs-client/src/connect_sync_platform.rs` | Per-request client deadline (`0` = no limit; async client default 300).  INTERNAL class. |
 
 ### 5.6 Build/release knobs (build-time, read by `scripts/ci/`)
 

@@ -16,7 +16,8 @@
 pub use crate::ntfs::SECTOR_SIZE;
 // `SECTOR_SIZE_U64` is the matching u64 alias used by the I/O readers.
 // Gated to `cfg(windows)` to match its only consumers (the Windows-only
-// reader implementations under `io::readers::*` + `reader::persistence_capture`).
+// reader implementations under `io::readers::*` +
+// `reader::persistence_capture`).
 #[cfg(windows)]
 pub(crate) use crate::ntfs::SECTOR_SIZE_U64;
 

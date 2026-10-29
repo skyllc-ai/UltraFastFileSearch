@@ -100,8 +100,8 @@ pub(super) fn extract_sort_key(
         FieldId::Virtual => i64::from(rec.flags & 0x0001_0000 != 0),
         // WI-4.4: leaf-name malformity as 0/1, from the lossless bytes (matches
         // the hot-path filter). `MalformedPath` needs the resolved parent chain
-        // (unavailable at this sort-key stage) and `NameHex` is not sortable, so
-        // both fall through to the `Modified` proxy below.
+        // (unavailable at this sort-key stage) and `NameHex` is not sortable,
+        // so both fall through to the `Modified` proxy below.
         FieldId::Malformed => {
             i64::from(core::str::from_utf8(rec.name_bytes(&drive.names)).is_err())
         }

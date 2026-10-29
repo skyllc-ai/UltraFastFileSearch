@@ -39,6 +39,7 @@ pub(crate) mod journal_sink;
 pub(crate) mod policy;
 pub(crate) mod prefetch;
 pub(crate) mod pressure;
+pub(crate) mod promote_load;
 pub(crate) mod registry;
 pub(crate) mod shard;
 pub(crate) mod working_set;

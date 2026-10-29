@@ -42,7 +42,10 @@ use crate::ntfs::{
 /// # Returns
 ///
 /// `true` if a record was added to the fragment, `false` if skipped.
-#[deprecated(note = "Use parse_record_full() + MftRecordMerger + from_parsed_records() instead")]
+#[deprecated(
+    since = "0.2.203",
+    note = "Use parse_record_full() + MftRecordMerger + from_parsed_records() instead"
+)]
 #[expect(
     clippy::too_many_lines,
     clippy::cognitive_complexity,

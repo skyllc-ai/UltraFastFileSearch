@@ -66,7 +66,7 @@ UFFS uses a strict layered architecture with **5 layers** plus a parallel **tool
 | `uffs-security` | Crypto, keystore, secure FS ops, FILE_FLAG_RANDOM_ACCESS handling | Windows DPAPI / DACL, libc flock, memmap2 |
 | `uffs-text` | Unicode/NTFS case folding, trigram keys, i18n primitives | Pure logic; zero unsafe |
 | `uffs-time` | NTFS FILETIME arithmetic (`const fn`) | Pure logic; zero deps |
-| `uffs-broker-protocol` | Cross-platform broker wire-protocol types (`PIPE_NAME`, `SERVICE_NAME`) | Pure logic; zero unsafe |
+| `uffs-broker-protocol` | Cross-platform broker wire-protocol types (`PIPE_NAME`, `SERVICE_NAME`, the Snapshot Manager messages, the VSS `HRESULT` retry table in `vss_hresult`) | Pure logic; zero unsafe |
 | `uffs-winsvc` | Native Windows service control (SCM) + broker-pipe readiness probe; the single home for the `sc`/SCM mechanics shared by uffs-broker, uffs-update, uffs-cli | `windows` (windows-target only); pure stubs off Windows |
 | `uffs-fetch` | Hardened release-asset transport: GitHub release lookup, streaming any-URL download (retry, connect/inactivity timeouts, caller-chosen byte cap, caller-supplied user-agent), `SHA256SUMS` verification. Extracted from `uffs-update` for reuse by external products; keeps the HTTP/TLS stack out of the lean `uffs` CLI | reqwest (blocking, rustls-tls-native-roots), sha2, hex; cross-platform, zero unsafe |
 

@@ -54,6 +54,10 @@ uffs-version.workspace = true
 # for the identical rationale (F5 / issue #205).
 [target.'cfg(windows)'.dependencies]
 anyhow.workspace = true
+# The VSS HRESULT table (`vss_hresult`): which codes to retry, which carry
+# an operator remedy.  Shared with the Content Coordinator, which reads the
+# same code off the Broker's error response.
+uffs-broker-protocol.workspace = true
 windows.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
@@ -71,7 +75,7 @@ uffs-version = { workspace = true, features = ["build"] }
 # for this internal helper — it's spawned by the Broker, never invoked
 # directly by a user in normal operation, so it skips the `winresource`
 # step `uffs-broker` uses.
-cc = "1.8.0"
+cc = "1.10.0"
 
 [lints]
 workspace = true

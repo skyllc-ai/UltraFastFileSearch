@@ -72,6 +72,22 @@ const E2E_DEADLINE: Duration = Duration::from_secs(5);
 /// busy-waiting.
 const E2E_POLL_INTERVAL: Duration = Duration::from_millis(10);
 
+/// Fast polls, an events-only save threshold and no save gap, so the saves
+/// [`ten_thousand_events_end_to_end`] counts come from the event volume alone.
+fn end_to_end_config() -> JournalLoopConfig {
+    JournalLoopConfig {
+        poll_interval: Duration::from_millis(5),
+        initial_cursor: 0,
+        save_threshold_events: SAVE_THRESHOLD_EVENTS,
+        save_threshold_age: Duration::from_hours(24),
+        save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
+        apply_interval: Duration::from_hours(24),
+        apply_debounce: Duration::from_hours(24),
+    }
+}
+
 #[tokio::test]
 async fn ten_thousand_events_end_to_end() {
     let source = Arc::new(FakeJournalSource::new());
@@ -91,14 +107,7 @@ async fn ten_thousand_events_end_to_end() {
         source.enqueue_changes(changes, next_cursor);
     }
 
-    let config = JournalLoopConfig {
-        poll_interval: Duration::from_millis(5),
-        initial_cursor: 0,
-        save_threshold_events: SAVE_THRESHOLD_EVENTS,
-        save_threshold_age: Duration::from_hours(24),
-        apply_interval: Duration::from_hours(24),
-        apply_debounce: Duration::from_hours(24),
-    };
+    let config = end_to_end_config();
     let handle = spawn_journal_loop(
         uffs_mft::platform::DriveLetter::C,
         Arc::clone(&source) as Arc<dyn JournalSource>,

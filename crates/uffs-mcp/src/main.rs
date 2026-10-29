@@ -498,8 +498,13 @@ async fn mcp_status() -> Result<()> {
                     }
                 }
             } else {
+                // The process that wrote the file is gone (killed, or its
+                // host exited without letting it clean up).  Remove the
+                // leftover so it is not reported on every later status,
+                // and say so.
+                uffs_client::mcp_pid::remove_mcp_pid_file();
                 println!(
-                    "MCP server:    not running (stale PID file, PID {})",
+                    "MCP server:    not running (removed the stale PID file left by PID {})",
                     info.pid
                 );
             }

@@ -478,11 +478,42 @@ pub(crate) fn serialize_compact_to_writer<W: io::Write>(
     index: &DriveCompactIndex,
     writer: &mut W,
 ) -> io::Result<()> {
+    write_compact_sections(index, &index.children, &index.trigram, writer)
+}
+
+/// [`serialize_compact_to_writer`] for an index that may carry a delta
+/// overlay: the children and trigram sections are rebuilt from the records
+/// for the write instead of taken from the stale bases.
+///
+/// Equivalent to serialising a `fold_delta_for_save`d copy, without copying
+/// the records and names first — for a 30 M-record drive that copy alone is
+/// over 3 GB.  The extension index is not part of the file, so it needs no
+/// rebuild here.
+pub(crate) fn serialize_compact_folded_to_writer<W: io::Write>(
+    index: &DriveCompactIndex,
+    writer: &mut W,
+) -> io::Result<()> {
+    if index.delta.is_none() {
+        return serialize_compact_to_writer(index, writer);
+    }
+    let children = ChildrenIndex::build(&index.records);
+    let trigram = TrigramIndex::build(&index.records, &index.names, index.fold);
+    write_compact_sections(index, &children, &trigram, writer)
+}
+
+/// Write every section of `index`, taking the children and trigram CSRs from
+/// `children` / `trigram` (see [`serialize_compact_folded_to_writer`]).
+fn write_compact_sections<W: io::Write>(
+    index: &DriveCompactIndex,
+    children: &ChildrenIndex,
+    trigram: &TrigramIndex,
+    writer: &mut W,
+) -> io::Result<()> {
     let record_count = index.records.len();
     let names_len = index.names.len();
 
-    let (csr_offsets, csr_values) = index.children.as_csr();
-    let (tri_keys, tri_offsets, tri_values) = index.trigram.as_csr();
+    let (csr_offsets, csr_values) = children.as_csr();
+    let (tri_keys, tri_offsets, tri_values) = trigram.as_csr();
 
     // Header (26 bytes for v3+)
     writer.write_all(COMPACT_MAGIC)?;
@@ -1006,6 +1037,28 @@ fn parse_compact_header(data: &[u8]) -> Result<(u64, usize, u16), &'static str> 
 /// # Errors
 /// Returns an error if compression, encryption, or file writing fails.
 pub fn save_compact_cache(index: &DriveCompactIndex) -> io::Result<()> {
+    save_compact_cache_with_workers(index, uffs_mft::cache::default_zstd_workers())
+}
+
+/// [`save_compact_cache`] with an explicit zstd worker count, blocking until
+/// the file is written.
+///
+/// A delta-carrying `index` is written folded: the children and trigram
+/// sections are rebuilt from its records for the write, so the caller need
+/// not copy it to fold it first.
+///
+/// The journal loop's background saves use this with a small count: a save
+/// that takes every core competes with the build or copy that caused the
+/// churn in the first place (issue #639).  Returning only after the atomic
+/// write is what lets a caller persist the USN cursor strictly after the body
+/// it describes.
+///
+/// # Errors
+/// Returns an error if compression, encryption, or file writing fails.
+pub fn save_compact_cache_with_workers(
+    index: &DriveCompactIndex,
+    zstd_workers: u32,
+) -> io::Result<()> {
     let profile = std::env::var_os("UFFS_CACHE_PROFILE").is_some();
     let path = compact_cache_path(index.letter);
     if let Some(dir) = path.parent() {
@@ -1016,13 +1069,34 @@ pub fn save_compact_cache(index: &DriveCompactIndex) -> io::Result<()> {
     // hits an EISDIR rename failure.  No-op for cold-boot first saves
     // and for every save after the first successful one.
     purge_legacy_compact_cache_dir(&path, index.letter)?;
-    uffs_mft::cache::compress_encrypt_write_streaming(
-        |encoder| serialize_compact_to_writer(index, encoder),
+    uffs_mft::cache::compress_encrypt_write_streaming_with_workers(
+        |encoder| serialize_compact_folded_to_writer(index, encoder),
         &path,
         ZSTD_LEVEL,
+        zstd_workers,
         profile,
         "compact",
     )
+}
+
+/// Refuse to persist a delta-carrying index.
+///
+/// A delta-carrying index serialises a children CSR sized for the pre-patch
+/// record count while the header carries the post-patch count, mis-aligning
+/// every later section for the reader (see
+/// [`DriveCompactIndex::fold_delta_for_save`] for the full mechanism and the
+/// field incidents).  Callers fold the delta first; this guard turns any path
+/// that forgets into a loud error instead of a poisoned cache that
+/// quarantines on the next start.
+fn refuse_delta_carrying(index: &DriveCompactIndex) -> io::Result<()> {
+    if index.delta.is_some() {
+        return Err(io::Error::other(
+            "refusing to persist a delta-carrying compact index: fold the delta first \
+             (DriveCompactIndex::fold_delta_for_save) — its base sections are stale \
+             against the patched records and would serialize misaligned",
+        ));
+    }
+    Ok(())
 }
 
 /// Streams the compact index into a zstd encoder on the calling thread
@@ -1038,28 +1112,36 @@ pub fn save_compact_cache(index: &DriveCompactIndex) -> io::Result<()> {
 /// # Errors
 /// Returns an error only if compression or directory creation fails.
 pub fn save_compact_cache_background(index: &DriveCompactIndex) -> io::Result<()> {
+    save_compact_cache_background_then(index, || {})
+}
+
+/// [`save_compact_cache_background`], running `on_written` on the background
+/// thread once the atomic write has succeeded (not when it fails).
+///
+/// # Errors
+/// Returns an error only if compression or directory creation fails.
+pub fn save_compact_cache_background_then<F>(
+    index: &DriveCompactIndex,
+    on_written: F,
+) -> io::Result<()>
+where
+    F: FnOnce() + Send + 'static,
+{
     // Boundary enforcement of the "on-disk cache is always delta-free"
-    // invariant: a delta-carrying index serialises a children CSR sized
-    // for the pre-patch record count while the header carries the
-    // post-patch count, mis-aligning every later section for the reader
-    // (see `DriveCompactIndex::fold_delta_for_save` for the full
-    // mechanism + field incidents).  Callers fold the delta first; this
-    // guard turns any future path that forgets into a loud error
-    // instead of a poisoned cache that quarantines on the next start.
-    if index.delta.is_some() {
-        return Err(io::Error::other(
-            "refusing to persist a delta-carrying compact index: fold the delta first \
-             (DriveCompactIndex::fold_delta_for_save) — its base sections are stale \
-             against the patched records and would serialize misaligned",
-        ));
-    }
+    // invariant (see `refuse_delta_carrying`).
+    refuse_delta_carrying(index)?;
     let profile = std::env::var_os("UFFS_CACHE_PROFILE").is_some();
     let t_compress = Instant::now();
 
-    // Serialize directly into the zstd encoder — no 1.1 GB buffer.
-    let mut encoder = uffs_mft::cache::new_zstd_mt_encoder(ZSTD_LEVEL)?;
-    serialize_compact_to_writer(index, &mut encoder)?;
-    let compressed = encoder.finish()?;
+    // Serialize directly into the zstd encoder — no 1.1 GB buffer — and
+    // record the decompressed size after it so the loader can allocate it
+    // exactly (`uffs_mft::cache::decompress_sized`).
+    let mut writer =
+        uffs_mft::cache::CountingWriter::new(uffs_mft::cache::new_zstd_mt_encoder(ZSTD_LEVEL)?);
+    serialize_compact_to_writer(index, &mut writer)?;
+    let decompressed_len = writer.written();
+    let mut compressed = writer.into_inner().finish()?;
+    uffs_mft::cache::append_size_trailer(&mut compressed, decompressed_len);
 
     let compress_ms = t_compress.elapsed().as_millis();
     if profile {
@@ -1082,8 +1164,11 @@ pub fn save_compact_cache_background(index: &DriveCompactIndex) -> io::Result<()
     std::thread::Builder::new()
         .name(format!("compact-save-{drive}"))
         .spawn(move || {
-            if let Err(err) = encrypt_and_write(drive, compressed, &path, profile) {
-                tracing::warn!(drive = %drive, error = %err, "Background compact cache save failed");
+            match encrypt_and_write(drive, compressed, &path, profile) {
+                Ok(()) => on_written(),
+                Err(err) => {
+                    tracing::warn!(drive = %drive, error = %err, "Background compact cache save failed");
+                }
             }
         })
         .map_err(|err| io::Error::other(format!("spawn failed: {err}")))?;
@@ -1295,14 +1380,14 @@ fn load_compact_cache_at(
     let key = uffs_security::keystore::get_cache_key()
         .map_err(|err| LoadCacheError::KeyUnavailable(err.to_string()))?;
     let t_decrypt = Instant::now();
-    let decrypted = uffs_security::crypto::decrypt_cache(&raw, &key)
+    let decrypted = uffs_security::crypto::decrypt_cache_in_place(raw, &key)
         .map_err(|err| LoadCacheError::DecryptFailed(err.to_string()))?;
     let decrypt_ms = t_decrypt.elapsed().as_millis();
 
     let t_decompress = Instant::now();
     let is_compressed = decrypted.get(..4).is_some_and(|magic| magic == ZSTD_MAGIC);
     let plaintext = if is_compressed {
-        zstd::decode_all(decrypted.as_slice())
+        uffs_mft::cache::decompress_sized(&decrypted)
             .map_err(|err| LoadCacheError::DecompressFailed(err.to_string()))?
     } else {
         decrypted

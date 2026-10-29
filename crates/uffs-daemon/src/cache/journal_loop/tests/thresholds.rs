@@ -14,7 +14,10 @@
 use alloc::sync::Arc;
 use core::time::Duration;
 
-use super::super::{JournalLoopConfig, JournalSource, PatchSink, SaveReason, spawn_journal_loop};
+use super::super::{
+    JournalLoopConfig, JournalSource, PatchSink, SavePolicy, SaveReason, SaveTrigger,
+    spawn_journal_loop,
+};
 use super::{
     CONVERGENCE_DEADLINE, FakeJournalSource, RecordingSink, null_cursor_store, one_change, wait_for,
 };
@@ -42,6 +45,9 @@ async fn events_threshold_triggers_save() {
         initial_cursor: 0,
         save_threshold_events: 5,
         save_threshold_age: Duration::from_hours(24),
+        save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         apply_interval: Duration::from_hours(24),
         apply_debounce: Duration::from_hours(24),
     };
@@ -93,6 +99,9 @@ async fn age_threshold_triggers_save_with_pending_events() {
         initial_cursor: 0,
         save_threshold_events: u64::MAX,
         save_threshold_age: Duration::from_millis(30),
+        save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         apply_interval: Duration::from_hours(24),
         apply_debounce: Duration::from_hours(24),
     };
@@ -154,6 +163,9 @@ async fn zero_events_drive_does_not_trigger_save() {
         initial_cursor: 0,
         save_threshold_events: 1,
         save_threshold_age: Duration::from_millis(20),
+        save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         apply_interval: Duration::from_hours(24),
         apply_debounce: Duration::from_hours(24),
     };
@@ -208,6 +220,9 @@ async fn counter_resets_after_save() {
         initial_cursor: 0,
         save_threshold_events: 5,
         save_threshold_age: Duration::from_hours(24),
+        save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         apply_interval: Duration::from_hours(24),
         apply_debounce: Duration::from_hours(24),
     };
@@ -239,5 +254,109 @@ async fn counter_resets_after_save() {
         saves.len(),
         1,
         "exactly one save expected (counter reset after first); got {saves:?}"
+    );
+}
+
+/// A policy with every threshold given, for driving [`SaveTrigger`] directly.
+const fn policy(
+    threshold_events: u64,
+    min_interval: Duration,
+    threshold_age: Duration,
+    age_min_events: u64,
+    age_ceiling: Duration,
+) -> SavePolicy {
+    SavePolicy {
+        threshold_events,
+        min_interval,
+        threshold_age,
+        age_min_events,
+        age_ceiling,
+    }
+}
+
+/// Issue #639: a sustained burst must not save on every events-threshold
+/// crossing.  Inside the minimum interval the events threshold is held back;
+/// the counter keeps accumulating, so the save fires as soon as the interval
+/// has passed.
+#[test]
+fn events_threshold_waits_for_min_interval() {
+    let day = Duration::from_hours(24);
+    let mut trigger = SaveTrigger::new();
+    trigger.record(10);
+    assert_eq!(
+        trigger.evaluate(&policy(5, Duration::from_hours(1), day, 0, day)),
+        None,
+        "events past the threshold must wait for the minimum interval",
+    );
+    trigger.record(10);
+    assert_eq!(
+        trigger.evaluate(&policy(5, Duration::ZERO, day, 0, day)),
+        Some(SaveReason::EventsExceeded),
+        "once the interval has passed, the held-back events save fires",
+    );
+    assert_eq!(
+        trigger.evaluate(&policy(5, Duration::ZERO, day, 0, day)),
+        None,
+        "the save reset the counter",
+    );
+}
+
+/// The age save is not held back by the minimum interval.
+#[test]
+fn age_threshold_ignores_min_interval() {
+    let mut trigger = SaveTrigger::new();
+    trigger.record(1);
+    assert_eq!(
+        trigger.evaluate(&policy(
+            1_000,
+            Duration::from_hours(1),
+            Duration::ZERO,
+            0,
+            Duration::MAX
+        )),
+        Some(SaveReason::AgeElapsed),
+    );
+}
+
+/// Measured on the winbox: the age save rewrote D:'s whole 30 M-record cache
+/// every 5 minutes for a handful of changes.  Below the event floor the age
+/// save waits for the ceiling.
+#[test]
+fn age_save_needs_enough_events_until_the_ceiling() {
+    let mut trigger = SaveTrigger::new();
+    trigger.record(3);
+    assert_eq!(
+        trigger.evaluate(&policy(
+            50_000,
+            Duration::ZERO,
+            Duration::ZERO,
+            1_000,
+            Duration::from_hours(1)
+        )),
+        None,
+        "three changes do not justify rewriting the cache before the ceiling",
+    );
+    assert_eq!(
+        trigger.evaluate(&policy(
+            50_000,
+            Duration::ZERO,
+            Duration::ZERO,
+            1_000,
+            Duration::ZERO
+        )),
+        Some(SaveReason::AgeElapsed),
+        "past the ceiling any pending change is saved",
+    );
+    trigger.record(1_000);
+    assert_eq!(
+        trigger.evaluate(&policy(
+            50_000,
+            Duration::ZERO,
+            Duration::ZERO,
+            1_000,
+            Duration::from_hours(1)
+        )),
+        Some(SaveReason::AgeElapsed),
+        "at the event floor the regular age save fires",
     );
 }

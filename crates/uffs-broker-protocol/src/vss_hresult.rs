@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2025-2026 SKY, LLC.
 
-//! The VSS `HRESULT`s this requestor treats specially, each pinned to
-//! its `vsserror.h` name.
+//! The VSS `HRESULT`s the snapshot pipeline treats specially, each
+//! pinned to its `vsserror.h` name — the one table every UFFS component
+//! classifies a VSS failure by.
+//!
+//! Lives in the protocol crate because the `HRESULT` crosses the wire:
+//! `uffs-vss-requestor` decides here whether to retry inside the Broker,
+//! and the Broker's `SnapshotManagerResponse::Error` hands the same code
+//! to the Content Coordinator (uffs-products' `uffs-content`), which
+//! decides whether its own consumer should retry.  The two used to keep
+//! separate copies of this table, which had to be edited together or
+//! drifted silently; one shared table removes the need.
 //!
 //! Platform-independent on purpose: the code ↔ name mapping is plain
 //! data, so its tests run on every host instead of only on Windows CI.
@@ -23,32 +32,36 @@ const fn hr(code: u32) -> i32 {
 }
 
 /// `VSS_E_PROVIDER_VETO` — the provider could not service the request
-/// right now; one of the errors Microsoft's requestor guidance says to
-/// retry.  Observed on real hardware from back-to-back snapshot
+/// right now.
+///
+/// One of the errors Microsoft's requestor guidance says to retry.
+/// Observed on real hardware from back-to-back snapshot
 /// create/release cycles on the same volume.
-pub(crate) const VSS_E_PROVIDER_VETO: i32 = hr(0x8004_2306);
+pub const VSS_E_PROVIDER_VETO: i32 = hr(0x8004_2306);
 /// `VSS_E_FLUSH_WRITES_TIMEOUT` — the flush phase did not finish in
 /// time; the classic symptom of a busy volume.
-pub(crate) const VSS_E_FLUSH_WRITES_TIMEOUT: i32 = hr(0x8004_2313);
+pub const VSS_E_FLUSH_WRITES_TIMEOUT: i32 = hr(0x8004_2313);
 /// `VSS_E_HOLD_WRITES_TIMEOUT` — the write-freeze phase did not finish
 /// in time; the other half of snapshot contention.
-pub(crate) const VSS_E_HOLD_WRITES_TIMEOUT: i32 = hr(0x8004_2314);
+pub const VSS_E_HOLD_WRITES_TIMEOUT: i32 = hr(0x8004_2314);
 /// `VSS_E_SNAPSHOT_SET_IN_PROGRESS` — another shadow-copy operation is
 /// still in flight on this volume.
-pub(crate) const VSS_E_SNAPSHOT_SET_IN_PROGRESS: i32 = hr(0x8004_2316);
+pub const VSS_E_SNAPSHOT_SET_IN_PROGRESS: i32 = hr(0x8004_2316);
 /// `VSS_E_MAXIMUM_NUMBER_OF_SNAPSHOTS_REACHED` — the volume already
-/// holds the maximum number of shadow copies.  Not transient: retrying
+/// holds the maximum number of shadow copies.
+///
+/// Not transient: retrying
 /// cannot help while the limit is reached; deleting an old shadow copy
 /// does.  See [`failure_hint`].
-pub(crate) const VSS_E_MAXIMUM_NUMBER_OF_SNAPSHOTS_REACHED: i32 = hr(0x8004_2317);
+pub const VSS_E_MAXIMUM_NUMBER_OF_SNAPSHOTS_REACHED: i32 = hr(0x8004_2317);
 /// `VSS_E_WRITER_INFRASTRUCTURE` — the VSS writer infrastructure is not
 /// operating properly.  Not a transient a retry can clear.
-pub(crate) const VSS_E_WRITER_INFRASTRUCTURE: i32 = hr(0x8004_2318);
+pub const VSS_E_WRITER_INFRASTRUCTURE: i32 = hr(0x8004_2318);
 /// `VSS_E_WRITERERROR_TIMEOUT` — a writer timed out; retryable by
 /// definition.
-pub(crate) const VSS_E_WRITERERROR_TIMEOUT: i32 = hr(0x8004_23F2);
+pub const VSS_E_WRITERERROR_TIMEOUT: i32 = hr(0x8004_23F2);
 /// `VSS_E_WRITERERROR_RETRYABLE` — a writer reported a retryable error.
-pub(crate) const VSS_E_WRITERERROR_RETRYABLE: i32 = hr(0x8004_23F3);
+pub const VSS_E_WRITERERROR_RETRYABLE: i32 = hr(0x8004_23F3);
 
 /// `HRESULT`s a fresh attempt is expected to clear once the underlying
 /// contention passes.
@@ -62,8 +75,7 @@ pub(crate) const VSS_E_WRITERERROR_RETRYABLE: i32 = hr(0x8004_23F3);
 /// requestor runs `VSS_CTX_FILE_SHARE_BACKUP` with no writer
 /// coordination (see `native/vss_shim.cpp`), so writers should never be
 /// in play, but both codes are retryable by definition if they appear.
-/// Matches uffs-products' orchestrator table code for code.
-pub(crate) const RETRYABLE: [i32; 6] = [
+pub const RETRYABLE: [i32; 6] = [
     VSS_E_PROVIDER_VETO,
     VSS_E_FLUSH_WRITES_TIMEOUT,
     VSS_E_HOLD_WRITES_TIMEOUT,
@@ -73,7 +85,8 @@ pub(crate) const RETRYABLE: [i32; 6] = [
 ];
 
 /// `true` when `hresult` is one of the [`RETRYABLE`] transients.
-pub(crate) fn is_retryable(hresult: i32) -> bool {
+#[must_use]
+pub fn is_retryable(hresult: i32) -> bool {
     RETRYABLE.contains(&hresult)
 }
 
@@ -82,7 +95,8 @@ pub(crate) fn is_retryable(hresult: i32) -> bool {
 /// Appended to the failure message the Broker receives, so a caller
 /// that can act on it is told what to do instead of seeing a generic
 /// failure.  `None` for every code without a specific remedy.
-pub(crate) const fn failure_hint(hresult: i32) -> Option<&'static str> {
+#[must_use]
+pub const fn failure_hint(hresult: i32) -> Option<&'static str> {
     match hresult {
         VSS_E_MAXIMUM_NUMBER_OF_SNAPSHOTS_REACHED => Some(
             "the volume already holds the maximum number of shadow copies; delete an old one \
@@ -163,8 +177,7 @@ mod tests {
         assert!(!is_retryable(VSS_E_WRITER_INFRASTRUCTURE));
     }
 
-    /// The retry set is exactly the six transients, matching
-    /// uffs-products' orchestrator table.
+    /// The retry set is exactly the six transients.
     #[test]
     fn retry_set_is_exactly_the_six_transients() {
         let mut codes: Vec<u32> = RETRYABLE.iter().map(|code| code.cast_unsigned()).collect();

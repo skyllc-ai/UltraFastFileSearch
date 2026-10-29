@@ -196,8 +196,9 @@ use rustc_hash as _;
 // commands (src/commands/windows/info.rs); silence the library's view of it.
 #[cfg(windows)]
 use serde_json as _;
-// `sha2` + `hex` power the Windows-only `capture` command's manifest / SHA256SUMS
-// (src/commands/windows/capture.rs) and the chaos tests; silence the library's view.
+// `sha2` + `hex` power the Windows-only `capture` command's manifest /
+// SHA256SUMS (src/commands/windows/capture.rs) and the chaos tests; silence the
+// library's view.
 #[cfg(any(test, windows))]
 use sha2 as _;
 use smallvec as _;
@@ -315,7 +316,8 @@ pub use io::{
 pub use lcn_resolve::{RecordOutcome, first_data_lcn};
 #[cfg(windows)]
 pub use lcn_resolve::{for_each_record, resolve_frs_to_lcn};
-// Re-export NTFS constants and types (pure Rust data structures, cross-platform)
+// Re-export NTFS constants and types (pure Rust data structures,
+// cross-platform)
 pub use ntfs::SECTOR_SIZE;
 pub use ntfs::{
     AttributeIterator, AttributeListEntry, AttributeRecordHeader, AttributeRef, AttributeType,
@@ -334,9 +336,9 @@ pub use platform::current_euid;
 // uffs-daemon can gate mutating daemon commands on all targets.
 pub use platform::is_elevated;
 // Re-export platform types
-// Core types (DriveType, MftBitmap, MftExtent) are pure data — available on all platforms
-// Windows-specific types and functions (VolumeHandle, detect_ntfs_drives, etc.) only on
-// Windows
+// Core types (DriveType, MftBitmap, MftExtent) are pure data — available on all
+// platforms Windows-specific types and functions (VolumeHandle,
+// detect_ntfs_drives, etc.) only on Windows
 pub use platform::{DriveType, MftBitmap, MftExtent, SystemMemory, query_system_memory};
 pub use platform::{Lcn, registered_broker_handle_count};
 // External-API anchors with cross-crate consumers.  Other Windows-only

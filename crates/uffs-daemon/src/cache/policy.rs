@@ -149,9 +149,11 @@ pub(crate) const USN_REFRESH_INTERVAL_ENV: &str = "UFFS_USN_REFRESH_INTERVAL_SEC
 /// loop polls `SearchFilters::cancel`) and the client gets a JSON-RPC
 /// `ERR_SEARCH_TIMEOUT` error — never a success-shaped empty result.
 /// 30 s covers a full `*.*` over ~45 M records on the reference box
-/// with headroom; the budget is deliberately below the client's own
-/// 60 s `UFFS_CLIENT_TIMEOUT_SECS` deadline so the error reaches the
-/// client instead of the client giving up first and orphaning the scan.
+/// with headroom; the budget is deliberately far below the client's own
+/// `UFFS_CLIENT_TIMEOUT_SECS` deadline (600 s default) so the error reaches
+/// the client instead of the client giving up first and orphaning the scan.
+/// Paging parked drives back in happens before the scan and does not count
+/// against this budget.
 pub(crate) const SEARCH_SCAN_BUDGET_SECS: u64 = 30;
 
 /// Env var that overrides [`SEARCH_SCAN_BUDGET_SECS`].
@@ -377,10 +379,10 @@ pub(crate) const fn next_state_for_idle_with_thresholds(
         ShardState::Parked if idle_secs >= thresholds.parked_to_cold_secs => Some(ShardState::Cold),
         // Two distinct cases collapsed into one arm because they
         // share the same outcome:
-        //   * Hot / Warm / Parked: idle window not exceeded for the current tier (the guard above
-        //     this arm failed).
-        //   * Cold / Unknown / Evicting: floor + controller-only states; the policy never targets
-        //     these.
+        //   * Hot / Warm / Parked: idle window not exceeded for the current
+        //     tier (the guard above this arm failed).
+        //   * Cold / Unknown / Evicting: floor + controller-only states; the
+        //     policy never targets these.
         ShardState::Hot
         | ShardState::Warm
         | ShardState::Parked

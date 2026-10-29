@@ -57,11 +57,7 @@ fn broker_pipe_round_trip(
     use uffs_broker_protocol::{HandleRequest, PIPE_NAME, RESPONSE_WIRE_LEN};
 
     tracing::debug!(drive = %drive_letter, pipe = PIPE_NAME, "Opening broker pipe");
-    let mut pipe = std::fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(std::path::Path::new(PIPE_NAME))
-        .map_err(|err| anyhow::anyhow!("opening broker pipe: {err}"))?;
+    let mut pipe = open_broker_pipe(PIPE_NAME)?;
     tracing::debug!(drive = %drive_letter, "Broker pipe opened; sending request");
 
     let request_bytes = HandleRequest {
@@ -75,6 +71,38 @@ fn broker_pipe_round_trip(
     pipe.read_exact(&mut response)?;
     tracing::debug!(drive = %drive_letter, "Broker response received");
     Ok(response)
+}
+
+/// Open `pipe_name`, retrying only `ERROR_PIPE_BUSY` (231).
+///
+/// The Broker keeps one listening instance and creates the next right
+/// after a client connects, so for a few microseconds every instance can be
+/// taken — by a Coordinator asking for a VSS lease, or by a second daemon
+/// overlapping this one across a restart.  Retrying is safe because nothing
+/// has been sent yet; without it the drive falls back to a direct open,
+/// which a non-elevated daemon cannot make.  Backoff 10, 20, 40, 80 ms.
+#[cfg(windows)]
+fn open_broker_pipe(pipe_name: &str) -> anyhow::Result<std::fs::File> {
+    /// `ERROR_PIPE_BUSY`: every instance is connected for the moment.
+    const ERROR_PIPE_BUSY: i32 = 231;
+    /// Open attempts before the busy pipe counts as a failure.
+    const OPEN_ATTEMPTS: u32 = 5;
+
+    let mut attempt = 1_u32;
+    loop {
+        match std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(std::path::Path::new(pipe_name))
+        {
+            Ok(pipe) => return Ok(pipe),
+            Err(err) if err.raw_os_error() == Some(ERROR_PIPE_BUSY) && attempt < OPEN_ATTEMPTS => {
+                std::thread::sleep(core::time::Duration::from_millis(10_u64 << (attempt - 1)));
+                attempt += 1;
+            }
+            Err(err) => anyhow::bail!("opening broker pipe: {err}"),
+        }
+    }
 }
 
 /// Parse and interpret the broker's 9-byte response into a handle value.

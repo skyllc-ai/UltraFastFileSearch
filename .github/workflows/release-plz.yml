@@ -363,7 +363,7 @@ jobs:
         run: rustup show
 
       - name: Cache cargo dependencies
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           # Dedicated cache key — separate from R3 shadow cache so
           # the cache effects of active mode (which compiles different
@@ -375,7 +375,7 @@ jobs:
         # Pinned to commit SHA of the v0.5.128 tag (resolved 2026-05-08)
         # for supply-chain hygiene.  Bump alongside other action pins
         # via the standard Dependabot or manual-refresh process.
-        uses: release-plz/action@f393a7b38aca9d9b4c58447b291dbac963901df6 # v0.5.141
+        uses: release-plz/action@7ef5e4d4b0420630cfcaeb182c01e13651d4c577 # v0.5.145
         with:
           command: release-pr
           config: release-plz.toml
@@ -421,7 +421,7 @@ jobs:
         run: rustup show
 
       - name: Cache cargo dependencies
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: release-plz-active-release
 
@@ -431,7 +431,7 @@ jobs:
         # job runs on every push but only does work when the PR
         # actually merged.
         id: release-plz
-        uses: release-plz/action@f393a7b38aca9d9b4c58447b291dbac963901df6 # v0.5.141
+        uses: release-plz/action@7ef5e4d4b0420630cfcaeb182c01e13651d4c577 # v0.5.145
         with:
           command: release
           config: release-plz.toml
@@ -526,7 +526,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Cache cargo dependencies
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: crates-io-publish
 
@@ -543,7 +543,7 @@ jobs:
       # this workflow filename + the `crates.io-publish` environment).
       - name: Authenticate with crates.io (OIDC)
         id: auth
-        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
 
       # Publish the publishable crates, dependency-ordered.  The set is
       # derived from `cargo metadata` (publish != []) so it adapts as

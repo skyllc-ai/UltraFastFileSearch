@@ -278,7 +278,8 @@ fn children_overlay_equals_compacted_rebuild_oracle() {
     let mut drive = build_nested_dir_fixture();
 
     apply_usn_patch(&mut drive, &[
-        // Move moved.txt (frs8) from alpha(6) to beta(7) — same name, new parent.
+        // Move moved.txt (frs8) from alpha(6) to beta(7) — same name, new
+        // parent.
         FileChange {
             frs: 8_u64.into(),
             parent_frs: 7_u64.into(),

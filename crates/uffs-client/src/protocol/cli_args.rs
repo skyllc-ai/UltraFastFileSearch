@@ -52,7 +52,8 @@ impl SearchParams {
                 "--hide-system" => raw.hide_system = true,
                 "--hide-ads" => raw.hide_ads = true,
                 "--normalize-malformed" => raw.normalize_malformed = true,
-                // Diagnostic only -- uffs-content sets this itself for real jobs.
+                // Diagnostic only -- uffs-content sets this itself for real
+                // jobs.
                 "--resolve-lcn-order" => raw.resolve_lcn_order = true,
                 // WI-4.4 forensic filters: find ill-formed (non-UTF-8) names.
                 "--malformed" => raw.malformed = Some(true),
@@ -95,9 +96,9 @@ impl SearchParams {
                     raw.agg_page_size = Some(parse_u16("--agg-page-size", &pv)?);
                 }
                 "--attr" => raw.attr = Some(flag_val(&arg, "--attr", &mut iter)?),
-                // Snapshot delete-visibility diff: search the deleted set of the
-                // given baseline MFT capture vs the live index. Every other flag
-                // then filters/shapes that set like a normal search.
+                // Snapshot delete-visibility diff: search the deleted set of
+                // the given baseline MFT capture vs the live index. Every other
+                // flag then filters/shapes that set like a normal search.
                 "--diff" => raw.diff_baseline = Some(flag_val(&arg, "--diff", &mut iter)?),
                 "--newer" => raw.newer = Some(flag_val(&arg, "--newer", &mut iter)?),
                 "--older" => raw.older = Some(flag_val(&arg, "--older", &mut iter)?),
@@ -735,8 +736,8 @@ impl RawCliArgs {
             // Profiling
             profile: self.profile || self.benchmark,
             aggregations,
-            // Row precedence (high → low): --rows (on) > agg (off) > --no-output (off) > default
-            // (on).
+            // Row precedence (high → low): --rows (on) > agg (off) >
+            // --no-output (off) > default (on).
             include_rows: force_rows || (agg_specs.is_empty() && !self.no_output),
             resolve_lcn_order: self.resolve_lcn_order,
             agg_cursor: self.agg_cursor,

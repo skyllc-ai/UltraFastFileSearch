@@ -52,8 +52,9 @@ mod triggers;
 
 pub(crate) use poll::{MAX_POLL_BACKOFF, PollBackoff};
 pub(crate) use triggers::{
-    ApplyTrigger, DEFAULT_APPLY_DEBOUNCE_MS, DEFAULT_APPLY_INTERVAL_MS, DEFAULT_SAVE_THRESHOLD_AGE,
-    DEFAULT_SAVE_THRESHOLD_EVENTS, SaveReason, SaveTrigger,
+    ApplyTrigger, DEFAULT_APPLY_DEBOUNCE_MS, DEFAULT_APPLY_INTERVAL_MS, DEFAULT_SAVE_AGE_CEILING,
+    DEFAULT_SAVE_AGE_MIN_EVENTS, DEFAULT_SAVE_MIN_INTERVAL, DEFAULT_SAVE_THRESHOLD_AGE,
+    DEFAULT_SAVE_THRESHOLD_EVENTS, SavePolicy, SaveReason, SaveTrigger,
 };
 
 /// Default poll interval for the per-shard journal loop (500 ms).
@@ -199,6 +200,16 @@ pub(crate) trait PatchSink: Send + Sync + 'static {
     /// Fire-and-forget, same as `trigger_save`.
     fn trigger_apply(&self, letter: uffs_mft::platform::DriveLetter);
 
+    /// Whether changes for `letter` are buffered and not yet applied.
+    ///
+    /// The production sink puts a batch back when its drive is not warm
+    /// yet; reporting it here keeps the loop's apply cadence armed, so the
+    /// held changes are applied as soon as the drive is, even when no new
+    /// change arrives.  Sinks that never hold anything keep the default.
+    fn has_pending(&self, _letter: uffs_mft::platform::DriveLetter) -> bool {
+        false
+    }
+
     /// Notify the sink that the USN journal for `letter` was
     /// detected to have wrapped (Phase 7 task 7.7).
     ///
@@ -271,6 +282,15 @@ pub(crate) struct JournalLoopConfig {
     /// when at least one event is pending.  Default
     /// [`DEFAULT_SAVE_THRESHOLD_AGE`] (5 min).
     pub(crate) save_threshold_age: Duration,
+    /// Minimum gap between two events-driven saves.  Default
+    /// [`DEFAULT_SAVE_MIN_INTERVAL`] (60 s).
+    pub(crate) save_min_interval: Duration,
+    /// Fewest pending events for the age save.  Default
+    /// [`DEFAULT_SAVE_AGE_MIN_EVENTS`] (1 000).
+    pub(crate) save_age_min_events: u64,
+    /// Age after which any pending event makes a save due.  Default
+    /// [`DEFAULT_SAVE_AGE_CEILING`] (1 h).
+    pub(crate) save_age_ceiling: Duration,
     /// Search-freshness apply **max-wait** cap (Phase 5) — the ceiling of the
     /// debounce model. A burst that never settles is force-applied at least
     /// this often, bounding both freshness lag and apply CPU under sustained
@@ -283,6 +303,19 @@ pub(crate) struct JournalLoopConfig {
     pub(crate) apply_debounce: Duration,
 }
 
+impl JournalLoopConfig {
+    /// The save thresholds as one [`SavePolicy`].
+    pub(crate) const fn save_policy(&self) -> SavePolicy {
+        SavePolicy {
+            threshold_events: self.save_threshold_events,
+            min_interval: self.save_min_interval,
+            threshold_age: self.save_threshold_age,
+            age_min_events: self.save_age_min_events,
+            age_ceiling: self.save_age_ceiling,
+        }
+    }
+}
+
 impl Default for JournalLoopConfig {
     fn default() -> Self {
         Self {
@@ -290,6 +323,9 @@ impl Default for JournalLoopConfig {
             initial_cursor: 0,
             save_threshold_events: DEFAULT_SAVE_THRESHOLD_EVENTS,
             save_threshold_age: DEFAULT_SAVE_THRESHOLD_AGE,
+            save_min_interval: DEFAULT_SAVE_MIN_INTERVAL,
+            save_age_min_events: DEFAULT_SAVE_AGE_MIN_EVENTS,
+            save_age_ceiling: DEFAULT_SAVE_AGE_CEILING,
             apply_interval: Duration::from_millis(DEFAULT_APPLY_INTERVAL_MS),
             apply_debounce: Duration::from_millis(DEFAULT_APPLY_DEBOUNCE_MS),
         }
@@ -533,6 +569,9 @@ fn process_tick(
 ) {
     if changes.is_empty() {
         tracing::trace!(drive = %letter, "Journal poll: no changes");
+        if sink.has_pending(letter) {
+            apply_trigger.record();
+        }
     } else {
         let accepted = sink.accept(letter, changes);
         save_trigger.record(changes.len() as u64);
@@ -577,9 +616,7 @@ fn fire_due_cadence(
     apply_trigger: &mut ApplyTrigger,
     config: &JournalLoopConfig,
 ) {
-    if let Some(reason) =
-        save_trigger.evaluate(config.save_threshold_events, config.save_threshold_age)
-    {
+    if let Some(reason) = save_trigger.evaluate(&config.save_policy()) {
         // A save drains + applies the buffer AND writes the body to
         // disk + persists the cursor — so it subsumes the apply tick.
         sink.trigger_save(letter, reason, cursor);

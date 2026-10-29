@@ -243,7 +243,7 @@ impl SampleHeap {
 
     /// Number of entries currently in the heap.
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         if self.sort_desc {
             self.heap_desc.len()
         } else {
@@ -253,7 +253,7 @@ impl SampleHeap {
 
     /// Whether the heap is empty.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 

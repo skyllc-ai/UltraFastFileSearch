@@ -31,52 +31,6 @@ url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
 [imports.zcash]
 url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/audits.toml"
 
-[policy.polars]
-
-[policy.polars-arrow]
-
-[policy.polars-buffer]
-
-[policy.polars-compute]
-
-[policy.polars-config]
-
-[policy.polars-core]
-
-[policy.polars-dtype]
-
-[policy.polars-error]
-
-[policy.polars-expr]
-
-[policy.polars-io]
-
-[policy.polars-json]
-
-[policy.polars-lazy]
-
-[policy.polars-mem-engine]
-
-[policy.polars-ooc]
-
-[policy.polars-ops]
-
-[policy.polars-parquet]
-
-[policy.polars-plan]
-
-[policy.polars-row]
-
-[policy.polars-schema]
-
-[policy.polars-sql]
-
-[policy.polars-stream]
-
-[policy.polars-time]
-
-[policy.polars-utils]
-
 [policy.uffs-bench]
 audit-as-crates-io = false
 
@@ -262,10 +216,6 @@ criteria = "safe-to-deploy"
 version = "0.2.4"
 criteria = "safe-to-deploy"
 
-[[exemptions.chacha20]]
-version = "0.10.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.chrono]]
 version = "0.4.44"
 criteria = "safe-to-deploy"
@@ -426,10 +376,6 @@ criteria = "safe-to-deploy"
 version = "0.3.4"
 criteria = "safe-to-deploy"
 
-[[exemptions.getrandom]]
-version = "0.4.3"
-criteria = "safe-to-deploy"
-
 [[exemptions.half]]
 version = "2.7.1"
 criteria = "safe-to-deploy"
@@ -450,36 +396,8 @@ criteria = "safe-to-deploy"
 version = "0.4.2"
 criteria = "safe-to-deploy"
 
-[[exemptions.humantime]]
-version = "2.3.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.iana-time-zone]]
 version = "0.1.65"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_collections]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_locale_core]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_normalizer]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_properties]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_properties_data]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_provider]]
-version = "2.2.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.idna_adapter]]
@@ -570,10 +488,6 @@ criteria = "safe-to-deploy"
 version = "1.70.2"
 criteria = "safe-to-deploy"
 
-[[exemptions.openssl-probe]]
-version = "0.2.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.parking_lot]]
 version = "0.12.5"
 criteria = "safe-to-deploy"
@@ -636,14 +550,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.rand_chacha]]
 version = "0.10.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.rand_core]]
-version = "0.10.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.rand_pcg]]
-version = "0.10.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.raw-cpuid]]
@@ -814,10 +720,6 @@ criteria = "safe-to-deploy"
 version = "0.1.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.sync_wrapper]]
-version = "1.0.2"
-criteria = "safe-to-deploy"
-
 [[exemptions.sysinfo]]
 version = "0.37.2"
 criteria = "safe-to-deploy"
@@ -836,14 +738,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.time-macros]]
 version = "0.2.32"
-criteria = "safe-to-deploy"
-
-[[exemptions.tinystr]]
-version = "0.8.3"
-criteria = "safe-to-deploy"
-
-[[exemptions.tinyvec]]
-version = "1.11.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.tokio-macros]]
@@ -894,10 +788,6 @@ criteria = "safe-to-deploy"
 version = "0.5.2"
 criteria = "safe-to-deploy"
 
-[[exemptions.untrusted]]
-version = "0.9.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.unty]]
 version = "0.0.4"
 criteria = "safe-to-deploy"
@@ -924,10 +814,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.wasm-streams]]
 version = "0.4.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.web-time]]
-version = "1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.which]]
@@ -1030,16 +916,8 @@ criteria = "safe-to-deploy"
 version = "0.52.6"
 criteria = "safe-to-deploy"
 
-[[exemptions.yoke]]
-version = "0.8.2"
-criteria = "safe-to-deploy"
-
 [[exemptions.zerotrie]]
 version = "0.2.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.zerovec]]
-version = "0.11.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.zstd]]

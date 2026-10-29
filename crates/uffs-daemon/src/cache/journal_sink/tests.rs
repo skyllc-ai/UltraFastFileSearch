@@ -678,3 +678,64 @@ async fn coalesce_does_not_swallow_save() {
         "Save must be carried out intact, not merged into the apply batch",
     );
 }
+
+/// A batch that reaches the applier while its drive is not warm goes back
+/// to the front of the pending buffer, in order, instead of being dropped —
+/// the first apply after a promote installs the body picks it up.
+#[tokio::test]
+async fn batch_for_drive_that_is_not_warm_is_held_in_order() {
+    let idx = fresh_index_manager(); // no drives registered: nothing is warm
+    let (sink, applier) = RegistryPatchSink::spawn_with_applier(&idx, RecordingCursorStore::new());
+    let letter = uffs_mft::platform::DriveLetter::C;
+
+    sink.accept(letter, &[make_change(1), make_change(2)]);
+    sink.trigger_apply(letter);
+    let deadline = tokio::time::Instant::now() + core::time::Duration::from_secs(5);
+    while !sink.has_pending(letter) {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "the applier must hand the batch back within 5 s",
+        );
+        tokio::time::sleep(core::time::Duration::from_millis(5)).await;
+    }
+
+    // A change buffered after the hold queues behind the held batch.
+    sink.accept(letter, &[make_change(3)]);
+    assert_eq!(
+        pending_frs_for_letter(&sink, letter),
+        Some(vec![1, 2, 3]),
+        "held changes stay in front of newer ones",
+    );
+
+    drop(sink);
+    tokio::time::timeout(core::time::Duration::from_secs(5), applier)
+        .await
+        .expect("applier must exit within 5 s")
+        .expect("applier must not panic");
+}
+
+/// The hold keeps the newest [`MAX_HELD_CHANGES`]: a drive parked for a long
+/// time cannot grow its buffer without bound, and the changes that matter
+/// after a promote are the newest ones.
+#[test]
+fn requeue_keeps_the_newest_changes_up_to_the_cap() {
+    let pending: PendingBuffers = Arc::default();
+    let letter = uffs_mft::platform::DriveLetter::C;
+    lock_buffers(&pending).insert(letter, vec![make_change(u64::MAX)]);
+
+    let older: Vec<FileChange> = (0..MAX_HELD_CHANGES as u64).map(make_change).collect();
+    requeue_front(&pending, letter, older);
+
+    let held = lock_buffers(&pending).remove(&letter).unwrap_or_default();
+    assert_eq!(held.len(), MAX_HELD_CHANGES, "the buffer is capped");
+    assert_eq!(
+        held.first().map(|change| change.frs.raw()),
+        Some(1),
+        "the oldest change is dropped"
+    );
+    assert_eq!(
+        held.last().map(|change| change.frs.raw()),
+        Some(u64::MAX),
+        "the newest change survives"
+    );
+}

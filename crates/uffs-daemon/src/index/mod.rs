@@ -19,6 +19,7 @@ pub(crate) mod forget_drive;
 mod hotload;
 mod info;
 mod journal;
+pub(crate) mod journal_save;
 mod loading;
 mod physical_order;
 mod predicates;

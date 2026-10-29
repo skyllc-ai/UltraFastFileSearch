@@ -318,14 +318,14 @@ fn read_decompressed_plaintext(
     let key = uffs_security::keystore::get_cache_key()
         .map_err(|err| LoadCacheError::KeyUnavailable(err.to_string()))?;
     let t_decrypt = Instant::now();
-    let decrypted = uffs_security::crypto::decrypt_cache(&raw, &key)
+    let decrypted = uffs_security::crypto::decrypt_cache_in_place(raw, &key)
         .map_err(|err| LoadCacheError::DecryptFailed(err.to_string()))?;
     let decrypt_ms = t_decrypt.elapsed().as_millis();
 
     let t_decompress = Instant::now();
     let is_compressed = decrypted.get(..4).is_some_and(|magic| magic == ZSTD_MAGIC);
     let plaintext = if is_compressed {
-        zstd::decode_all(decrypted.as_slice())
+        uffs_mft::cache::decompress_sized(&decrypted)
             .map_err(|err| LoadCacheError::DecompressFailed(err.to_string()))?
     } else {
         decrypted

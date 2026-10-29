@@ -14,6 +14,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.46] - 2026-10-29
+
+### Fixed
+
+- daemon: stop journal saves from taking the machine under heavy churn
+- daemon: seed the startup cursor only after the rebuilt cache is written
+- broker: keep a client that connected before ConnectNamedPipe
+- status: report a re-warming drive truthfully and count its promotions
+- cli: wait up to 10 minutes for a search, silently, and name what did not finish
+- deps: rustls 0.23.46, rustls-webpki 0.103.16, ctutils 0.4.6 and the zstd 0.14 line for RUSTSEC advisories
+- lints: give every #[deprecated] the version that deprecated it
+
+### Performance
+
+- daemon: re-warm a parked drive from its cache plus the journal
+- daemon: write saves without copying the index; skip near-empty age saves
+- cache: load caches with one buffer per stage, sized exactly
+
 ## [0.6.45] - 2026-10-13
 
 ### Fixed
@@ -2903,7 +2921,8 @@ thin clients over a unified `uffsd` process.
 ### Fixed
 - Various MFT parsing edge cases
 
-[Unreleased]: https://github.com/skyllc-ai/UltraFastFileSearch/compare/v0.6.45...HEAD
+[Unreleased]: https://github.com/skyllc-ai/UltraFastFileSearch/compare/v0.6.46...HEAD
+[0.6.46]: https://github.com/skyllc-ai/UltraFastFileSearch/compare/v0.6.45...v0.6.46
 [0.6.45]: https://github.com/skyllc-ai/UltraFastFileSearch/compare/v0.6.44...v0.6.45
 [0.6.44]: https://github.com/skyllc-ai/UltraFastFileSearch/compare/v0.6.43...v0.6.44
 [0.6.43]: https://github.com/skyllc-ai/UltraFastFileSearch/compare/v0.6.42...v0.6.43

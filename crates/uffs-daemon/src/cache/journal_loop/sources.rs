@@ -174,7 +174,7 @@ impl WindowsJournalSource {
     /// 500 ms window; cap the read so a single poll can't stall the loop.
     /// Records past the cap keep `meta = None` for this poll and are
     /// backfilled on a subsequent one (or by the next full re-warm).
-    const MAX_TARGETED_READS_PER_POLL: usize = 4096;
+    pub(crate) const MAX_TARGETED_READS_PER_POLL: usize = 4096;
 
     /// Issue one batched targeted MFT read for the created/renamed FRSes in
     /// `changes` and attach the recovered [`uffs_mft::usn::RecordMeta`] to

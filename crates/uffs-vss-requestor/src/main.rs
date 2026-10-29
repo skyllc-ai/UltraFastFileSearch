@@ -25,10 +25,6 @@
 
 #[cfg(windows)]
 mod ffi;
-// Plain data (codes + names); compiled for tests on every host so the
-// code-to-name pins run outside Windows CI too.
-#[cfg(any(windows, test))]
-mod hresult;
 #[cfg(windows)]
 mod pipe;
 #[cfg(windows)]

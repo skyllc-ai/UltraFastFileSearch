@@ -66,7 +66,7 @@ use owned_handle::OwnedHandle;
 #[path = "broker/pipe.rs"]
 mod pipe;
 #[cfg(windows)]
-use pipe::create_broker_pipe;
+use pipe::{create_broker_pipe, wait_for_client};
 
 // Snapshot Manager: the Coordinator-facing VSS-lease API (a separate pipe
 // from the daemon's MFT-handle channel above), spawned from
@@ -455,26 +455,6 @@ fn audit_log(action: &str, pid: u32, exe: Option<&str>, drive: Option<char>, det
 }
 
 // ── D7.3: Named Pipe Operations ─────────────────────────────────────────
-
-/// Wait for a client to connect to the pipe.
-#[cfg(windows)]
-#[expect(unsafe_code, reason = "ConnectNamedPipe is an FFI call")]
-fn wait_for_client(pipe: windows::Win32::Foundation::HANDLE) -> anyhow::Result<()> {
-    use windows::Win32::System::Pipes::ConnectNamedPipe;
-
-    // SAFETY: `pipe` is an owned valid pipe HANDLE (HANDLE is Copy); the
-    // second argument is None (synchronous wait).
-    let result = unsafe { ConnectNamedPipe(pipe, None) };
-
-    if let Err(win_err) = result {
-        // ERROR_PIPE_CONNECTED (535) means client connected before we called
-        // ConnectNamedPipe — that's OK
-        if win_err.code().0 != 535_i32 {
-            anyhow::bail!("ConnectNamedPipe failed: {win_err}");
-        }
-    }
-    Ok(())
-}
 
 /// Disconnect any connected client from a pipe instance (the handle itself is
 /// closed separately — by [`close_pipe`] or the worker's [`OwnedHandle`] drop).

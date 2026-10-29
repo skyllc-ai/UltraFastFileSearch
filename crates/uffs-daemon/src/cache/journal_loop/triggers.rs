@@ -47,6 +47,35 @@ pub(crate) const DEFAULT_SAVE_THRESHOLD_EVENTS: u64 = 50_000;
 /// path without changing the operator-visible recovery window.
 pub(crate) const DEFAULT_SAVE_THRESHOLD_AGE: Duration = Duration::from_mins(5);
 
+/// Fewest pending events that make the [`DEFAULT_SAVE_THRESHOLD_AGE`] save
+/// worth it — 1 000.
+///
+/// A save rewrites the drive's whole cache.  Measured on the winbox
+/// (2026-10-28/29), the age save of the 30.8 M-record D: cost ~60 CPU-seconds
+/// and several GB every 5 minutes for a handful of changes (its cursor moved a
+/// few hundred bytes).  Fewer changes than this cost nothing to replay from the
+/// journal on a cold start or a re-warm, so they wait for
+/// [`DEFAULT_SAVE_AGE_CEILING`] instead.
+pub(crate) const DEFAULT_SAVE_AGE_MIN_EVENTS: u64 = 1_000;
+
+/// Longest a drive with any pending events goes without a save — 1 hour.
+///
+/// Bounds how far behind the on-disk cache of a quiet drive can fall, so the
+/// replay a re-warm needs stays well inside what one targeted MFT read covers.
+pub(crate) const DEFAULT_SAVE_AGE_CEILING: Duration = Duration::from_hours(1);
+
+/// Default minimum gap between two **events-driven** saves — 60 seconds.
+///
+/// Measured on the winbox 2026-10-28 (issue #639): one compact-cache save of a
+/// 4 M-record C: costs 15-35 CPU-seconds and 1-5 GB of transient memory, and a
+/// 200 k-file burst crossed [`DEFAULT_SAVE_THRESHOLD_EVENTS`] every ~18 s, so
+/// saves ran back to back for the whole burst.  The saves only bound how far a
+/// cold start must replay the journal; search freshness comes from the apply
+/// tick, which is unaffected.  One save a minute under sustained churn keeps
+/// that replay window small while giving the CPU back to whatever is causing
+/// the churn.  The [`DEFAULT_SAVE_THRESHOLD_AGE`] save is not gated by this.
+pub(crate) const DEFAULT_SAVE_MIN_INTERVAL: Duration = Duration::from_mins(1);
+
 /// Default apply **max-wait** cap for the per-shard journal loop — 2 seconds
 /// (Phase 5).
 ///
@@ -96,6 +125,22 @@ pub(crate) enum SaveReason {
     AgeElapsed,
 }
 
+/// The thresholds [`SaveTrigger::evaluate`] checks (see the `DEFAULT_SAVE_*`
+/// constants for the defaults and their reasons).
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct SavePolicy {
+    /// Pending events that make a save due.
+    pub(crate) threshold_events: u64,
+    /// Minimum gap between two events-driven saves.
+    pub(crate) min_interval: Duration,
+    /// Age after which a save is due, given `age_min_events`.
+    pub(crate) threshold_age: Duration,
+    /// Fewest pending events for the age save.
+    pub(crate) age_min_events: u64,
+    /// Age after which any pending event makes a save due.
+    pub(crate) age_ceiling: Duration,
+}
+
 /// Per-shard save-threshold state machine (Phase 7 task 7.4).
 ///
 /// Tracks the wall-clock time of the last save trigger and the
@@ -143,19 +188,26 @@ impl SaveTrigger {
     /// Returns `None` when no threshold is crossed *or* when no
     /// events are pending (zero-churn drives never produce
     /// no-op saves).
-    pub(super) fn evaluate(
-        &mut self,
-        save_threshold_events: u64,
-        save_threshold_age: Duration,
-    ) -> Option<SaveReason> {
+    ///
+    /// The events threshold only fires once `min_interval` has passed since
+    /// the previous save, so a sustained burst saves at most once per interval
+    /// instead of on every threshold crossing.  The age threshold only fires
+    /// with at least `age_min_events` pending, or once `age_ceiling` has
+    /// passed with any.
+    pub(super) fn evaluate(&mut self, policy: &SavePolicy) -> Option<SaveReason> {
         if self.events_since_save == 0 {
             return None;
         }
         let now = Instant::now();
         let elapsed = now.saturating_duration_since(self.last_save_at);
-        let reason = if self.events_since_save >= save_threshold_events {
+        let events_due =
+            self.events_since_save >= policy.threshold_events && elapsed >= policy.min_interval;
+        let age_due = (elapsed >= policy.threshold_age
+            && self.events_since_save >= policy.age_min_events)
+            || elapsed >= policy.age_ceiling;
+        let reason = if events_due {
             Some(SaveReason::EventsExceeded)
-        } else if elapsed >= save_threshold_age {
+        } else if age_due {
             Some(SaveReason::AgeElapsed)
         } else {
             None

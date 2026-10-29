@@ -130,8 +130,9 @@ pub(crate) async fn cmd_save(
         compression_level,
         volume_letter: drive,
         raw_compat,
-        // `save` doesn't compute the root reserved-cluster adjustment; `capture`
-        // is the path that bakes it into the header for offline parity.
+        // `save` doesn't compute the root reserved-cluster adjustment;
+        // `capture` is the path that bakes it into the header for offline
+        // parity.
         reserved_allocated_bytes: 0,
     };
 

@@ -494,7 +494,8 @@ pub fn parse_record_full(data: &[u8], frs: u64) -> ParseResult {
                 });
             }
             // Skip known non-stream attributes silently.
-            // Note: SecurityDescriptor (0x50) IS counted as a stream (catch-all below).
+            // Note: SecurityDescriptor (0x50) IS counted as a stream (catch-all
+            // below).
             Some(AttributeType::StandardInformation | AttributeType::FileName) => {}
             _ => {
                 // All remaining attribute types are counted as streams.

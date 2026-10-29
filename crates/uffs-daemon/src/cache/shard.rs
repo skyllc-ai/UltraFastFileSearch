@@ -254,10 +254,12 @@ impl ShardEntry {
         drive: uffs_mft::platform::DriveLetter,
         body: Arc<DriveCompactIndex>,
     ) -> Self {
+        let stats = Arc::new(DriveStats::new());
+        stats.set_last_known_records(body.records.len() as u64);
         Self {
             drive,
             state: AtomicU8::new(ShardState::Warm as u8),
-            stats: Arc::new(DriveStats::new()),
+            stats,
             body: Some(body),
             parked_body: None,
             pin_until_ms: AtomicU64::new(0),
@@ -270,11 +272,12 @@ impl ShardEntry {
     /// is lifted into the new `Warm` `ShardEntry` so the per-drive
     /// query counters survive the round-trip through demote-and-back.
     #[must_use]
-    pub(crate) const fn new_warm_with_stats(
+    pub(crate) fn new_warm_with_stats(
         drive: uffs_mft::platform::DriveLetter,
         body: Arc<DriveCompactIndex>,
         stats: Arc<DriveStats>,
     ) -> Self {
+        stats.set_last_known_records(body.records.len() as u64);
         Self {
             drive,
             state: AtomicU8::new(ShardState::Warm as u8),
@@ -299,11 +302,12 @@ impl ShardEntry {
     /// query counters and `last_query_at_ms` survive the round-trip
     /// through Cold/Parked → Warm → Hot.
     #[must_use]
-    pub(crate) const fn new_hot_with_stats(
+    pub(crate) fn new_hot_with_stats(
         drive: uffs_mft::platform::DriveLetter,
         body: Arc<DriveCompactIndex>,
         stats: Arc<DriveStats>,
     ) -> Self {
+        stats.set_last_known_records(body.records.len() as u64);
         Self {
             drive,
             state: AtomicU8::new(ShardState::Hot as u8),
@@ -516,19 +520,14 @@ impl ShardEntry {
     /// revisits the layout.
     ///
     /// [`DriveCompactIndex::frs_to_compact`]: uffs_core::compact::DriveCompactIndex::frs_to_compact
-    /// `fold_delta` — pass `true` on a SAVE-bound patch: the returned
-    /// body will be serialised, and a delta-carrying index must never
-    /// reach the writer (its base CSR sections are stale against the
-    /// patched records — see
-    /// [`DriveCompactIndex::fold_delta_for_save`]).  The apply-only
-    /// tick passes `false` and keeps the cheap overlay.
-    ///
-    /// [`DriveCompactIndex::fold_delta_for_save`]: uffs_core::compact::DriveCompactIndex::fold_delta_for_save
+    /// The returned body keeps the cheap delta overlay.  A save folds a
+    /// private copy of it before serialising (see
+    /// `crate::index::journal_save`), so the live body is never rebuilt
+    /// O(total records) just because a save is due.
     #[must_use]
     pub(crate) fn apply_usn_patch_to_body(
         &self,
         changes: &[uffs_mft::usn::FileChange],
-        fold_delta: bool,
     ) -> Option<(
         Arc<DriveCompactIndex>,
         uffs_core::compact_loader::PatchStats,
@@ -546,9 +545,6 @@ impl ShardEntry {
         // the small delta, not the hundreds-of-MB inverted indexes.
         let mut owned: DriveCompactIndex = (**body_arc).clone();
         let stats = uffs_core::compact_loader::apply_usn_patch(&mut owned, changes);
-        if fold_delta {
-            owned.fold_delta_for_save();
-        }
         Some((Arc::new(owned), stats))
     }
 }

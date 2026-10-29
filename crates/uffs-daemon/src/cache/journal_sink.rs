@@ -81,6 +81,7 @@ use uffs_mft::usn::FileChange;
 
 use super::journal_loop::{CursorStore, PatchSink, SaveReason};
 use crate::index::IndexManager;
+use crate::index::journal_save::SaveSlot;
 
 /// Cross-task message from a sync sink callback to the async applier.
 ///
@@ -176,8 +177,22 @@ pub(crate) struct RegistryPatchSink {
     /// tick cadence.  Poisoning is recovered via
     /// [`std::sync::PoisonError::into_inner`] (matching the
     /// `lock_journal_handles` helper in `index/journal.rs`).
-    pending: Mutex<HashMap<uffs_mft::platform::DriveLetter, Vec<FileChange>>>,
+    pending: PendingBuffers,
 }
+
+/// The per-letter pending buffers, shared between the sink (which fills
+/// them) and the applier task (which puts a not-yet-warm drive's batch
+/// back, see [`requeue_front`]).
+type PendingBuffers = Arc<Mutex<HashMap<uffs_mft::platform::DriveLetter, Vec<FileChange>>>>;
+
+/// Newest changes a drive that is not warm may hold for its next apply.
+///
+/// While a drive is parked its changes cannot be applied; the next promote
+/// replays the journal from the persisted cursor itself, so only the changes
+/// that arrive after that replay's last read are needed — seconds' worth.
+/// Keeping the newest 100 000 covers that with room to spare and bounds the
+/// memory of a drive that stays parked for days.
+const MAX_HELD_CHANGES: usize = 100_000;
 
 impl RegistryPatchSink {
     /// Construct a sink + spawn its applier task.
@@ -231,17 +246,17 @@ impl RegistryPatchSink {
     ) -> (Arc<Self>, JoinHandle<()>) {
         let (apply_tx, apply_rx) = mpsc::unbounded_channel();
         let weak = Arc::downgrade(idx);
+        let pending: PendingBuffers = Arc::default();
         // The cursor store lives on the applier task (it persists the
         // cursor in lockstep with a successful body save); the sink
         // itself only forwards the cursor inside `ApplyMsg::Save`.
-        let handle = tokio::spawn(applier_task(apply_rx, weak, cursor_store));
-        (
-            Arc::new(Self {
-                apply_tx,
-                pending: Mutex::new(HashMap::new()),
-            }),
-            handle,
-        )
+        let handle = tokio::spawn(applier_task(
+            apply_rx,
+            weak,
+            cursor_store,
+            Arc::clone(&pending),
+        ));
+        (Arc::new(Self { apply_tx, pending }), handle)
     }
 
     /// Acquire the pending-buffer mutex, recovering from poison.
@@ -253,9 +268,7 @@ impl RegistryPatchSink {
     fn lock_pending(
         &self,
     ) -> std::sync::MutexGuard<'_, HashMap<uffs_mft::platform::DriveLetter, Vec<FileChange>>> {
-        self.pending
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+        lock_buffers(&self.pending)
     }
 
     /// Test-only constructor: build a sink with an explicit
@@ -270,7 +283,7 @@ impl RegistryPatchSink {
         (
             Arc::new(Self {
                 apply_tx,
-                pending: Mutex::new(HashMap::new()),
+                pending: Arc::default(),
             }),
             apply_rx,
         )
@@ -293,6 +306,12 @@ impl PatchSink for RegistryPatchSink {
         guard.entry(letter).or_default().extend_from_slice(changes);
         drop(guard);
         true
+    }
+
+    fn has_pending(&self, letter: uffs_mft::platform::DriveLetter) -> bool {
+        self.lock_pending()
+            .get(&letter)
+            .is_some_and(|buffered| !buffered.is_empty())
     }
 
     fn trigger_save(
@@ -368,11 +387,14 @@ async fn applier_task(
     mut rx: mpsc::UnboundedReceiver<ApplyMsg>,
     idx_weak: Weak<IndexManager>,
     cursor_store: Arc<dyn CursorStore>,
+    pending: PendingBuffers,
 ) {
     // A message pulled off the channel during apply-coalescing that did not
     // belong to the merged run (different letter, or a Save/Wrap); processed
     // on the next iteration before blocking on `recv`.
     let mut carried: Option<ApplyMsg> = None;
+    // One background save at a time across every drive (issue #639).
+    let save_slot = Arc::new(SaveSlot::default());
     loop {
         let msg = match carried.take() {
             Some(held) => held,
@@ -406,7 +428,12 @@ async fn applier_task(
         } else {
             msg
         };
-        dispatch_msg(&idx_strong, cursor_store.as_ref(), to_dispatch).await;
+        let ctx = DispatchCtx {
+            cursor_store: &cursor_store,
+            save_slot: &save_slot,
+            pending: &pending,
+        };
+        dispatch_msg(&idx_strong, &ctx, to_dispatch).await;
     }
     tracing::debug!(
         target: "shard.journal",
@@ -450,7 +477,7 @@ fn coalesce_apply_run(
 /// also keeps the `Weak::upgrade` lifecycle decision in the parent
 /// (visible at the recv-loop level) and the per-variant dispatch
 /// in this helper (focused, easy to extend).
-async fn dispatch_msg(idx: &Arc<IndexManager>, cursor_store: &dyn CursorStore, msg: ApplyMsg) {
+async fn dispatch_msg(idx: &Arc<IndexManager>, ctx: &DispatchCtx<'_>, msg: ApplyMsg) {
     match msg {
         ApplyMsg::Save {
             letter,
@@ -459,32 +486,55 @@ async fn dispatch_msg(idx: &Arc<IndexManager>, cursor_store: &dyn CursorStore, m
             cursor,
         } => {
             let reason_str = save_reason_str(reason);
-            // Phase 8 surgical-patch path: hand the drained per-letter
-            // change buffer to `IndexManager::handle_journal_save`,
-            // which clones the Warm body, applies the patch, swaps
-            // the new Arc into the registry, and persists the patched
-            // body via `save_compact_cache_background`.
-            let applied = idx.handle_journal_save(letter, reason_str, changes).await;
-            // Persist the cursor in lockstep with the body save: only
-            // when the save actually happened (`applied`).  A parked
-            // shard returns `false` here, so its on-disk cursor stays
-            // pinned to the last real body save and the startup
-            // warm-load guard can never strand a delta past the
-            // persisted body.  See `cache::guarded_load`.
-            if applied {
-                cursor_store.store(letter, cursor);
+            let Some(batch) = hold_unless_warm(idx, ctx.pending, letter, changes).await else {
+                return;
+            };
+            // One save at a time: while the previous one is still
+            // writing, apply this batch in memory (search stays live)
+            // and leave the write to a later save tick.  The cursor is
+            // not stored, so a cold start replays from the last body
+            // that actually reached disk.
+            let Some(permit) = ctx.save_slot.try_acquire() else {
+                tracing::debug!(
+                    target: "shard.journal",
+                    drive = %letter,
+                    reason = reason_str,
+                    change_count = batch.len(),
+                    "Save deferred: the previous save is still writing; applied in memory only",
+                );
+                let _applied = idx
+                    .handle_journal_apply(letter, "save-deferred", batch)
+                    .await;
+                return;
+            };
+            // Patch the batch in (search goes live at once), then hand
+            // the body to the background persist, which writes it and
+            // only then stores the cursor — so the on-disk cursor never
+            // outruns the on-disk body.  A parked or missing shard
+            // yields `None`: nothing is written and the cursor stays
+            // pinned to the last real body save, which the startup
+            // warm-load guard relies on (`cache::guarded_load`).
+            if let Some(body) = idx.handle_journal_save(letter, reason_str, batch).await {
+                idx.spawn_journal_persist(
+                    letter,
+                    body,
+                    cursor,
+                    Arc::clone(ctx.cursor_store),
+                    permit,
+                );
             }
         }
         ApplyMsg::Apply { letter, changes } => {
+            let Some(batch) = hold_unless_warm(idx, ctx.pending, letter, changes).await else {
+                return;
+            };
             // Apply tick: patch the body + swap it into the registry so
             // search goes live, but do NOT persist the compact cache or
             // advance the on-disk cursor.  Disk persistence + cursor
             // advance stay on the rarer `Save` tick; a cold start
             // re-replays the in-between deltas idempotently from the
             // last saved cursor.
-            let _applied = idx
-                .handle_journal_apply(letter, "apply-tick", changes)
-                .await;
+            let _applied = idx.handle_journal_apply(letter, "apply-tick", batch).await;
         }
         ApplyMsg::Wrap { letter } => {
             // Wrap stays on the Phase-7 full-reload path.  The
@@ -496,6 +546,69 @@ async fn dispatch_msg(idx: &Arc<IndexManager>, cursor_store: &dyn CursorStore, m
             let _applied = idx.handle_journal_refresh(letter, "journal-wrapped").await;
         }
     }
+}
+
+/// What [`dispatch_msg`] needs beyond the message: the cursor store, the
+/// single background-save slot, and the sink's pending buffers.
+struct DispatchCtx<'ctx> {
+    /// Persists the cursor after a body save reaches disk.
+    cursor_store: &'ctx Arc<dyn CursorStore>,
+    /// One background save at a time across every drive.
+    save_slot: &'ctx Arc<SaveSlot>,
+    /// Where a not-yet-warm drive's batch goes back to.
+    pending: &'ctx PendingBuffers,
+}
+
+/// Pass `changes` through when `letter` is warm; otherwise put them back at
+/// the front of its pending buffer and return `None`.
+///
+/// A batch for a drive that is not warm cannot be applied.  Dropping it was
+/// safe only for the part the next promote's journal replay covers; the
+/// changes that arrive between that replay's last read and the moment the
+/// promoted body is installed were lost, and a file created in that window
+/// stayed missing from search.  Holding the batch (newest
+/// [`MAX_HELD_CHANGES`]) lets the first apply after the install pick it up;
+/// replaying changes the promote already covered is harmless because
+/// applying a change is idempotent and the batches keep their order.
+async fn hold_unless_warm(
+    idx: &Arc<IndexManager>,
+    pending: &PendingBuffers,
+    letter: uffs_mft::platform::DriveLetter,
+    changes: Vec<FileChange>,
+) -> Option<Vec<FileChange>> {
+    if changes.is_empty() || idx.is_drive_warm(letter).await {
+        return Some(changes);
+    }
+    requeue_front(pending, letter, changes);
+    None
+}
+
+/// Put `older` back in front of whatever `letter` has buffered since, keeping
+/// the newest [`MAX_HELD_CHANGES`].
+fn requeue_front(
+    pending: &PendingBuffers,
+    letter: uffs_mft::platform::DriveLetter,
+    mut older: Vec<FileChange>,
+) {
+    let mut guard = lock_buffers(pending);
+    let slot = guard.entry(letter).or_default();
+    older.append(slot);
+    let excess = older.len().saturating_sub(MAX_HELD_CHANGES);
+    if excess > 0 {
+        drop(older.drain(..excess));
+    }
+    *slot = older;
+    drop(guard);
+}
+
+/// Lock the pending buffers, recovering from poison (see
+/// [`RegistryPatchSink::lock_pending`]).
+fn lock_buffers(
+    pending: &PendingBuffers,
+) -> std::sync::MutexGuard<'_, HashMap<uffs_mft::platform::DriveLetter, Vec<FileChange>>> {
+    pending
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// Map a [`SaveReason`] to its stable diagnostic string for tracing

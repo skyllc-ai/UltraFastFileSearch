@@ -66,6 +66,9 @@ tokio = { workspace = true, features = ["net"] }
 # `load_or_join_in_flight` helper (PR-e: thundering-herd promote
 # fix — see `docs/refactor/promote-thundering-herd-fix.md`).
 futures = { workspace = true }
+# A dedicated two-thread pool for the journal loop's background saves, so a
+# save's delta fold does not take every core (`index::journal_save`).
+rayon.workspace = true
 
 # Serialization (JSON-RPC)
 serde.workspace = true

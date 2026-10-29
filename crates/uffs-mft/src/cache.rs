@@ -51,8 +51,16 @@ pub use cache_dataframe::load_or_build_dataframe_cached;
 /// policy.
 #[path = "cache_compress.rs"]
 mod cache_compress;
+/// Decompressed-size trailer for cache files (exact-size decompression).
+#[path = "cache_size_trailer.rs"]
+mod cache_size_trailer;
 pub use cache_compress::{
-    compress_encrypt_write, compress_encrypt_write_streaming, compress_zstd_mt, new_zstd_mt_encoder,
+    compress_encrypt_write, compress_encrypt_write_streaming,
+    compress_encrypt_write_streaming_with_workers, compress_zstd_mt, default_zstd_workers,
+    new_zstd_encoder_with_workers, new_zstd_mt_encoder,
+};
+pub use cache_size_trailer::{
+    CountingWriter, append_size_trailer, decompress_sized, size_from_trailer,
 };
 
 /// Default TTL for cached indices (4 hours).

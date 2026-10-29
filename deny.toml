@@ -43,6 +43,27 @@ ignore = [
   # polars-io adopting object_store 0.14. Remove together with the ignore above.
   # See: https://rustsec.org/advisories/RUSTSEC-2026-0194
   "RUSTSEC-2026-0194",
+  # zstd 0.13.3 / zstd-safe 7.3.0, held by polars-arrow 0.55.2 (the newest polars)
+  # for its parquet support. UFFS's own zstd (every cache file) is already on the
+  # fixed 0.14.3 / 8.2.0 line; only polars' private copy is affected.
+  #   * RUSTSEC-2026-0398 (zstd-safe `Seekable::decompress`): not compiled in; the
+  #     `seekable` feature is off for this copy.
+  #   * RUSTSEC-2026-0403 (uninitialized memory on a failed legacy-frame
+  #     decompress): reachable only when UFFS reads a parquet file
+  #     (`uffs-mft inspect`, the parquet query path, the diag tools), and only for
+  #     a crafted file carrying legacy zstd frames.
+  #   * RUSTSEC-2026-0391 (state of an abandoned stream leaking into the next
+  #     stream on a reused context): reachable only through a parquet read or
+  #     write that fails part-way and then reuses the context.
+  # Upstream fix merged 2026-10-27: pola-rs/polars#30316 bumps zstd to 0.14.4; it is
+  # not in a release yet (checked 2026-10-28). Remove these three once a polars
+  # release containing #30316 is adopted.
+  # See: https://rustsec.org/advisories/RUSTSEC-2026-0391
+  "RUSTSEC-2026-0391",
+  # See: https://rustsec.org/advisories/RUSTSEC-2026-0398
+  "RUSTSEC-2026-0398",
+  # See: https://rustsec.org/advisories/RUSTSEC-2026-0403
+  "RUSTSEC-2026-0403",
 ]
 
 [licenses]

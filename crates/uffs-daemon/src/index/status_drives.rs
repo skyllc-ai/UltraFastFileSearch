@@ -49,10 +49,19 @@ impl IndexManager {
         // guard's lifetime, then `drop(guard)` before sorting so the
         // lock is released as quickly as possible (mirrors the
         // pattern used in [`super::drives::IndexManager::drives`]).
+        // Letters with a promote in flight right now (same source as the
+        // `drives` RPC's `loading` flag).
+        let loading: Vec<uffs_mft::platform::DriveLetter> =
+            self.in_flight_promotes.lock().map_or_else(
+                |poisoned| poisoned.into_inner().keys().copied().collect(),
+                |map| map.keys().copied().collect(),
+            );
         let mut drives: Vec<DriveTierStatus> = {
             let guard = self.index.read().await;
-            let rows: Vec<DriveTierStatus> =
-                guard.iter().map(|shard| build_row(shard, now_ms)).collect();
+            let rows: Vec<DriveTierStatus> = guard
+                .iter()
+                .map(|shard| build_row(shard, now_ms, loading.contains(&shard.drive)))
+                .collect();
             drop(guard);
             rows
         };
@@ -68,8 +77,8 @@ impl IndexManager {
 /// Pure read-only — never mutates the shard.  `now_ms` is the wall
 /// clock anchor for the EMA decay (passed in from the caller so
 /// every row in one `status_drives` response shares the same
-/// timestamp).
-fn build_row(shard: &ShardEntry, now_ms: u64) -> DriveTierStatus {
+/// timestamp).  `loading` says a promote for this drive is in flight.
+fn build_row(shard: &ShardEntry, now_ms: u64, loading: bool) -> DriveTierStatus {
     let state = shard.state();
     let tier = shard_state_label(state).to_owned();
     let resident_bytes = resident_bytes_for(shard, state);
@@ -89,16 +98,14 @@ fn build_row(shard: &ShardEntry, now_ms: u64) -> DriveTierStatus {
         resident_bytes,
         query_rate_per_min,
         last_query_at_ms: i64_from_u64_saturating(last_query_at_ms),
-        // Phase 9 — `promotions_total` reads the live Cold → Hot
-        // counter maintained by
-        // [`crate::cache::shard::DriveStats::record_cold_to_hot_promote`].
-        // Bumped from
-        // [`crate::cache::registry::ShardRegistry::promote_letter_to_hot`]
-        // when the source tier was `Cold`; remains `0` for drives
-        // that have only been Warm/Hot since daemon start (no
-        // explicit re-promote-from-Cold event).
+        // `promotions_total` reads the counter maintained by
+        // [`crate::cache::shard::DriveStats::record_promote_from_demoted`]:
+        // every promote back from `Parked` or `Cold`, by a search or a
+        // `preload`; `0` for drives that have stayed Warm/Hot since
+        // daemon start.
         promotions_total: shard.stats.promotions_total(),
         pin_until_unix_ms: i64_from_u64_saturating(pin_until_unix_ms),
+        loading,
     }
 }
 

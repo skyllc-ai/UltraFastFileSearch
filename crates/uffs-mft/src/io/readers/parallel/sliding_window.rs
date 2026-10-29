@@ -220,7 +220,8 @@ impl ParallelMftReader {
                 };
                 let mut in_flight_op = Box::pin(InFlightOp {
                     // SAFETY: `OVERLAPPED` is a plain Windows FFI struct and an
-                    // all-zero value is the required initial state before offsets are set.
+                    // all-zero value is the required initial state before
+                    // offsets are set.
                     overlapped: unsafe { core::mem::zeroed() },
                     buffer,
                     op,
@@ -407,8 +408,9 @@ impl ParallelMftReader {
                         ));
                     };
                     let mut new_in_flight = Box::pin(InFlightOp {
-                        // SAFETY: `OVERLAPPED` is a plain Windows FFI struct and an
-                        // all-zero value is the required initial state before offsets are set.
+                        // SAFETY: `OVERLAPPED` is a plain Windows FFI struct
+                        // and an all-zero value is the required initial state
+                        // before offsets are set.
                         overlapped: unsafe { core::mem::zeroed() },
                         buffer,
                         op: next_op,

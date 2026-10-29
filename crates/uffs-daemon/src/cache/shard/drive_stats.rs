@@ -103,17 +103,20 @@ pub(crate) struct DriveStats {
     /// in `cache/shard/tests.rs` seeds this directly; production
     /// code uses [`Self::mark_query_at`] / [`Self::mark_loaded_at`].
     pub(super) last_query_at_ms: AtomicU64,
-    /// Cumulative count of `Cold → Hot` promotions for this drive
-    /// since daemon start (Phase 9 — `promotions_total` wire field).
+    /// Cumulative count of promotions back from a demoted tier
+    /// (`Parked` or `Cold`) for this drive since daemon start (the
+    /// `promotions_total` wire field).
     ///
-    /// Bumped from
-    /// [`crate::cache::registry::ShardRegistry::promote_letter_to_hot`]
-    /// only when the pre-promote tier was `Cold` — i.e. the operator
-    /// ran `uffs --daemon preload <drive>` against a fully-evicted
-    /// drive and the daemon had to re-decrypt the encrypted compact
-    /// cache from disk.  Already-Warm preload calls (where the body
-    /// is in RAM and only the tier marker flips Warm → Hot) do
-    /// **not** bump this counter — they are not "Cold → Hot".
+    /// Each one re-reads the drive's body from the on-disk compact
+    /// cache (with a USN refresh on Windows) — the expensive event this
+    /// counter exists to make visible.  Bumped by both promote paths:
+    /// a search that needs the drive
+    /// ([`crate::cache::registry::ShardRegistry::promote_letter`]) and
+    /// an operator `preload`
+    /// ([`crate::cache::registry::ShardRegistry::promote_letter_to_hot`]).
+    /// A `Warm → Hot` preload only flips the tier marker of a body
+    /// already in RAM and does **not** count.  Until v0.6.46 only
+    /// `Cold → Hot` counted, so a drive re-warmed by searches read 0.
     ///
     /// Surfaced via the [`StatusDrivesResponse`] wire format's
     /// `promotions_total` field so operators can count expensive
@@ -135,7 +138,10 @@ pub(crate) struct DriveStats {
     /// `DriveStats` is the right home because the registry preserves
     /// its `Arc` across every tier transition — the count survives
     /// demotion for free, with no new plumbing through the
-    /// `new_parked` / `new_cold` rebuild constructors.  Zero means
+    /// `new_parked` / `new_cold` rebuild constructors.  Every
+    /// body-carrying `ShardEntry` constructor records it, so a drive
+    /// parked before anyone asked for status still has its denominator
+    /// (it used to be set only by the `drives` RPC).  Zero means
     /// "never been warm in this daemon's lifetime", which is honest:
     /// a first-ever load genuinely has no denominator until it
     /// finishes.
@@ -219,24 +225,21 @@ impl DriveStats {
         self.last_query_at_ms.store(now_ms, Ordering::Relaxed);
     }
 
-    /// Lock-free increment of the `Cold → Hot` promotion counter
+    /// Lock-free increment of the promotion counter (from `Parked`/`Cold`)
     /// (Phase 9).
     ///
-    /// Called by
-    /// [`crate::cache::registry::ShardRegistry::promote_letter_to_hot`]
-    /// after a successful Cold-source promote — i.e. the registry
-    /// rebuild that landed an `Arc<ShardEntry>` in `Hot` tier
-    /// observed `from_state == Cold` before the rebuild.
+    /// Called by both promote paths after a successful promote whose
+    /// source tier was `Parked` or `Cold`.
     ///
     /// Distinct from [`Self::mark_query_at`] / [`Self::record_query`]
     /// (the per-search counters) so an operator can decompose the
     /// shard's lifecycle into "search load" vs "explicit re-promote
     /// cost" without re-walking the `shard.transition` event log.
-    pub(crate) fn record_cold_to_hot_promote(&self) {
+    pub(crate) fn record_promote_from_demoted(&self) {
         self.promotions_total.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Read the cumulative `Cold → Hot` promotion count.
+    /// Read the cumulative count of promotions from `Parked`/`Cold`.
     ///
     /// Surfaced via the
     /// [`uffs_client::protocol::response::StatusDrivesResponse`] wire
@@ -429,7 +432,7 @@ pub(crate) struct DriveStatsSnapshot {
     /// integrating, exactly as a freshly-constructed `DriveStats`.
     #[serde(default)]
     pub last_decay_queries_total: u64,
-    /// Cumulative `Cold → Hot` promotions.
+    /// Cumulative promotions back from `Parked` or `Cold`.
     /// See [`DriveStats::promotions_total`].  Defaults to `0` so
     /// pre-Phase-9 snapshots that don't carry the field deserialise
     /// as "never promoted from Cold" rather than rejecting — this
