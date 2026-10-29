@@ -70,7 +70,7 @@ path = "src/main.rs"
 # by the release bump) is required for `cargo package` validation — see
 # root `Cargo.toml`'s [workspace.dependencies] note for the full
 # rationale (R6 of `release-automation-plan.md`).
-uffs-client = { path = "../uffs-client", version = "0.6.45", default-features = false }
+uffs-client = { path = "../uffs-client", version = "0.6.46", default-features = false }
 
 # Canonical CSV / parity / legacy-footer writer.  Direct dep (not a
 # re-export chain through `uffs-client`) so the CLI and the daemon
@@ -79,7 +79,7 @@ uffs-client = { path = "../uffs-client", version = "0.6.45", default-features = 
 # by the release bump) is required for `cargo package` validation — see
 # root `Cargo.toml`'s [workspace.dependencies] note for the full
 # rationale (R6 of `release-automation-plan.md`).
-uffs-format = { path = "../uffs-format", version = "0.6.45" }
+uffs-format = { path = "../uffs-format", version = "0.6.46" }
 
 # Typed drive-letter newtype.  Direct dep so the CLI command signatures
 # (`daemon_load`, `daemon_tiering`, etc.) name `DriveLetter` natively
