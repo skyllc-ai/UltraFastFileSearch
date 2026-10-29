@@ -31,52 +31,6 @@ url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
 [imports.zcash]
 url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/audits.toml"
 
-[policy.polars]
-
-[policy.polars-arrow]
-
-[policy.polars-buffer]
-
-[policy.polars-compute]
-
-[policy.polars-config]
-
-[policy.polars-core]
-
-[policy.polars-dtype]
-
-[policy.polars-error]
-
-[policy.polars-expr]
-
-[policy.polars-io]
-
-[policy.polars-json]
-
-[policy.polars-lazy]
-
-[policy.polars-mem-engine]
-
-[policy.polars-ooc]
-
-[policy.polars-ops]
-
-[policy.polars-parquet]
-
-[policy.polars-plan]
-
-[policy.polars-row]
-
-[policy.polars-schema]
-
-[policy.polars-sql]
-
-[policy.polars-stream]
-
-[policy.polars-time]
-
-[policy.polars-utils]
-
 [policy.uffs-bench]
 audit-as-crates-io = false
 
