@@ -81,6 +81,8 @@ fn end_to_end_config() -> JournalLoopConfig {
         save_threshold_events: SAVE_THRESHOLD_EVENTS,
         save_threshold_age: Duration::from_hours(24),
         save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         apply_interval: Duration::from_hours(24),
         apply_debounce: Duration::from_hours(24),
     }

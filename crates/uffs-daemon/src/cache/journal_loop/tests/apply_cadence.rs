@@ -46,6 +46,8 @@ fn apply_only_config() -> JournalLoopConfig {
         save_threshold_events: u64::MAX,
         save_threshold_age: Duration::from_hours(24),
         save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         apply_interval: Duration::ZERO,
         apply_debounce: Duration::ZERO,
         ..JournalLoopConfig::default()
@@ -96,6 +98,8 @@ fn save_tick_suppresses_redundant_apply() {
         save_threshold_events: 1,
         save_threshold_age: Duration::from_hours(24),
         save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         apply_interval: Duration::ZERO,
         apply_debounce: Duration::ZERO,
         ..JournalLoopConfig::default()
@@ -161,6 +165,8 @@ async fn loop_applies_body_near_live_without_saving() {
         save_threshold_events: u64::MAX,
         save_threshold_age: Duration::from_hours(24),
         save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         apply_interval: Duration::ZERO,
         apply_debounce: Duration::ZERO,
         ..JournalLoopConfig::default()

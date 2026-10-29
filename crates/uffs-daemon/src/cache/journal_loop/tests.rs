@@ -329,6 +329,8 @@ fn fast_config() -> JournalLoopConfig {
         save_threshold_events: u64::MAX,
         save_threshold_age: Duration::from_hours(24),
         save_min_interval: Duration::ZERO,
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         // Disabled by default so the generic tick / cancel / cursor
         // tests don't accidentally fire an apply; the apply-cadence
         // tests override this with a short interval.

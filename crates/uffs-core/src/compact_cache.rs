@@ -478,11 +478,42 @@ pub(crate) fn serialize_compact_to_writer<W: io::Write>(
     index: &DriveCompactIndex,
     writer: &mut W,
 ) -> io::Result<()> {
+    write_compact_sections(index, &index.children, &index.trigram, writer)
+}
+
+/// [`serialize_compact_to_writer`] for an index that may carry a delta
+/// overlay: the children and trigram sections are rebuilt from the records
+/// for the write instead of taken from the stale bases.
+///
+/// Equivalent to serialising a `fold_delta_for_save`d copy, without copying
+/// the records and names first — for a 30 M-record drive that copy alone is
+/// over 3 GB.  The extension index is not part of the file, so it needs no
+/// rebuild here.
+pub(crate) fn serialize_compact_folded_to_writer<W: io::Write>(
+    index: &DriveCompactIndex,
+    writer: &mut W,
+) -> io::Result<()> {
+    if index.delta.is_none() {
+        return serialize_compact_to_writer(index, writer);
+    }
+    let children = ChildrenIndex::build(&index.records);
+    let trigram = TrigramIndex::build(&index.records, &index.names, index.fold);
+    write_compact_sections(index, &children, &trigram, writer)
+}
+
+/// Write every section of `index`, taking the children and trigram CSRs from
+/// `children` / `trigram` (see [`serialize_compact_folded_to_writer`]).
+fn write_compact_sections<W: io::Write>(
+    index: &DriveCompactIndex,
+    children: &ChildrenIndex,
+    trigram: &TrigramIndex,
+    writer: &mut W,
+) -> io::Result<()> {
     let record_count = index.records.len();
     let names_len = index.names.len();
 
-    let (csr_offsets, csr_values) = index.children.as_csr();
-    let (tri_keys, tri_offsets, tri_values) = index.trigram.as_csr();
+    let (csr_offsets, csr_values) = children.as_csr();
+    let (tri_keys, tri_offsets, tri_values) = trigram.as_csr();
 
     // Header (26 bytes for v3+)
     writer.write_all(COMPACT_MAGIC)?;
@@ -1012,6 +1043,10 @@ pub fn save_compact_cache(index: &DriveCompactIndex) -> io::Result<()> {
 /// [`save_compact_cache`] with an explicit zstd worker count, blocking until
 /// the file is written.
 ///
+/// A delta-carrying `index` is written folded: the children and trigram
+/// sections are rebuilt from its records for the write, so the caller need
+/// not copy it to fold it first.
+///
 /// The journal loop's background saves use this with a small count: a save
 /// that takes every core competes with the build or copy that caused the
 /// churn in the first place (issue #639).  Returning only after the atomic
@@ -1019,13 +1054,11 @@ pub fn save_compact_cache(index: &DriveCompactIndex) -> io::Result<()> {
 /// it describes.
 ///
 /// # Errors
-/// Returns an error if `index` still carries a delta overlay, or if
-/// compression, encryption, or file writing fails.
+/// Returns an error if compression, encryption, or file writing fails.
 pub fn save_compact_cache_with_workers(
     index: &DriveCompactIndex,
     zstd_workers: u32,
 ) -> io::Result<()> {
-    refuse_delta_carrying(index)?;
     let profile = std::env::var_os("UFFS_CACHE_PROFILE").is_some();
     let path = compact_cache_path(index.letter);
     if let Some(dir) = path.parent() {
@@ -1037,7 +1070,7 @@ pub fn save_compact_cache_with_workers(
     // and for every save after the first successful one.
     purge_legacy_compact_cache_dir(&path, index.letter)?;
     uffs_mft::cache::compress_encrypt_write_streaming_with_workers(
-        |encoder| serialize_compact_to_writer(index, encoder),
+        |encoder| serialize_compact_folded_to_writer(index, encoder),
         &path,
         ZSTD_LEVEL,
         zstd_workers,

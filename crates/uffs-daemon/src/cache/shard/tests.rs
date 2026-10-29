@@ -631,16 +631,12 @@ fn apply_usn_patch_to_body_lands_delete_on_new_arc() {
     );
 }
 
-/// A patch keeps the cheap delta overlay on the live body; the save path
-/// folds a private copy before it reaches the writer.  The body handed to
-/// the disk save must be delta-free — a delta-carrying index serialises its
-/// base children CSR against a grown record count and poisons the cache for
-/// the next start (`bloom k_hashes out of range`; see
-/// `DriveCompactIndex::fold_delta_for_save`).  A create is the trigger
-/// shape: it appends a record, which is exactly what desyncs the Arc-shared
-/// bases.
+/// A patch keeps the cheap delta overlay on the live body; nothing on the
+/// apply or save path folds it in place.  The save writes the body folded
+/// without copying it (`uffs_core::compact_cache` pins that the bytes equal a
+/// folded copy's).
 #[test]
-fn patch_keeps_delta_and_save_folds_a_copy() {
+fn patch_keeps_the_delta_overlay() {
     let create = vec![FileChange {
         frs: 77_u64.into(),
         parent_frs: 5_u64.into(),
@@ -658,20 +654,6 @@ fn patch_keeps_delta_and_save_folds_a_copy() {
     assert!(
         applied.delta.is_some(),
         "the patch must keep the cheap delta overlay"
-    );
-
-    let saved = crate::index::journal_save::fold_for_save(&applied);
-    assert!(
-        saved.delta.is_none(),
-        "the save path must fold the delta before the body reaches the writer"
-    );
-    assert!(
-        saved.records.len() > 2,
-        "the created record must survive the fold"
-    );
-    assert!(
-        applied.delta.is_some(),
-        "folding for the save must not touch the live body"
     );
 }
 

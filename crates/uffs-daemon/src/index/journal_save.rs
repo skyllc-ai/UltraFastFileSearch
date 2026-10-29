@@ -14,10 +14,11 @@
 //! * **One save at a time, across all drives** ([`SaveSlot`]).  A save tick
 //!   that finds the slot taken applies its batch in memory and leaves the write
 //!   to a later tick.
-//! * **Small and background.**  The fold runs on a two-thread pool whose
-//!   threads are in background-I/O mode, and zstd gets [`SAVE_ZSTD_WORKERS`]
-//!   workers, so a save stays near two cores instead of taking the machine away
-//!   from the build that caused the churn.
+//! * **Small and background.**  The fold (the serializer rebuilding the search
+//!   sections from the live records, without copying them) runs on a two-thread
+//!   pool whose threads are in background-I/O mode, and zstd gets
+//!   [`SAVE_ZSTD_WORKERS`] workers, so a save stays near two cores instead of
+//!   taking the machine away from the build that caused the churn.
 //! * **Cursor strictly after the file.**  The on-disk USN cursor advances only
 //!   once the atomic write has succeeded.  A cursor ahead of the file would
 //!   make the next cold start skip the changes in between for good.
@@ -106,26 +107,15 @@ impl IndexManager {
     }
 }
 
-/// Write `body`, folded first if it carries a delta overlay.
+/// Write `body` as it is.  A delta-carrying body is written folded by the
+/// serializer, which rebuilds only the children and trigram sections from the
+/// live records (on the save pool) — no copy of the records and names, which
+/// for a 30 M-record drive is over 3 GB (winbox run 2, 2026-10-29: folding a
+/// private copy pushed D:'s age save to a 17.6 GB peak).
 fn persist_body(body: &Arc<DriveCompactIndex>) -> std::io::Result<()> {
-    uffs_core::compact_cache::save_compact_cache_with_workers(
-        &fold_for_save(body),
-        SAVE_ZSTD_WORKERS,
-    )
-}
-
-/// The delta-free body to serialise: `body` itself when it carries no
-/// overlay, else a folded private copy.  The live body keeps its overlay, so
-/// the O(total-records) rebuild stays off the search path; a delta-carrying
-/// index must never reach the writer (see
-/// `DriveCompactIndex::fold_delta_for_save`).
-pub(crate) fn fold_for_save(body: &Arc<DriveCompactIndex>) -> Arc<DriveCompactIndex> {
-    if body.delta.is_none() {
-        return Arc::clone(body);
-    }
-    let mut folded = DriveCompactIndex::clone(body);
-    in_save_pool(|| folded.fold_delta_for_save());
-    Arc::new(folded)
+    in_save_pool(|| {
+        uffs_core::compact_cache::save_compact_cache_with_workers(body, SAVE_ZSTD_WORKERS)
+    })
 }
 
 /// Run `work` on the save pool, or inline when the pool could not be built.

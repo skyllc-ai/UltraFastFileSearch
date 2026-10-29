@@ -79,19 +79,9 @@ fn parked_loader_finds_filters_past_an_empty_trigram() {
     );
 }
 
-/// Regression: a DELTA-CARRYING index must never serialize — its
-/// Arc-shared base sections are stale against the patched records.
-///
-/// A create appends a record (the header's `rc` grows) while
-/// `children` stays the base CSR with `rc_base + 1` offsets; the
-/// reader sizes the children section from the header, so every later
-/// section is read shifted and the cache quarantines on the next
-/// start (field: `bloom k_hashes out of range`, winbox M/C/D/S
-/// 2026-08-24 — caches written BY the then-current daemon between two
-/// restarts).  [`DriveCompactIndex::fold_delta_for_save`] is the
-/// repair the save path applies; pin both halves.
-#[test]
-fn delta_carrying_index_misaligns_and_fold_repairs_it() {
+/// The surgical-patch state: one created record appended (name "qux"
+/// appended to the blob), bases left Arc-shared/stale, delta overlay armed.
+fn index_with_created_record_and_delta() -> DriveCompactIndex {
     let mut index = make_test_index();
     index.bloom = Some(index.build_bloom());
     index.path_trie = Some(index.build_path_trie());
@@ -113,6 +103,23 @@ fn delta_carrying_index_misaligns_and_fold_repairs_it() {
     index.records = ColumnStorage::from_vec(records);
     index.names = ColumnStorage::from_vec(names);
     index.delta = Some(crate::compact::IndexDelta::default());
+    index
+}
+
+/// Regression: a DELTA-CARRYING index must never serialize — its
+/// Arc-shared base sections are stale against the patched records.
+///
+/// A create appends a record (the header's `rc` grows) while
+/// `children` stays the base CSR with `rc_base + 1` offsets; the
+/// reader sizes the children section from the header, so every later
+/// section is read shifted and the cache quarantines on the next
+/// start (field: `bloom k_hashes out of range`, winbox M/C/D/S
+/// 2026-08-24 — caches written BY the then-current daemon between two
+/// restarts).  [`DriveCompactIndex::fold_delta_for_save`] is the
+/// repair the save path applies; pin both halves.
+#[test]
+fn delta_carrying_index_misaligns_and_fold_repairs_it() {
+    let mut index = index_with_created_record_and_delta();
 
     // The poisoned bytes can NEVER round-trip faithfully: the children
     // CSR on disk was written for the 3 base records, so the created
@@ -169,5 +176,33 @@ fn background_save_refuses_a_delta_carrying_index() {
     assert!(
         err.to_string().contains("delta"),
         "the refusal must name the delta invariant: {err}"
+    );
+}
+
+/// The journal loop's save writes a delta-carrying body directly, rebuilding
+/// the children and trigram sections for the write instead of folding a copy
+/// (a copy of a 30 M-record drive's records and names is over 3 GB).  The
+/// bytes must be exactly those of the folded index.
+#[test]
+fn folded_writer_matches_serializing_a_folded_copy() {
+    let index = index_with_created_record_and_delta();
+
+    let mut direct = Vec::new();
+    serialize_compact_folded_to_writer(&index, &mut direct)
+        .unwrap_or_else(|err| panic!("folded write failed: {err}"));
+
+    let mut folded = index.clone();
+    folded.fold_delta_for_save();
+    let mut reference = Vec::new();
+    serialize_compact_to_writer(&folded, &mut reference)
+        .unwrap_or_else(|err| panic!("reference write failed: {err}"));
+
+    assert_eq!(
+        direct, reference,
+        "folded write must equal the folded copy byte for byte"
+    );
+    assert!(
+        index.delta.is_some(),
+        "writing must not touch the live index"
     );
 }

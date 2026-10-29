@@ -86,6 +86,8 @@ fn compact_cache_save_log_message_pins_string_target_and_level() {
         save_threshold_events: 1, // tight — crosses on the first evaluate
         save_threshold_age: Duration::from_hours(1), // generous
         save_min_interval: Duration::ZERO, // no gap: the first crossing saves
+        save_age_min_events: 0,
+        save_age_ceiling: Duration::MAX,
         apply_interval: Duration::from_hours(1), // disabled for this test
         apply_debounce: Duration::from_hours(1),
         ..JournalLoopConfig::default()
