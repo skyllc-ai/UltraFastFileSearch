@@ -185,7 +185,7 @@ uffs-fetch = { path = "crates/uffs-fetch", version = "0.6.45" }
 # via `tokio::net`.  Crates that actually use `tokio::net` (uffs-daemon,
 # uffs-mcp, and the `async` feature of uffs-client) re-enable `net`
 # explicitly in their own Cargo.toml via `features = ["net"]`.
-tokio = { version = "1.53.3", default-features = false, features = [
+tokio = { version = "1.54.1", default-features = false, features = [
   "io-util",
   "macros",
   "rt",
@@ -251,7 +251,7 @@ toml = "1.1.8"
 # ───── Data Structures ─────
 bitflags = "2.13.2"
 bytemuck = { version = "1.25.2", features = ["derive"] }
-smallvec = "1.16.3"
+smallvec = "1.16.4"
 zerocopy = { version = "0.8.63", features = ["derive"] }
 
 # ───── Error Handling ─────
@@ -259,7 +259,7 @@ thiserror = "2.0.21"
 anyhow = "1.0.104"
 
 # ───── MCP (Model Context Protocol) ─────
-rmcp = { version = "3.5.1", features = ["server", "transport-io", "macros"] }
+rmcp = { version = "3.8.0", features = ["server", "transport-io", "macros"] }
 schemars = "1.2.3"
 
 # ───── HTTP / Tower (for MCP Streamable HTTP gateway) ─────
@@ -293,7 +293,7 @@ colored = "3.1.1"
 # ───── Pattern Matching ─────
 regex = "1.13.1"
 memchr = "2.8.3"
-globset = "0.4.20"
+globset = "0.4.21"
 
 # ───── Time ─────
 chrono = { version = "0.4.45", features = ["serde"] }
@@ -324,7 +324,7 @@ hex = "0.4.3"
 # Blocking HTTP with rustls + the system trust store. `rustls-tls-native-roots`
 # matches the existing transitive reqwest config, so no new crate enters the lock.
 #
-# DELIBERATELY HELD AT 0.12 (re-verified 2026-10-13 against 0.13.5 and polars
+# DELIBERATELY HELD AT 0.12 (re-verified 2026-10-28 against 0.13.5 and polars
 # 0.55.2, the latest of both; everything
 # else in this workspace is at latest).  0.13 still drops
 # `rustls-tls-native-roots` and routes system trust through
@@ -352,10 +352,10 @@ crossbeam-channel = "0.5.17"
 
 # ───── Memory ─────
 mimalloc = "0.1.52"
-memmap2 = "0.9.11"
+memmap2 = "0.9.12"
 
 # ───── System ─────
-libc = "0.2.190"
+libc = "0.2.191"
 hostname = "0.4.2"
 # CPU-core count detection.  `std::thread::available_parallelism` is the
 # modern alternative, but `num_cpus` handles cgroup / container quotas more
@@ -364,7 +364,7 @@ hostname = "0.4.2"
 num_cpus = "1.17.0"
 # Random unique identifiers.  Only the `v4` (random) feature is enabled
 # workspace-wide; consumers that need v1/v5/v7 etc. re-add the feature.
-uuid = { version = "1.28.0", features = ["v4"] }
+uuid = { version = "1.29.0", features = ["v4"] }
 
 # ───── Security / Crypto ─────
 aes-gcm = "0.11.1"
@@ -373,7 +373,7 @@ rand_chacha = "0.10.0"
 security-framework = "3.7.0"
 
 # ───── Compression ─────
-zstd = { version = "0.14.2", features = ["zstdmt"] }
+zstd = { version = "0.14.3", features = ["zstdmt"] }
 
 # ───── Testing & Benchmarking ─────
 criterion = "0.8.2"

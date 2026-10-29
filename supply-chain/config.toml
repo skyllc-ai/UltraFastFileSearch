@@ -400,30 +400,6 @@ criteria = "safe-to-deploy"
 version = "0.1.65"
 criteria = "safe-to-deploy"
 
-[[exemptions.icu_collections]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_locale_core]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_normalizer]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_properties]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_properties_data]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.icu_provider]]
-version = "2.2.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.idna_adapter]]
 version = "1.2.2"
 criteria = "safe-to-deploy"
@@ -510,10 +486,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.once_cell_polyfill]]
 version = "1.70.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.openssl-probe]]
-version = "0.2.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.parking_lot]]
@@ -768,10 +740,6 @@ criteria = "safe-to-deploy"
 version = "0.2.32"
 criteria = "safe-to-deploy"
 
-[[exemptions.tinystr]]
-version = "0.8.3"
-criteria = "safe-to-deploy"
-
 [[exemptions.tokio-macros]]
 version = "2.7.0"
 criteria = "safe-to-deploy"
@@ -948,16 +916,8 @@ criteria = "safe-to-deploy"
 version = "0.52.6"
 criteria = "safe-to-deploy"
 
-[[exemptions.yoke]]
-version = "0.8.2"
-criteria = "safe-to-deploy"
-
 [[exemptions.zerotrie]]
 version = "0.2.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.zerovec]]
-version = "0.11.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.zstd]]
