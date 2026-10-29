@@ -379,10 +379,10 @@ pub(crate) const fn next_state_for_idle_with_thresholds(
         ShardState::Parked if idle_secs >= thresholds.parked_to_cold_secs => Some(ShardState::Cold),
         // Two distinct cases collapsed into one arm because they
         // share the same outcome:
-        //   * Hot / Warm / Parked: idle window not exceeded for the current tier (the guard above
-        //     this arm failed).
-        //   * Cold / Unknown / Evicting: floor + controller-only states; the policy never targets
-        //     these.
+        //   * Hot / Warm / Parked: idle window not exceeded for the current
+        //     tier (the guard above this arm failed).
+        //   * Cold / Unknown / Evicting: floor + controller-only states; the
+        //     policy never targets these.
         ShardState::Hot
         | ShardState::Warm
         | ShardState::Parked

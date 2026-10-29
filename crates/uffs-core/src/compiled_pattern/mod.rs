@@ -152,7 +152,8 @@ impl CompiledPattern {
             // Any: always matches
             Self::Any => lit(true),
 
-            // Exact: direct equality check (case-sensitive) or regex (case-insensitive)
+            // Exact: direct equality check (case-sensitive) or regex
+            // (case-insensitive)
             Self::Exact(value) => {
                 if case_sensitive {
                     col_expr.eq(lit(value.clone()))
@@ -189,7 +190,8 @@ impl CompiledPattern {
                 }
             }
 
-            // Contains: contains_literal (case-sensitive) or regex (case-insensitive)
+            // Contains: contains_literal (case-sensitive) or regex
+            // (case-insensitive)
             Self::Contains(needle) => {
                 if case_sensitive {
                     col_expr.str().contains_literal(lit(needle.clone()))

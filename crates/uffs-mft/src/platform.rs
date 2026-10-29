@@ -61,8 +61,8 @@ pub use drive_letter::{DriveLetter, DriveLetterError};
 pub use drive_pattern::split_drive_prefix;
 pub use extents::MftExtent;
 pub use lcn::Lcn;
-// Export DriveType unconditionally (needed for tests), but Windows-specific functions only on
-// Windows
+// Export DriveType unconditionally (needed for tests), but Windows-specific
+// functions only on Windows
 pub use physical::{PhysicalDrive, physical_drives};
 pub use system::DriveType;
 // Caller's effective uid — Unix-only; lets daemon-management compare the

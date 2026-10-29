@@ -481,7 +481,8 @@ fn remove_service_via_uac(service: &str) -> Result<()> {
         }
         // Typed so the executor recognises the decline and LEAVES the broker
         // (service + its locked binary) as a clean outcome, instead of the raw
-        // Access-denied that deleting the still-running broker's image produces.
+        // Access-denied that deleting the still-running broker's image
+        // produces.
         Some(UAC_NOT_GRANTED_EXIT) => Err(super::remove::ElevationDeclined.into()),
         other => bail!(
             "elevated service-removal helper failed (exit {other:?}) — {service} may still \

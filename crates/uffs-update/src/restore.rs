@@ -48,11 +48,11 @@ fn start_component(component: &str, running: &SnapRunning) -> bool {
         // The stdio MCP server (`uffsmcp`) is spawned and OWNED by its LLM host
         // (Claude Desktop / Cursor / Windsurf) over stdio — relaunching it
         // detached has no client to serve. Quiesce stopped it only to free the
-        // `uffsmcp.exe` file lock for the swap; the host respawns it on the next
-        // tool call. So restoring mcp is a deliberate no-op (and a success, not
-        // a "failed to restart"). The HTTP gateway is a separate binary
-        // (`uffs-mcp-http`), never captured here — detection scans only for
-        // `uffsmcp`.
+        // `uffsmcp.exe` file lock for the swap; the host respawns it on the
+        // next tool call. So restoring mcp is a deliberate no-op (and a
+        // success, not a "failed to restart"). The HTTP gateway is a separate
+        // binary (`uffs-mcp-http`), never captured here — detection scans only
+        // for `uffsmcp`.
         "mcp" => true,
         _ => false,
     }

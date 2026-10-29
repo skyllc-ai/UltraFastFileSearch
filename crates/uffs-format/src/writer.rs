@@ -463,7 +463,8 @@ mod tests {
             .with_quote("\"");
 
         let cases = [
-            // (path,                                     name,             expected_ext)
+            // (path,                                     name,
+            // expected_ext)
             ("F:\\Ch\\.bash_history", ".bash_history", ""),
             ("C:\\Users\\rnio\\.gitignore", ".gitignore", ""),
             ("C:\\tmp\\README", "README", ""),

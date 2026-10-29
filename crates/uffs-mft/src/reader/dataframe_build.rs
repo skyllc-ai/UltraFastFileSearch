@@ -254,7 +254,8 @@ impl MftReader {
             Series::new("is_pinned".into(), is_pinned_vec).into_column(),
             Series::new("is_unpinned".into(), is_unpinned_vec).into_column(),
             Series::new("is_virtual".into(), is_virtual_vec).into_column(),
-            // Raw attribute flags (combined value for baseline-compatible output)
+            // Raw attribute flags (combined value for baseline-compatible
+            // output)
             Series::new("flags".into(), flags_vec).into_column(),
         ];
 
@@ -322,7 +323,8 @@ impl MftReader {
             Series::new("is_pinned".into(), columns.is_pinned).into_column(),
             Series::new("is_unpinned".into(), columns.is_unpinned).into_column(),
             Series::new("is_virtual".into(), columns.is_virtual).into_column(),
-            // Raw attribute flags (combined value for baseline-compatible output)
+            // Raw attribute flags (combined value for baseline-compatible
+            // output)
             Series::new("flags".into(), columns.flags).into_column(),
         ];
 

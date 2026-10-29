@@ -40,9 +40,9 @@ pub fn read_metafile(drive: DriveLetter, kind: MetafileKind) -> Result<Vec<u8>> 
         MetafileKind::AttrDef => read_data_stream(&handle, vol, 4, None),
         MetafileKind::MftMirr => read_data_stream(&handle, vol, 1, None),
         MetafileKind::LogFile => read_data_stream(&handle, vol, 2, None),
-        // `$Volume` / `$BadClus` keep their useful data in the MFT record itself
-        // (the $VOLUME_* attributes; the $Bad run list), so capture the fixed-up
-        // record.
+        // `$Volume` / `$BadClus` keep their useful data in the MFT record
+        // itself (the $VOLUME_* attributes; the $Bad run list), so capture the
+        // fixed-up record.
         MetafileKind::Volume => read_frs_record(&handle, vol, 3),
         MetafileKind::BadClus => read_frs_record(&handle, vol, 8),
         // `$UsnJrnl:$J` lives under `$Extend`; resolve its FRS then read `$J`.

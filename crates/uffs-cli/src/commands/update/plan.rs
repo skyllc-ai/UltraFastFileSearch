@@ -190,9 +190,9 @@ fn classify_root(
     let (action, needs_elevation, needs_non_elevated) = match root.channel {
         Channel::DevBuild => (UpdateAction::SkipDevBuild, false, false),
         Channel::Unknown => (UpdateAction::SkipUnknown, false, false),
-        // Unmanaged: the uffs-update helper stops the daemon via the *gated* CLI
-        // `daemon stop` (no UAC), so an elevated daemon (or a broker) hosted here
-        // genuinely needs elevation — as does a non-writable dir.
+        // Unmanaged: the uffs-update helper stops the daemon via the *gated*
+        // CLI `daemon stop` (no UAC), so an elevated daemon (or a broker)
+        // hosted here genuinely needs elevation — as does a non-writable dir.
         Channel::Unmanaged => (
             UpdateAction::ReplaceBinaries,
             !dir_writable(&root.dir)
@@ -200,12 +200,12 @@ fn classify_root(
             false,
         ),
         // winget's own `quiesce` stops a daemon inside the package
-        // **cooperatively** (an IPC shutdown the daemon honors regardless of its
-        // elevation — not the gated CLI `daemon stop`) and cycles the package
-        // broker via its own one-UAC path. So a winget root is never gated here;
-        // it only needs the privilege level winget itself demands: user scope
-        // must run non-elevated (winget refuses a user package elevated), machine
-        // scope requires Administrator.
+        // **cooperatively** (an IPC shutdown the daemon honors regardless of
+        // its elevation — not the gated CLI `daemon stop`) and cycles the
+        // package broker via its own one-UAC path. So a winget root is never
+        // gated here; it only needs the privilege level winget itself demands:
+        // user scope must run non-elevated (winget refuses a user package
+        // elevated), machine scope requires Administrator.
         Channel::WinGet => match root.scope {
             Scope::Machine => (UpdateAction::WingetUpgrade, true, false),
             Scope::User | Scope::Unknown => (UpdateAction::WingetUpgrade, false, true),
