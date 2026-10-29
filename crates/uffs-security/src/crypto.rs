@@ -178,8 +178,26 @@ fn bad_data(msg: impl Into<String>) -> io::Error {
 
 /// Decrypts an UFFSENC-formatted buffer, returning the original plaintext.
 ///
+/// Copies `data` once and decrypts the copy in place; a caller that owns
+/// the buffer should use [`decrypt_cache_in_place`] and skip that copy.
+///
+/// # Errors
+///
+/// See [`decrypt_cache_in_place`].
+pub fn decrypt_cache(data: &[u8], key: &[u8; 32]) -> io::Result<Vec<u8>> {
+    decrypt_cache_in_place(data.to_vec(), key)
+}
+
+/// Decrypts an UFFSENC-formatted buffer inside its own allocation and returns
+/// that allocation holding only the plaintext.
+///
 /// Supports both v1 (u32 length, 28-byte header) and v2 (u64 length, 32-byte
-/// header) formats. Validates the header, algorithm ID, and GCM auth tag.
+/// header) formats. Validates the header, algorithm ID, and GCM auth tag
+/// before any plaintext is returned.
+///
+/// The ciphertext is decrypted where it lies, then moved to the front of the
+/// buffer and the header and tag cut off — no second buffer, so loading a
+/// multi-GB cache does not hold the ciphertext and the plaintext at once.
 ///
 /// # Errors
 ///
@@ -187,7 +205,48 @@ fn bad_data(msg: impl Into<String>) -> io::Error {
 /// - The data is too short or has wrong magic
 /// - The algorithm or version is unsupported
 /// - GCM authentication fails (tampered data or wrong key)
-pub fn decrypt_cache(data: &[u8], key: &[u8; 32]) -> io::Result<Vec<u8>> {
+pub fn decrypt_cache_in_place(mut data: Vec<u8>, key: &[u8; 32]) -> io::Result<Vec<u8>> {
+    let envelope = parse_envelope(&data)?;
+    let payload_end = envelope.header_size + envelope.payload_len;
+
+    let tag_bytes: [u8; TAG_SIZE] = data
+        .get(payload_end..payload_end + TAG_SIZE)
+        .ok_or_else(|| bad_data("tag OOB"))?
+        .try_into()
+        .map_err(|_e| bad_data("tag size mismatch"))?;
+    let auth_tag: &Tag = (&tag_bytes).into();
+
+    let (header, rest) = data.split_at_mut(envelope.header_size);
+    let ciphertext = rest
+        .get_mut(..envelope.payload_len)
+        .ok_or_else(|| bad_data("ciphertext OOB"))?;
+    let cipher = Aes256Gcm::new(key.into());
+    cipher
+        .decrypt_inout_detached(
+            (&envelope.nonce).into(),
+            header,
+            ciphertext.into(),
+            auth_tag,
+        )
+        .map_err(|_e| bad_data("AES-GCM authentication failed (wrong key or tampered data)"))?;
+
+    data.copy_within(envelope.header_size..payload_end, 0);
+    data.truncate(envelope.payload_len);
+    Ok(data)
+}
+
+/// The parts of an UFFSENC header that decryption needs.
+struct Envelope {
+    /// Header length in bytes (also the AAD length): 28 for v1, 32 for v2.
+    header_size: usize,
+    /// Ciphertext (= plaintext) length in bytes.
+    payload_len: usize,
+    /// The 96-bit GCM nonce.
+    nonce: [u8; NONCE_SIZE],
+}
+
+/// Validate an UFFSENC header and check `data` holds the whole payload and tag.
+fn parse_envelope(data: &[u8]) -> io::Result<Envelope> {
     // Minimum size: smallest header (v1=28) + tag (16) = 44 bytes
     if data.len() < HEADER_SIZE_V1 + TAG_SIZE {
         return Err(bad_data(format!(
@@ -246,13 +305,16 @@ pub fn decrypt_cache(data: &[u8], key: &[u8; 32]) -> io::Result<Vec<u8>> {
         ver => return Err(bad_data(format!("unsupported format version: {ver}"))),
     };
 
-    let nonce_bytes: &[u8; NONCE_SIZE] = data
+    let nonce: [u8; NONCE_SIZE] = data
         .get(12..24)
         .ok_or_else(|| bad_data("data too short for nonce"))?
         .try_into()
         .map_err(|_e| bad_data("invalid nonce"))?;
 
-    let expected = header_size + payload_len + TAG_SIZE;
+    let expected = header_size
+        .checked_add(payload_len)
+        .and_then(|len| len.checked_add(TAG_SIZE))
+        .ok_or_else(|| bad_data("payload length overflows"))?;
     if data.len() < expected {
         return Err(bad_data(format!(
             "encrypted cache truncated: have {} bytes, expected {expected}",
@@ -260,31 +322,11 @@ pub fn decrypt_cache(data: &[u8], key: &[u8; 32]) -> io::Result<Vec<u8>> {
         )));
     }
 
-    // Extract components — bounds guaranteed by checks above
-    let aad = data
-        .get(..header_size)
-        .ok_or_else(|| bad_data("header OOB"))?;
-    let ciphertext = data
-        .get(header_size..header_size + payload_len)
-        .ok_or_else(|| bad_data("ciphertext OOB"))?;
-    let tag = data
-        .get(header_size + payload_len..header_size + payload_len + TAG_SIZE)
-        .ok_or_else(|| bad_data("tag OOB"))?;
-
-    let cipher = Aes256Gcm::new(key.into());
-    let auth_tag: &Tag = tag.try_into().map_err(|_e| bad_data("tag size mismatch"))?;
-
-    let mut plaintext = ciphertext.to_vec();
-    cipher
-        .decrypt_inout_detached(
-            nonce_bytes.into(),
-            aad,
-            plaintext.as_mut_slice().into(),
-            auth_tag,
-        )
-        .map_err(|_e| bad_data("AES-GCM authentication failed (wrong key or tampered data)"))?;
-
-    Ok(plaintext)
+    Ok(Envelope {
+        header_size,
+        payload_len,
+        nonce,
+    })
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -321,6 +363,48 @@ mod tests {
         let encrypted = encrypt_cache(&plaintext, &key).expect("encrypt");
         let decrypted = decrypt_cache(&encrypted, &key).expect("decrypt");
         assert_eq!(decrypted, plaintext);
+    }
+
+    /// In-place decryption hands back the plaintext in the buffer it was
+    /// given — no second allocation of the payload's size.
+    #[test]
+    fn in_place_round_trip_reuses_the_buffer() {
+        let key = [0xCD_u8; 32];
+        let plaintext: Vec<u8> = (0..=255_u8).cycle().take(64 * 1024).collect();
+        let encrypted = encrypt_cache(&plaintext, &key).expect("encrypt");
+        let capacity = encrypted.capacity();
+        let decrypted = decrypt_cache_in_place(encrypted, &key).expect("decrypt");
+        assert_eq!(decrypted, plaintext);
+        assert_eq!(
+            decrypted.capacity(),
+            capacity,
+            "the same allocation must be reused"
+        );
+    }
+
+    /// Tampering is still caught before any plaintext is returned.
+    #[test]
+    fn in_place_rejects_tampered_ciphertext() {
+        let key = [0x11_u8; 32];
+        let mut encrypted = encrypt_cache(b"hello world", &key).expect("encrypt");
+        if let Some(byte) = encrypted.get_mut(HEADER_SIZE_V2) {
+            *byte ^= 0xFF;
+        }
+        let err = decrypt_cache_in_place(encrypted, &key).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData, "{err}");
+    }
+
+    /// A header claiming a length that cannot be added up is rejected, not
+    /// wrapped around into a small bound.
+    #[test]
+    fn overflowing_payload_length_is_rejected() {
+        let key = [0x22_u8; 32];
+        let mut encrypted = encrypt_cache(b"x", &key).expect("encrypt");
+        if let Some(len) = encrypted.get_mut(24..32) {
+            len.copy_from_slice(&u64::MAX.to_le_bytes());
+        }
+        let err = decrypt_cache_in_place(encrypted, &key).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData, "{err}");
     }
 
     /// S2.3.6: tampered ciphertext → decrypt fails.

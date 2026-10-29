@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use super::atomic_write;
+use super::{CountingWriter, append_size_trailer, atomic_write};
 use crate::index::usize_to_f64;
 
 /// Compresses `data` with zstd using multi-threaded mode.
@@ -77,7 +77,7 @@ pub fn compress_encrypt_write_streaming<F>(
     label: &str,
 ) -> std::io::Result<()>
 where
-    F: FnOnce(&mut zstd::Encoder<'_, Vec<u8>>) -> std::io::Result<()>,
+    F: FnOnce(&mut CountingWriter<zstd::Encoder<'static, Vec<u8>>>) -> std::io::Result<()>,
 {
     compress_encrypt_write_streaming_with_workers(
         write_fn,
@@ -103,14 +103,18 @@ pub fn compress_encrypt_write_streaming_with_workers<F>(
     label: &str,
 ) -> std::io::Result<()>
 where
-    F: FnOnce(&mut zstd::Encoder<'_, Vec<u8>>) -> std::io::Result<()>,
+    F: FnOnce(&mut CountingWriter<zstd::Encoder<'static, Vec<u8>>>) -> std::io::Result<()>,
 {
     let t_total = std::time::Instant::now();
 
     let t_compress = std::time::Instant::now();
-    let mut encoder = new_zstd_encoder_with_workers(zstd_level, zstd_workers)?;
-    write_fn(&mut encoder)?;
-    let compressed = encoder.finish()?;
+    let mut writer = CountingWriter::new(new_zstd_encoder_with_workers(zstd_level, zstd_workers)?);
+    write_fn(&mut writer)?;
+    let decompressed_len = writer.written();
+    let mut compressed = writer.into_inner().finish()?;
+    // The streaming encoder does not record the decompressed size; the
+    // trailer does, so the loader can allocate it exactly.
+    append_size_trailer(&mut compressed, decompressed_len);
     let compress_ms = t_compress.elapsed().as_millis();
     let compressed_len = compressed.len();
 
@@ -168,7 +172,8 @@ pub fn compress_encrypt_write(
 
     let uncompressed_len = serialized.len();
     let t_compress = std::time::Instant::now();
-    let compressed = compress_zstd_mt(&serialized, zstd_level)?;
+    let mut compressed = compress_zstd_mt(&serialized, zstd_level)?;
+    append_size_trailer(&mut compressed, uncompressed_len as u64);
     let compress_ms = t_compress.elapsed().as_millis();
     let compressed_len = compressed.len();
     drop(serialized);

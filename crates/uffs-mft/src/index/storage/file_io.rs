@@ -120,7 +120,7 @@ impl MftIndex {
     pub fn load_from_file(
         path: &std::path::Path,
     ) -> Result<(Self, IndexHeader), Box<dyn core::error::Error>> {
-        use uffs_security::crypto::{CacheFormat, decrypt_cache, detect_format};
+        use uffs_security::crypto::{CacheFormat, decrypt_cache_in_place, detect_format};
 
         let profile = std::env::var_os("UFFS_CACHE_PROFILE").is_some();
         let t_total = std::time::Instant::now();
@@ -137,7 +137,7 @@ impl MftIndex {
             CacheFormat::Encrypted => {
                 let key = uffs_security::keystore::get_cache_key()
                     .map_err(|err| Box::new(err) as Box<dyn core::error::Error>)?;
-                match decrypt_cache(&raw, &key) {
+                match decrypt_cache_in_place(raw, &key) {
                     Ok(pt) => pt,
                     Err(decrypt_err) => {
                         tracing::warn!(
@@ -170,7 +170,7 @@ impl MftIndex {
         let t_decompress = std::time::Instant::now();
         let compressed = is_zstd_compressed(&decrypted);
         let plaintext = if compressed {
-            zstd::decode_all(decrypted.as_slice()).map_err(|err| {
+            crate::cache::decompress_sized(&decrypted).map_err(|err| {
                 Box::new(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     format!("zstd decompression failed: {err}"),

@@ -206,3 +206,36 @@ fn folded_writer_matches_serializing_a_folded_copy() {
         "writing must not touch the live index"
     );
 }
+
+/// The cache writers append a decompressed-size trailer after the zstd frame
+/// so the loader can allocate the plaintext once, at its exact size.  The
+/// same compressed bytes must deserialize to the same index.
+#[test]
+fn sized_compression_round_trips_the_index() {
+    use std::io::Write as _;
+
+    let index = make_test_index();
+    let mut writer = uffs_mft::cache::CountingWriter::new(
+        uffs_mft::cache::new_zstd_mt_encoder(ZSTD_LEVEL).unwrap(),
+    );
+    serialize_compact_to_writer(&index, &mut writer).unwrap();
+    writer.flush().unwrap();
+    let decompressed_len = writer.written();
+    let mut compressed = writer.into_inner().finish().unwrap();
+    uffs_mft::cache::append_size_trailer(&mut compressed, decompressed_len);
+
+    let plaintext = uffs_mft::cache::decompress_sized(&compressed).unwrap();
+    assert_eq!(
+        plaintext,
+        serialize_compact(&index),
+        "the trailer must not alter the payload"
+    );
+    assert_eq!(
+        plaintext.capacity(),
+        plaintext.len(),
+        "allocated once, at the exact size"
+    );
+    let (loaded, _tri_ms) = deserialize_compact(&plaintext, uffs_mft::platform::DriveLetter::T)
+        .unwrap_or_else(|err| panic!("sized plaintext must deserialize: {err}"));
+    assert_eq!(loaded.records.len(), index.records.len());
+}

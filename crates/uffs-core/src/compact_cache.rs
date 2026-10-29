@@ -1133,10 +1133,15 @@ where
     let profile = std::env::var_os("UFFS_CACHE_PROFILE").is_some();
     let t_compress = Instant::now();
 
-    // Serialize directly into the zstd encoder — no 1.1 GB buffer.
-    let mut encoder = uffs_mft::cache::new_zstd_mt_encoder(ZSTD_LEVEL)?;
-    serialize_compact_to_writer(index, &mut encoder)?;
-    let compressed = encoder.finish()?;
+    // Serialize directly into the zstd encoder — no 1.1 GB buffer — and
+    // record the decompressed size after it so the loader can allocate it
+    // exactly (`uffs_mft::cache::decompress_sized`).
+    let mut writer =
+        uffs_mft::cache::CountingWriter::new(uffs_mft::cache::new_zstd_mt_encoder(ZSTD_LEVEL)?);
+    serialize_compact_to_writer(index, &mut writer)?;
+    let decompressed_len = writer.written();
+    let mut compressed = writer.into_inner().finish()?;
+    uffs_mft::cache::append_size_trailer(&mut compressed, decompressed_len);
 
     let compress_ms = t_compress.elapsed().as_millis();
     if profile {
@@ -1375,14 +1380,14 @@ fn load_compact_cache_at(
     let key = uffs_security::keystore::get_cache_key()
         .map_err(|err| LoadCacheError::KeyUnavailable(err.to_string()))?;
     let t_decrypt = Instant::now();
-    let decrypted = uffs_security::crypto::decrypt_cache(&raw, &key)
+    let decrypted = uffs_security::crypto::decrypt_cache_in_place(raw, &key)
         .map_err(|err| LoadCacheError::DecryptFailed(err.to_string()))?;
     let decrypt_ms = t_decrypt.elapsed().as_millis();
 
     let t_decompress = Instant::now();
     let is_compressed = decrypted.get(..4).is_some_and(|magic| magic == ZSTD_MAGIC);
     let plaintext = if is_compressed {
-        zstd::decode_all(decrypted.as_slice())
+        uffs_mft::cache::decompress_sized(&decrypted)
             .map_err(|err| LoadCacheError::DecompressFailed(err.to_string()))?
     } else {
         decrypted
