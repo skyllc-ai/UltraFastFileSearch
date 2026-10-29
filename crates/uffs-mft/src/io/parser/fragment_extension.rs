@@ -42,7 +42,10 @@ use crate::ntfs::{
 /// # Returns
 ///
 /// `true` if any names/streams were added, `false` otherwise.
-#[deprecated(note = "Use parse_record_full() + MftRecordMerger instead")]
+#[deprecated(
+    since = "0.2.203",
+    note = "Use parse_record_full() + MftRecordMerger instead"
+)]
 #[expect(
     clippy::too_many_lines,
     reason = "monolithic extension parser for performance: nested FileName + Data \

@@ -537,7 +537,10 @@ pub fn refresh_drive(drive: &DriveCompactIndex) -> anyhow::Result<(DriveCompactI
 /// # Errors
 ///
 /// Returns an error if the MFT file cannot be read or parsed.
-#[deprecated(note = "Use load_drive(MftSource::File(...)) instead")]
+#[deprecated(
+    since = "0.4.31",
+    note = "Use load_drive(MftSource::File(...)) instead"
+)]
 pub fn load_mft_file(
     mft_path: &std::path::Path,
     drive: Option<uffs_mft::platform::DriveLetter>,
