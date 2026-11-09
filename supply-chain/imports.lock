@@ -1004,6 +1004,26 @@ who = "Dan Gohman <dev@sunfishcode.online>"
 criteria = "safe-to-deploy"
 delta = "0.3.9 -> 0.3.10"
 
+[[audits.bytecode-alliance.audits.futures]]
+who = "Joel Dice <joel.dice@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.3.31"
+
+[[audits.bytecode-alliance.audits.futures]]
+who = "Pat Hickey <p.hickey@f5.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.31 -> 0.3.34"
+
+[[audits.bytecode-alliance.audits.futures-channel]]
+who = "Joel Dice <joel.dice@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.3.31"
+
+[[audits.bytecode-alliance.audits.futures-channel]]
+who = "Pat Hickey <p.hickey@f5.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.31 -> 0.3.34"
+
 [[audits.bytecode-alliance.audits.futures-core]]
 who = "Pat Hickey <phickey@fastly.com>"
 criteria = "safe-to-deploy"
@@ -1014,6 +1034,26 @@ notes = "Unsafe used to implement a concurrency primitive AtomicWaker. Well-comm
 who = "Pat Hickey <pat@moreproductive.org>"
 criteria = "safe-to-deploy"
 delta = "0.3.28 -> 0.3.31"
+
+[[audits.bytecode-alliance.audits.futures-executor]]
+who = "Joel Dice <joel.dice@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.3.31"
+
+[[audits.bytecode-alliance.audits.futures-executor]]
+who = "Pat Hickey <p.hickey@f5.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.31 -> 0.3.34"
+
+[[audits.bytecode-alliance.audits.futures-io]]
+who = "Joel Dice <joel.dice@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.3.31"
+
+[[audits.bytecode-alliance.audits.futures-io]]
+who = "Pat Hickey <p.hickey@f5.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.31 -> 0.3.34"
 
 [[audits.bytecode-alliance.audits.futures-macro]]
 who = "Joel Dice <joel.dice@gmail.com>"
@@ -1834,12 +1874,12 @@ notes = "All code written or reviewed by Manish"
 aggregated-from = "https://raw.githubusercontent.com/mozilla-firefox/firefox/main/supply-chain/audits.toml"
 
 [[audits.mozilla.wildcard-audits.utf8_iter]]
-who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
+who = "Henri Sivonen <hsivonen@hsivonen.fi>"
 criteria = "safe-to-deploy"
 user-id = 4484 # Henri Sivonen (hsivonen)
 start = "2022-04-19"
-end = "2024-06-16"
-notes = "Maintained by Henri Sivonen who works at Mozilla."
+end = "2027-10-30"
+notes = "I wrote this crate."
 aggregated-from = "https://raw.githubusercontent.com/mozilla-firefox/firefox/main/supply-chain/audits.toml"
 
 [[audits.mozilla.audits.adler2]]
