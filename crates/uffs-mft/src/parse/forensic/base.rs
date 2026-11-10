@@ -550,20 +550,19 @@ pub(super) fn parse_base_record(
         // parity)
         (dir_index_size, dir_index_allocated)
     } else {
-        streams.iter().find(|s| s.name.is_empty()).map_or_else(
-            || {
-                // No default $DATA stream — use reparse_size for
-                // junctions/symlinks (resident ValueLength from
-                // the $REPARSE_POINT attribute)
-                if reparse_tag != 0 {
-                    (reparse_size, 0) // Reparse point data is resident,
-                // allocated=0
-                } else {
-                    (0, 0)
-                }
-            },
-            |s| (s.size, s.allocated_size),
-        )
+        // No default $DATA stream: a junction/symlink reports its reparse
+        // data size (the resident ValueLength of $REPARSE_POINT, so
+        // allocated is 0); anything else is empty.  Two integers, so the
+        // fallback is computed eagerly (clippy::unnecessary_lazy_evaluations).
+        let no_default_stream = if reparse_tag == 0 {
+            (0, 0)
+        } else {
+            (reparse_size, 0)
+        };
+        streams
+            .iter()
+            .find(|s| s.name.is_empty())
+            .map_or(no_default_stream, |s| (s.size, s.allocated_size))
     };
 
     ParseResult::Base(ParsedRecord {

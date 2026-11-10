@@ -48,7 +48,6 @@
 )]
 #![expect(
     clippy::str_to_string,
-    clippy::string_slice,
     reason = "string operations on normalized ASCII paths are safe"
 )]
 #![expect(
@@ -167,13 +166,11 @@ fn add_normalized_paths(df: &DataFrame) -> Result<DataFrame> {
     Ok(result)
 }
 
-/// Check if path is an Alternate Data Stream
+/// Check if path is an Alternate Data Stream: a `:` after the drive
+/// prefix (`C:`).  `get` instead of slicing, so a multi-byte character at
+/// byte 2 reads as "no stream" rather than panicking.
 fn is_ads_path(path: &str) -> bool {
-    if path.len() > 2 {
-        path[2..].contains(':')
-    } else {
-        false
-    }
+    path.get(2..).is_some_and(|rest| rest.contains(':'))
 }
 
 /// Extract drive letter from path
