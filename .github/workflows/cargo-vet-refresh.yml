@@ -103,7 +103,7 @@ jobs:
           prefix-key: "vet-refresh"
 
       - name: Install cargo-vet
-        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-vet
 
@@ -168,7 +168,7 @@ jobs:
 
       - name: Upload the refreshed supply-chain
         if: steps.diff.outputs.changed == 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: supply-chain-refresh
           path: supply-chain/

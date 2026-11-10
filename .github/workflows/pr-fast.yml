@@ -381,7 +381,7 @@ jobs:
 
       - name: Install cargo-vet
         if: needs.classify.outputs.dep == 'true'
-        uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-vet
 
@@ -552,7 +552,7 @@ jobs:
         with:
           shared-key: pr-fast-test-build
           save-if: 'false'
-      - uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: nextest
 
@@ -593,7 +593,7 @@ jobs:
         with:
           shared-key: pr-fast-security
 
-      - uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-deny,cargo-vet,cargo-machete
 
@@ -689,7 +689,7 @@ jobs:
       # Exercise the same suite natively on Windows in the merge queue so the
       # class is caught before merge. Mirrors the ubuntu `tests` job's
       # invocation; `#[ignore]`d live-MFT tests still skip.
-      - uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: nextest
       - run: cargo nextest run --workspace --all-features --lib --tests --profile ci --locked
