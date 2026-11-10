@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: MPL-2.0
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ci-failure-notify — file a tracking issue when a watched workflow
+# ci-failure-notify - file a tracking issue when a watched workflow
 # concludes in failure AFTER `auto-rerun-transient.yml` has had its
 # chance to retry transient flakes.
 #
 # Why this lives outside `pr-fast.yml` / `tier-2.yml`:
 #
 #   The previous in-workflow `notify-failure` jobs fired synchronously
-#   as soon as any gate job failed — BEFORE the cross-workflow
+#   as soon as any gate job failed - BEFORE the cross-workflow
 #   `auto-rerun-transient` listener could observe the failure and
 #   dispatch a retry.  Transient failures (HTTP 429, network blips,
 #   runner-setup faults) thus generated false-positive `ci-failure-*`
@@ -38,27 +38,20 @@
 #
 # Coverage:
 #
-#   * "PR Fast CI"               → label `ci-failure-pr-fast`
-#   * "🌙 UFFS Tier 2 Nightly CI" → label `ci-failure-tier-2`
-#   * "🔍 CodeQL (Rust SAST)" is intentionally NOT covered — it uses
-#     `continue-on-error: true` (advisory job) and its transient
-#     failures are absorbed by `auto-rerun-transient.yml` without
-#     ever surfacing as `conclusion == 'failure'`.
-#
-# Release pipeline (`release.yml`) keeps its own in-workflow
-# notify-failure job because:
-#
-#   1. It's not in `auto-rerun-transient.yml`'s watched list (release
-#      failures are not transient-retryable by design — every step
-#      mutates published state).
-#   2. Release failures need immediate human attention; a 60s delay
-#      is unwanted.
+#   * every workflow listed under `workflows:` below; the `known`
+#     table gives each its label and title, and a workflow missing
+#     from the table still files an issue (label from its name).
+#   * each genuine failure also mails <repo>failed@nios.net (the
+#     `Mail the failure` step, NOTIFY_SMTP_USER / NOTIFY_SMTP_PASSWORD).
+#   * not watched: this notifier, auto-rerun, commitlint, the
+#     dependabot reviews, preview artifacts and the release
+#     auto-trigger (PR-scoped or advisory).
 #
 # Permissions:
 #
-#   * `actions: read`  — required to call GET /repos/.../actions/runs/<id>.
-#   * `contents: read` — implicit (issue body links to commits).
-#   * `issues: write`  — required to create / comment on / update issues.
+#   * `actions: read`  - required to call GET /repos/.../actions/runs/<id>.
+#   * `contents: read` - implicit (issue body links to commits).
+#   * `issues: write`  - required to create / comment on / update issues.
 
 name: 🔔 CI Failure Notify
 
@@ -66,13 +59,21 @@ on:
   workflow_run:
     workflows:
       - "PR Fast CI"
-      - "🌙 UFFS Tier 2 Nightly CI"
+      - "🔄 cargo-vet: weekly import refresh"
+      - "🔍 CodeQL (Rust SAST)"
+      - "📦 crates.io dry-run + semver-checks"
       - "🐤 Nightly Canary"
+      - "🔥 Release cache warm"
+      - "🚀 Release-plz"
+      - "🚀 UFFS Release Pipeline"
+      - "🌙 UFFS Tier 2 Nightly CI"
+      - "📦 WinGet Publish"
+      - "🔑 WinGet Token Expiry Check"
     types: [completed]
 
 # Default to ZERO permissions; the single job below grants only what
 # it needs.  Matches the least-privilege pattern used in every other
-# UFFS workflow.
+# workflow here.
 permissions: {}
 
 # Serialise per watched run so two near-simultaneous workflow_run
@@ -134,7 +135,7 @@ jobs:
           status="$(printf '%s' "$run_json" | jq -r '.status')"
           conclusion="$(printf '%s' "$run_json" | jq -r '.conclusion // "null"')"
 
-          printf 'Run %s — attempt=%s status=%s conclusion=%s\n' \
+          printf 'Run %s - attempt=%s status=%s conclusion=%s\n' \
             "${RUN_ID}" "${attempt}" "${status}" "${conclusion}"
 
           {
@@ -177,6 +178,7 @@ jobs:
           echo "notify=true" >> "$GITHUB_OUTPUT"
 
       - name: File or update tracking issue
+        id: issue
         if: steps.decide.outputs.notify == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
@@ -189,51 +191,45 @@ jobs:
           ATTEMPT: ${{ steps.status.outputs.attempt }}
         with:
           script: |
-            // Map workflow-run name → per-workflow label + title prefix.
-            // The mapping mirrors the labels previously emitted by each
-            // workflow's in-line `notify-failure` job before the move
-            // to this centralised, race-safe workflow.
+            // Map workflow-run name -> per-workflow label + title.  A
+            // workflow missing from this table still files an issue
+            // (label from its name): a failure is never dropped.
             const wf = process.env.WORKFLOW_NAME;
             const sha = process.env.HEAD_SHA;
             const shortSha = sha.substring(0, 7);
             const attempt = process.env.ATTEMPT;
 
-            let label, title, extraBody;
-            if (wf === 'PR Fast CI') {
-              label = 'ci-failure-pr-fast';
-              title = `🔴 CI Failure: PR Fast CI — ${shortSha}`;
-              extraBody = [];
-            } else if (wf === '🌙 UFFS Tier 2 Nightly CI') {
-              label = 'ci-failure-tier-2';
-              title = `🔴 CI Failure: Tier 2 Nightly CI — ${shortSha}`;
-              extraBody = [
-                '',
-                '📧 Notification sent to: cifail@uffs.io',
-              ];
-            } else if (wf === '🐤 Nightly Canary') {
-              // Early-warning probe against the LATEST floating nightly
-              // (NOT the pinned toolchain).  A failure here means an
-              // upcoming nightly will break the workspace — triage
-              // before the next `just toolchain-sync` pin bump, not
-              // during it.  This is advisory: the canary is never a
-              // required merge check, so this issue tracks future risk,
-              // not a broken main.
-              label = 'ci-failure-nightly-canary';
-              title = `🐤 Nightly Canary: upcoming-toolchain regression — ${shortSha}`;
-              extraBody = [
+            const known = {
+              'PR Fast CI': ['ci-failure-pr-fast', '🔴 CI Failure: PR Fast CI'],
+              '🔄 cargo-vet: weekly import refresh': ['ci-failure-cargo-vet-weekly-import-refresh', '🔴 CI Failure: cargo-vet: weekly import refresh'],
+              '🔍 CodeQL (Rust SAST)': ['ci-failure-codeql-rust-sast', '🔴 CI Failure: CodeQL (Rust SAST)'],
+              '📦 crates.io dry-run + semver-checks': ['ci-failure-crates-io-dry-run-semver-checks', '🔴 CI Failure: crates.io dry-run + semver-checks'],
+              '🐤 Nightly Canary': ['ci-failure-nightly-canary', '🐤 Nightly Canary: upcoming-toolchain regression'],
+              '🔥 Release cache warm': ['ci-failure-release-cache-warm', '🔴 CI Failure: Release cache warm'],
+              '🚀 Release-plz': ['ci-failure-release-plz', '🔴 CI Failure: Release-plz'],
+              '🚀 UFFS Release Pipeline': ['ci-failure-release', '🔴 Release Failure'],
+              '🌙 UFFS Tier 2 Nightly CI': ['ci-failure-tier-2', '🔴 CI Failure: Tier 2 Nightly CI'],
+              '📦 WinGet Publish': ['ci-failure-winget-publish', '🔴 CI Failure: WinGet Publish'],
+              '🔑 WinGet Token Expiry Check': ['ci-failure-winget-token-expiry-check', '🔴 CI Failure: WinGet Token Expiry Check'],
+            };
+            const slug = wf.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').substring(0, 40);
+            const [label, titlePrefix] = known[wf] || [`ci-failure-${slug}`, `🔴 CI Failure: ${wf}`];
+            const title = `${titlePrefix} - ${shortSha}`;
+            const extraBody = [];
+            if (wf === '🐤 Nightly Canary') {
+              extraBody.push(
                 '',
                 '⚠️ This is an **early-warning** signal from the floating-nightly canary, ' +
                 'not a broken pin. `main` still builds on the pinned toolchain. ' +
                 'Investigate before the next pin bump; if it is an upstream/dep ' +
-                'regression, the fix is usually a dependency bump (cf. the ethnum ' +
-                '1.5.2→1.5.3 episode), not a toolchain downgrade.',
-                '',
-                '📧 Notification sent to: cifail@uffs.io',
-              ];
-            } else {
-              core.warning(`Unknown workflow name: ${wf}; not notifying.`);
-              return;
+                'regression, the fix is usually a dependency bump, not a toolchain downgrade.',
+              );
             }
+            // The mail: the issue is assigned to githubrobbi, and GitHub
+            // mails the assignee on the new issue and on every comment
+            // a repeat failure adds (the account's notification address).
+            const mailTo = `${context.repo.repo.toLowerCase()}failed@nios.net`;
+            extraBody.push('', `📧 Mailed to ${mailTo} (the next step), and GitHub mails the assignee on this issue and every repeat-failure comment.`);
 
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.RUN_ID}`;
             const commitUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commit/${sha}`;
@@ -281,8 +277,10 @@ jobs:
                 body: body,
               });
               core.info(`Updated existing issue #${existing.data[0].number}`);
+              core.setOutput('url', existing.data[0].html_url);
+              core.setOutput('title', `${existing.data[0].title} (repeat: ${shortSha})`);
             } else {
-              await github.rest.issues.create({
+              const created = await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: title,
@@ -291,4 +289,54 @@ jobs:
                 assignees: ['githubrobbi'],
               });
               core.info('Created new failure issue');
+              core.setOutput('url', created.data.html_url);
+              core.setOutput('title', title);
             }
+
+      # The mail: <repo>failed@nios.net (the owner's convention, one
+      # address per repository).  nios.net's DMARC admits only the IONOS
+      # relay as a sender, so the mail goes FROM the Gmail account that
+      # owns the app password TO the nios.net address.  Plain curl SMTP,
+      # no third-party action.  Without the two secrets the step says so
+      # loudly (a warning on the run) instead of failing the notifier:
+      # the issue above is already filed.
+      - name: Mail the failure
+        # Also when filing the issue failed: the mail is the signal
+        # that must not be lost (ISSUE_URL is then empty).
+        if: ${{ !cancelled() && steps.decide.outputs.notify == 'true' }}
+        env:
+          SMTP_USER: ${{ secrets.NOTIFY_SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.NOTIFY_SMTP_PASSWORD }}
+          REPO: ${{ github.event.repository.name }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          ISSUE_URL: ${{ steps.issue.outputs.url }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${SMTP_USER}" || -z "${SMTP_PASSWORD}" ]]; then
+            echo "::warning::NOTIFY_SMTP_USER / NOTIFY_SMTP_PASSWORD are not set; no failure mail was sent (the issue is filed)"
+            exit 0
+          fi
+          to="$(printf '%s' "${REPO}" | tr '[:upper:]' '[:lower:]')failed@nios.net"
+          subject="[${REPO}] ${ISSUE_TITLE:-${WORKFLOW_NAME} failed}"
+          mail="$(mktemp)"
+          {
+            printf 'From: %s CI <%s>\r\n' "${REPO}" "${SMTP_USER}"
+            printf 'To: %s\r\n' "${to}"
+            printf 'Subject: %s\r\n' "${subject}"
+            printf 'Date: %s\r\n' "$(date -R)"
+            printf 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n'
+            printf '%s failed on %s (%s).\r\n\r\n' "${WORKFLOW_NAME}" "${HEAD_BRANCH}" "${HEAD_SHA:0:7}"
+            printf 'Run:   %s\r\n' "${RUN_URL}"
+            printf 'Issue: %s\r\n' "${ISSUE_URL}"
+          } > "${mail}"
+          curl --silent --show-error --fail --ssl-reqd \
+            --url 'smtp://smtp.gmail.com:587' \
+            --user "${SMTP_USER}:${SMTP_PASSWORD}" \
+            --mail-from "${SMTP_USER}" --mail-rcpt "${to}" \
+            --upload-file "${mail}"
+          echo "mailed ${to}"
