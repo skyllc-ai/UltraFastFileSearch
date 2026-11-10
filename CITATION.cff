@@ -36,8 +36,8 @@ license-url: "https://github.com/skyllc-ai/UltraFastFileSearch/blob/main/LICENSE
 # ── Version ─────────────────────────────────────────────────────────────────
 # Kept in sync with [workspace.package].version in Cargo.toml: `just ship`
 # rewrites `version` and `date-released` in the release commit.
-version: "0.6.46"
-date-released: "2026-10-29"
+version: "0.6.47"
+date-released: "2026-11-10"
 
 # ── Classification ───────────────────────────────────────────────────────────
 type: software
