@@ -135,7 +135,7 @@ and `.github/workflows/tier-2.yml` (all as of commit `185ed8825`).
                                                udeps, Windows native)  T4
 
                                 weekly cron ─▶ cargo-vet-refresh.yml
-                                               (opens import-bump PR)
+                                               (reports the import diff; no PR)
 ```
 
 ### 3.2 Gate matrix (full)

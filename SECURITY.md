@@ -83,8 +83,9 @@ rationale, and operational playbook.
   (Mozilla, Google, Bytecode Alliance, ISRG, Zcash), a local audit
   in `supply-chain/audits.toml`, or a grandfathered exemption in
   `supply-chain/config.toml`.  The
-  `.github/workflows/cargo-vet-refresh.yml` workflow refreshes
-  upstream imports weekly via PR.
+  `.github/workflows/cargo-vet-refresh.yml` workflow checks the
+  upstream imports weekly and reports the diff; the maintainer
+  applies it on a working branch.
 - **Structural audit** — `just geiger` produces an on-demand
   `unsafe` / `build.rs` / proc-macro footprint report for the
   resolved dep tree (run monthly; compare against baseline).

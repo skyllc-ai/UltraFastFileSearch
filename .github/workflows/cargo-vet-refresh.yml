@@ -8,8 +8,10 @@
 #
 #   Runs `cargo vet regenerate imports` weekly to fetch the latest
 #   upstream audit records (Mozilla, Google, Bytecode Alliance,
-#   ISRG, Zcash).  If `supply-chain/imports.lock` changed, opens a
-#   PR with the updated lockfile for maintainer review + merge.
+#   ISRG, Zcash).  If `supply-chain/` changed, it REPORTS the change
+#   (job summary with the diff, and the refreshed files as an
+#   artifact) for the maintainer to apply locally; it opens no PR and
+#   pushes no branch.
 #
 # Why this is necessary:
 #
@@ -20,43 +22,26 @@
 #   CI — the maintainer would end up pulling imports manually on
 #   every Dependabot PR.
 #
-#   Scheduling a weekly refresh amortises that cost to ~5 min of
-#   PR-review once per week: the maintainer skims the diff (which
-#   is usually just added audit records, never modifications) and
-#   merges.
+#   Scheduling a weekly refresh amortises that cost to one look a
+#   week: the maintainer skims the reported diff (usually just added
+#   audit records, never modifications) and applies it on the next
+#   working branch.
 #
-# Why we keep it a PR instead of pushing to `main` directly:
+# Why a report and not a PR:
 #
-#   Branch protection on `main` requires reviewer sign-off (the
-#   `main-protection` ruleset's `PULL_REQUEST` rule).  Direct
-#   pushes by automation would bypass that review surface.
-#   Routing the refresh through a PR keeps the maintainer's
-#   usual review + squash-merge flow intact.
-#
-#   The matching `REQUIRED_SIGNATURES` rule used to make the
-#   intermediate bot commit on the PR branch unsignable without
-#   storing a GPG private key as a secret, which forced the
-#   maintainer to amend + force-push every refresh just to satisfy
-#   branch protection.  Resolved by `sign-commits: true` on the
-#   `peter-evans/create-pull-request` step below (Phase
-#   cargo-vet-refresh-signed-commits, refs #272 force-push).
-#   See that step's comment for the mechanism.
-#
-# Operational note — CI won't auto-run on this PR:
-#
-#   GitHub suppresses workflow runs for PRs opened by the default
-#   GITHUB_TOKEN (supply-chain defence against recursive automation
-#   loops).  To trigger the Tier 1 checks, the maintainer needs to
-#   either close-and-reopen the PR, or push an empty commit.  This
-#   is a known GitHub limitation; documented in the PR body we
-#   open so the reviewer sees it.
+#   Opening a pull request is the maintainer's call, never the CI's:
+#   every PR is a paid CI round, and a PR opened by GITHUB_TOKEN runs
+#   no workflows until someone closes and reopens it or pushes to it
+#   (#643 sat that way).  The run ends with the diff in its summary;
+#   the maintainer applies it with
+#   `cargo vet regenerate imports && cargo vet prune` on the working
+#   branch, where the commit hooks vet it like any other change.  The
+#   job therefore needs read access only.
 #
 # Cost:
 #
-#   ~30 seconds per week for the workflow itself (cargo-vet +
-#   curl).  ~5 min per week for the maintainer to review + merge
-#   the PR (if there's a diff; often there isn't, in which case
-#   the workflow is a no-op).
+#   ~1 minute per week for the workflow itself (cargo-vet + curl);
+#   often there is no diff, and the run is a no-op.
 
 name: "🔄 cargo-vet: weekly import refresh"
 
@@ -64,7 +49,7 @@ on:
   schedule:
     # Mondays at 08:00 UTC — gives Mozilla/Google/BA the full
     # weekend-plus to land their own weekly audit updates before
-    # we fetch them.  Chose Monday morning so the PR is fresh for
+    # we fetch them.  Chose Monday morning so the report is fresh for
     # the start-of-week review.
     - cron: "0 8 * * 1"
 
@@ -73,12 +58,9 @@ on:
   # upstream audits before re-checking).
   workflow_dispatch:
 
-# Minimum permissions needed:
-#   contents: write        — push the refresh branch
-#   pull-requests: write   — open / update the refresh PR
+# Read-only: the run reports, it writes nothing to the repository.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 # Avoid overlapping runs; latest wins.  Unlikely to matter at
 # weekly cadence but defensive for manual dispatch races.
@@ -142,8 +124,8 @@ jobs:
         # Sanity check: the refreshed config + imports.lock must
         # still pass `cargo vet check`.  If it doesn't, something
         # went very wrong upstream (e.g. an import URL started
-        # serving a malformed audits.toml) and we should NOT open
-        # a PR that would break CI on merge.
+        # serving a malformed audits.toml) and the report must say
+        # so instead of suggesting a change that would break CI.
         run: cargo vet check --locked
 
       - name: Detect changes
@@ -151,97 +133,46 @@ jobs:
         run: |
           if git diff --quiet supply-chain/; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No changes to supply-chain/ — nothing to open a PR for."
+            echo "No changes to supply-chain/ — nothing to report."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "supply-chain/ changed — will open a PR."
+            echo "supply-chain/ changed — reporting the diff."
             echo ""
             echo "=== diff summary ==="
             git diff --stat supply-chain/
           fi
 
-      - name: Open refresh PR
+      - name: Report the refresh
         if: steps.diff.outputs.changed == 'true'
-        # peter-evans/create-pull-request handles:
-        #   • branch creation (reuses if the same branch is still open)
-        #   • commit authoring (GitHub Actions bot)
-        #   • PR open OR update (idempotent across weekly runs)
-        #
-        # `sign-commits: true` switches the action from `git` to the
-        # GitHub REST API (`PUT /repos/{owner}/{repo}/contents/{path}`)
-        # for commit creation.  REST-API commits authored by
-        # `GITHUB_TOKEN` are auto-signed by GitHub's `web-flow` key, so
-        # the resulting bot commit satisfies the `main-protection`
-        # ruleset's `REQUIRED_SIGNATURES` rule without us ever provisioning
-        # a private GPG key as a secret.  See `action.yml` of
-        # `peter-evans/create-pull-request@v7` for the input docs
-        # ("Sign commits as `github-actions[bot]` when using `GITHUB_TOKEN`").
-        #
-        # Without this flag the action commits via `git` with the bot's
-        # email but no signature, producing an `unsigned` commit that
-        # branch protection rejects on merge (manifested as PR #272
-        # being `BLOCKED` until the maintainer rebased + force-pushed a
-        # signed copy by hand).
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v7
+        # No PR, no branch (see the header): the diff goes to the job
+        # summary and the refreshed files to an artifact, and the
+        # maintainer applies the same commands locally.
+        run: |
+          {
+            echo "## 🔄 cargo-vet imports changed upstream"
+            echo ""
+            echo "Apply on the working branch (the commit hooks vet it):"
+            echo ""
+            echo '```bash'
+            echo "cargo vet regenerate imports && cargo vet prune && cargo vet check --locked"
+            echo '```'
+            echo ""
+            echo "### diff"
+            echo ""
+            echo '```diff'
+            git diff --stat supply-chain/
+            echo ""
+            git diff supply-chain/ | head -400
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the refreshed supply-chain
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: "chore/cargo-vet-refresh"
-          base: main
-          delete-branch: true
-          sign-commits: true
-          commit-message: |
-            chore(security): refresh cargo-vet imports
-
-            Scheduled weekly refresh of supply-chain/imports.lock
-            from upstream audit sources (Mozilla, Google, Bytecode
-            Alliance, ISRG, Zcash).
-
-            See .github/workflows/cargo-vet-refresh.yml for
-            rationale and docs/architecture/security/
-            supply-chain-posture.md for the full supply-chain
-            posture.
-          title: "chore(security): weekly cargo-vet import refresh"
-          body: |
-            ## Summary
-
-            Weekly refresh of `supply-chain/imports.lock` from upstream
-            audit sources (Mozilla, Google, Bytecode Alliance, ISRG,
-            Zcash).  Opened automatically by
-            `.github/workflows/cargo-vet-refresh.yml`.
-
-            ## ⚠️ Before merging
-
-            GitHub **suppresses CI runs** on PRs opened by the
-            default `GITHUB_TOKEN` (anti-recursion safety).  To
-            trigger the Tier 1 checks:
-
-            * **close and reopen this PR**, or
-            * push an empty commit:
-              ```bash
-              git fetch origin chore/cargo-vet-refresh
-              git checkout chore/cargo-vet-refresh
-              git commit --allow-empty -S -m "chore: trigger ci"
-              git push
-              ```
-
-            ## What changed
-
-            Diff is entirely within `supply-chain/` — either added
-            audit records or pruned exemptions that are now covered
-            by upstream audits.
-
-            ## Why review is still needed
-
-            Even though the content comes from trusted upstreams,
-            the merge commit itself must be signed + reviewed per
-            branch protection.  Skim the diff for anything
-            unusual (e.g. a removed audit record that's been
-            replaced by an exemption — would indicate an upstream
-            has *retracted* an audit, which warrants investigation).
-          labels: |
-            security
-            dependencies
-            automated
+          name: supply-chain-refresh
+          path: supply-chain/
+          retention-days: 14
 
       - name: No-op summary
         if: steps.diff.outputs.changed == 'false'

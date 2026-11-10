@@ -115,7 +115,7 @@ control lands or a deferred item is promoted.
 | SemVer compliance | `cargo-semver-checks check-release` | For every publishable crate, diff the current rustdoc JSON against the latest version on crates.io.  Catches SemVer-breaking API changes (removed pub items, signature changes, new required generic params, etc.) shipped under a non-major version bump.  Informational pre-R8 (no crates.io baseline yet); becomes the canonical correctness check once the first publish lands | Weekly | **Yes** (advisory pre-R8, then GATE) — `crates-io-dry-run.yml` (Tier R3-05, landed 2026-05-12) |
 | MSRV verification | `cargo +1.91 check --locked` (`--all-features` + `--no-default-features`) | Independently verifies the workspace builds on the claimed MSRV (`Cargo.toml::rust-version = "1.91"`) against the **stable** 1.91 toolchain. `rust-toolchain.toml` pins nightly so every other gate runs there; this is the only gate that exercises the contract surface downstream consumers see. Catches MSRV regressions that `clippy::incompatible_msrv` misses (new trait impls, deref coercion changes, new `const fn` qualifications, inference improvements). Hard gate \u2014 a failure means the rust-version claim is lying to crates.io consumers | Weekly | **Yes** (hard gate) \u2014 `tier-2.yml::msrv` (Tier R3-06, landed 2026-05-12) |
 | Adversarial-input fuzzing | `cargo-fuzz` (libfuzzer-sys) | Runs libfuzzer-sys harnesses against the workspace's primary untrusted-byte attack surface: `uffs_mft::parse::{parse_record,parse_record_full,parse_record_zero_alloc,apply_fixup}`.  Every NTFS MFT record we parse came from an external filesystem image — fuzz tests robustness to malformed bytes (truncated records, cyclic FRS references, integer overflows in metadata fields, slice-bounds violations in the fixup application).  Complements Miri / cargo-careful (UB on *known* inputs) and cargo-mutants (test-suite quality on *known* inputs) by generating *unknown* adversarial inputs.  Time-bounded (`-max_total_time=900` per target, 30 min total).  Artifacts (`crashes/` + `corpus/`) uploaded for 90 days for offline triage and seed carry-over | Weekly | **Yes** (advisory; informational baseline rollout) — `tier-2.yml::fuzz` (Tier R3-07, landed 2026-05-12) |
-| Import refresh | `cargo-vet-refresh.yml` | Weekly `cargo vet regenerate imports` → PR | Mondays 08:00 UTC | GitHub schedules |
+| Import refresh | `cargo-vet-refresh.yml` | Weekly `cargo vet regenerate imports` → job-summary report (no PR) | Mondays 08:00 UTC | GitHub schedules |
 | Structural audit | `cargo-geiger` via `just geiger` | unsafe / build.rs / proc-macro footprint | On-demand (monthly) | No |
 | Semantic SAST | `codeql.yml` (Rust, public preview) | Dataflow-based bug patterns (path / SQL / regex injection, crypto misuse, unvalidated redirects) | PR + Tuesdays 06:30 UTC | Informational (not a required gate yet) |
 | Windows regression check | `pr-fast.yml::windows-lint` job | `cargo clippy --workspace --all-targets --all-features --locked --no-deps -- -D warnings` on `windows-latest` | **Every PR** (was weekly Tier 2 pre-PR-#138; now PR-time) | GitHub-required-check |
@@ -470,7 +470,9 @@ Vetting Succeeded (121 fully audited, 2 partially audited, 387 exempted)
 - Dependabot PR where the bump isn't covered: **~2 min** to run
   `cargo vet regenerate exemptions && git commit --amend` locally
   and push.  Weekly refresh minimises how often this happens.
-- Weekly refresh PR review: **~5 min** to skim the diff + merge.
+- Weekly refresh report: **~5 min** to skim the reported diff and apply
+  it on the next working branch (`cargo vet regenerate imports &&
+  cargo vet prune`).
 
 ### Cargo.lock crate count (2026-04-22)
 
