@@ -614,6 +614,21 @@ toolchain-sync:
             sccache --stop-server >/dev/null 2>&1 || true
         fi
 
+        # A new nightly's rustfmt can re-wrap code the old one accepted (the
+        # 2026-10-14 -> 2026-10-29 bump re-wrapped comments in twenty files),
+        # and the pre-push fmt gate then refuses the very push that carries
+        # the pin.  Reformat with the new pin now, so the bump and its
+        # formatting land in the same change instead of surfacing at pre-push.
+        printf "\033[0;34m   Formatting with the new pin's rustfmt (cargo fmt --all)...\033[0m\n"
+        if ! cargo fmt --all; then
+            printf "\033[0;31m❌ cargo fmt failed under %s - fix it before committing the pin.\033[0m\n" "$CANDIDATE"
+            exit 1
+        fi
+        if ! git diff --quiet -- '*.rs'; then
+            printf "\033[0;33m   ⚠️  rustfmt re-wrapped files under the new pin - commit them with the bump:\033[0m\n"
+            git diff --stat -- '*.rs' | tail -n 1 | sed 's/^/        /'
+        fi
+
         printf "\033[0;32m✅ Toolchain synced to %s\033[0m\n" "$CANDIDATE"
         rustc --version
         cargo --version
