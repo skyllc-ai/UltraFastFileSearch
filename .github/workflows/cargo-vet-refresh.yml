@@ -182,7 +182,7 @@ jobs:
         # branch protection rejects on merge (manifested as PR #272
         # being `BLOCKED` until the maintainer rebased + force-pushed a
         # signed copy by hand).
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v7
+        uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8 # v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: "chore/cargo-vet-refresh"
