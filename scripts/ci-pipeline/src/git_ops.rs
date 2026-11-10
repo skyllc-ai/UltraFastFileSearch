@@ -10,12 +10,12 @@
 //!
 //! The entry points are [`git_commit`] (create the `chore: development
 //! vX.Y.Z ...` signed commit) and [`git_push`] (push the release
-//! branch + open the release PR with auto-merge queued).  Each of the
-//! push sub-steps (`ensure_on_release_branch`, `rebase_onto_upstream`,
-//! `push_release_branch`, `find_existing_release_pr`, `open_release_pr`,
-//! `enable_auto_merge`, `return_to_base_branch`) is its own small helper
-//! so a failure points at a named function in the backtrace and
-//! refactors stay surgical.
+//! branch + open the release PR and enroll it in `main`'s merge
+//! queue).  Each of the push sub-steps (`ensure_on_release_branch`,
+//! `merge_upstream`, `push_release_branch`, `find_existing_release_pr`,
+//! `open_release_pr`, `enable_auto_merge`, `return_to_base_branch`) is
+//! its own small helper so a failure points at a named function in the
+//! backtrace and refactors stay surgical.
 //!
 //! The auto-commit is created on the `release/vX.Y.Z` branch (see
 //! [`git_commit`] / `switch_to_release_branch`), never on `main`, so a
@@ -47,8 +47,8 @@ pub(crate) const BASE_BRANCH: &str = "main";
 /// branch already exists.
 ///
 /// Why this matters: committing on `main` left local `main` permanently
-/// 1-ahead of `origin/main`, and after the PR squash-merged the local
-/// commit's SHA diverged from GitHub's squashed commit, forcing a
+/// 1-ahead of `origin/main`, and once the PR merged the local commit
+/// diverged from what GitHub recorded on `main`, forcing a
 /// `git reset --hard origin/main` after every ship.  Committing on the
 /// release branch keeps local `main` exactly at `origin/main`
 /// throughout, so a plain `git pull --ff-only` syncs it post-merge.
@@ -174,24 +174,24 @@ async fn ensure_on_release_branch(ctx: &PipelineContext, release_branch: &str) -
     .await
 }
 
-/// Rebase the currently-checked-out release branch onto
-/// `origin/<BASE_BRANCH>` so the auto-commit lands on top of any
-/// intervening mainline changes before the PR is opened.
+/// Merge `origin/<BASE_BRANCH>` into the currently-checked-out release
+/// branch so the PR is based on current mainline before it opens.
 ///
-/// (Previously this rebased the *current* branch onto its own upstream
-/// — valid when the ship committed on `main`.  Now that the commit
-/// lives on `release/vX.Y.Z`, we rebase onto `origin/main` so the PR is
-/// based on current mainline.)
+/// A MERGE, never a rebase: the branch's commits are signed, and a PR
+/// lands on `main` as a merge commit with those commits kept one by
+/// one.  A rebase would rewrite (and drop the signatures of) every
+/// commit and flatten any merge already on the branch.  When the branch
+/// already contains `origin/main` this is a no-op.
 ///
 /// # Errors
 ///
-/// Propagates any failure from the wrapped `git pull --rebase`
+/// Propagates any failure from the wrapped `git pull --no-rebase`
 /// subprocess (network, merge conflicts, ...).
-async fn rebase_onto_upstream(ctx: &PipelineContext) -> Result<()> {
+async fn merge_upstream(ctx: &PipelineContext) -> Result<()> {
     execute_command(
-        "Git pull rebase",
+        "Git pull merge",
         "git",
-        &["pull", "origin", BASE_BRANCH, "--rebase"],
+        &["pull", "--no-rebase", "--no-edit", "origin", BASE_BRANCH],
         ctx,
     )
     .await
@@ -246,8 +246,8 @@ fn find_existing_release_pr(release_branch: &str) -> Result<Option<String>> {
 }
 
 /// Open a new release PR via `gh pr create`, with the branch-
-/// protection-compatible title + body that explains the auto-merge
-/// squash strategy.
+/// protection-compatible title + body that explains how it lands (the
+/// merge queue, a merge commit) and what the merge triggers.
 ///
 /// # Errors
 ///
@@ -262,26 +262,22 @@ async fn open_release_pr(
     let pr_body = format!(
         "## Summary\n\n\
          `just ship` Phase 2 auto-commit for **v{version}** — the \
-         `[workspace.package].version` bump in `Cargo.toml`.  This PR \
-         routes that commit through branch-protection rules.  Once it \
-         merges to `{base_branch}`, run `just release-tag` to cut the \
-         signed `v{version}` tag, which fires `release.yml` and builds \
-         the cross-platform binaries + GitHub Release v{version}.  \
-         (No auto-tag on merge — the tag step is manual on-demand, \
-         Path B.)\n\n\
-         ## Auto-merge\n\n\
-         `--auto --squash` is queued — GitHub will merge as soon as the \
-         required status checks pass.  Squash is required because \
-         `main-protection` mandates signed commits, and GitHub's \
-         rebase-auto-merge cannot sign the rebased commit; the \
-         squash-merge commit is signed by GitHub's own key, which \
-         satisfies `required_signatures: true`.  The original author's \
-         signed commit remains verifiable in the PR branch history.\n\n\
+         `[workspace.package].version` bump in `Cargo.toml`.\n\n\
+         ## Merge\n\n\
+         The PR is enrolled in `{base_branch}`'s merge queue \
+         (`gh pr merge --auto`, the same call as `just merge <PR>`).  \
+         The queue merges it once the required checks pass, with a \
+         merge commit: the branch's signed commits land one by one, \
+         and GitHub signs the merge commit it creates, so \
+         `required_signatures: true` holds.  Never squash, never \
+         rebase.\n\n\
          ## After merge\n\n\
-         The auto-commit lived only on `{release_branch}`, so local \
-         `{base_branch}` never drifted — sync it with a plain \
-         `git pull --ff-only origin {base_branch}` (no `reset --hard` \
-         needed)."
+         `release-auto-trigger.yml` sees the merged `{release_branch}` \
+         and dispatches `release.yml`, which builds the binaries and \
+         publishes GitHub Release v{version} (`just release-tag` is the \
+         manual fallback).  The auto-commit lived only on \
+         `{release_branch}`, so local `{base_branch}` never drifted — \
+         sync it with `git pull --ff-only origin {base_branch}`."
     );
 
     println!("📬 Opening release PR");
@@ -305,34 +301,27 @@ async fn open_release_pr(
     .await
 }
 
-/// Enable GitHub auto-merge with the squash strategy for the release
-/// PR.
+/// Enroll the release PR in `main`'s merge queue (`gh pr merge --auto`
+/// with NO method flag, exactly what `just merge <PR>` runs).
 ///
-/// Squash is mandatory on this repo because:
-///
-///   1. `main-protection` requires `required_signatures: true` (every commit on
-///      main must be signed).
-///   2. GitHub's rebase-auto-merge cannot sign the rebased commit; it fails
-///      with `GraphQL: Base branch requires signed commits. Rebase merges
-///      cannot be automatically signed by GitHub` (observed on PR #36, the
-///      first real `just ship` for v0.5.69).
-///   3. GitHub signs the squash-merge commit with its own key, which satisfies
-///      `required_signatures: true` on main.
-///
-/// Trust trade-off: the author's GPG signature is lost on the commit
-/// that lands on main (it becomes a GitHub-signed squash).  The
-/// original signed commit remains verifiable in the PR branch history,
-/// and every prior merged PR on this repo uses the same pattern.
+/// The queue owns the merge method, and `main-protection` sets it to
+/// MERGE: the release commit, signed by its author, lands on `main`
+/// unchanged, and GitHub signs the merge commit it creates, so
+/// `required_signatures: true` holds for both.  Passing `--squash` (the
+/// old call) is refused by a queue-governed branch and squashes the
+/// history this project keeps; rebase cannot be signed by GitHub at all.
+/// The queue only merges once the required checks pass on the merge
+/// group, so enrolling early never lands an unchecked PR.
 ///
 /// # Errors
 ///
 /// Propagates any failure from the wrapped `gh pr merge` subprocess.
 async fn enable_auto_merge(ctx: &PipelineContext, release_branch: &str) -> Result<()> {
-    println!("⚡ Ensuring auto-merge is enabled (squash strategy)");
+    println!("⚡ Enrolling the release PR in the merge queue (merge commit)");
     execute_command(
         "Enable auto-merge",
         "gh",
-        &["pr", "merge", release_branch, "--auto", "--squash"],
+        &["pr", "merge", release_branch, "--auto"],
         ctx,
     )
     .await
@@ -343,7 +332,7 @@ async fn enable_auto_merge(ctx: &PipelineContext, release_branch: &str) -> Resul
 /// directly to `main`.
 ///
 /// Thin orchestrator — each sub-step lives in its own helper
-/// ([`ensure_on_release_branch`], [`rebase_onto_upstream`],
+/// ([`ensure_on_release_branch`], [`merge_upstream`],
 /// [`push_release_branch`], [`find_existing_release_pr`],
 /// [`open_release_pr`], [`enable_auto_merge`], [`return_to_base_branch`])
 /// so the control flow stays readable and individual failures map 1:1
@@ -375,9 +364,9 @@ pub(crate) async fn git_push(ctx: &PipelineContext) -> Result<()> {
     // auto-commit rather than resetting it to a commit-less HEAD).
     ensure_on_release_branch(ctx, &release_branch).await?;
 
-    // Rebase the release branch onto current mainline before opening the
-    // PR (keeps the PR based on the latest `origin/main`).
-    rebase_onto_upstream(ctx).await?;
+    // Merge current mainline into the release branch before opening the
+    // PR (keeps the PR based on the latest `origin/main`; never a rebase).
+    merge_upstream(ctx).await?;
 
     push_release_branch(ctx, &release_branch).await?;
 
@@ -398,7 +387,7 @@ pub(crate) async fn git_push(ctx: &PipelineContext) -> Result<()> {
 
     // Leave the developer back on `main`, untouched and exactly at
     // `origin/main`.  Because the commit only ever lived on the release
-    // branch, local `main` never drifted — after the PR squash-merges,
+    // branch, local `main` never drifted — after the PR merges,
     // a plain `git pull --ff-only` syncs it (no `reset --hard` needed).
     return_to_base_branch(ctx).await?;
 

@@ -79,6 +79,12 @@ notes = """
 Reviewed the full diff. It is dominated by a new src/engine/simd.rs adding AVX2 and NEON kernels behind a new default-on simd-unsafe feature, which is the crate's only unsafe and is confined to that module (forbid(unsafe_code) still applies with the feature off). I checked each kernel's bounds arithmetic — the loop guards require a full vector of readable input and reserve exactly the bytes stored, and complete_quads_len validates output capacity before any SIMD write — and verified the encode/decode lookup tables accept and reject precisely the bytes the scalar decoder does for both the standard and URL-safe alphabets; a differential harness of 624,480 cases on aarch64, covering round-trips plus corrupted and truncated inputs, found the SIMD engines byte- and error-identical to GeneralPurpose. The remainder is a mechanical refactor threading a simd_prefix closure through the scalar paths, the DecodeError::InvalidLastSymbol struct-variant change, and additive presets. No build script and no network or filesystem access; the preset engines remain scalar.
 """
 
+[[audits.bit-vec]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-run"
+delta = "0.10.1 -> 0.10.2"
+notes = "Reviewed the delta: BitVec::process gains a tail flag that masks the last block for nand/nor/xnor instead of filling unused bits with ones and fixing them afterwards; split_off no longer pushes one block more than the split-off length needs; blocks_mut and fix_last_block_with_ones removed; new tests for both fixes. Safe code only, no unsafe, no build script, no I/O or dependency change."
+
 [[audits.bitflags]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -243,6 +249,12 @@ criteria = "safe-to-deploy"
 delta = "0.16.4 -> 0.16.6"
 notes = "Delta reviewed for the 2026-09-27 dependency refresh (local diff of the crates.io sources; library, macro and build-script lines read in full, tests and fixtures skimmed and grepped for process, net, fs, env, unsafe and include use). ANSI stripper handles OSC and DCS sequences on char boundaries, ASCII width fast path, truncate_str cuts on char boundaries (fixes a multibyte panic); the new terminal log fixture is read only by a cfg(test) test. Mirrored from the docenta repo supply-chain audit performed by the same auditor/owner."
 
+[[audits.const-oid]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.10.2 -> 0.10.3"
+notes = "Reviewed the delta: the arc decoder accumulates base-128 digits with checked_mul/checked_add and returns ArcTooBig on overflow, replacing a byte-count heuristic that let a five-byte arc above u32::MAX truncate silently (regression test added); new RFC 6211 OID constants and database entries; doc links. No unsafe, no build script, no I/O or dependency change."
+
 [[audits.cpufeatures]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -266,6 +278,12 @@ who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "1.5.2 -> 1.5.3"
 notes = "Refactor of the hasher state. The specialized (SIMD) State becomes a zero-sized token whose existence proves CPU-feature detection succeeded; the running CRC moves to Hasher as a plain u32, and update() returns the new value instead of mutating. The unsafe calls into calculate/calculate_avx2/calculate_avx512 and the aarch64 path are unchanged and still reachable only through that token. Short inputs in the pclmulqdq path now fall back to baseline::update_slow (an existing safe function). Adds total_len() and tests. New dependabot/CI/release workflow files are not part of the build. No build.rs, process, network, filesystem or environment access."
+
+[[audits.crc32fast]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.5.3 -> 1.5.5"
+notes = "Reviewed the delta: deny(unsafe_code) crate-wide with allows only on the SIMD modules; new aarch64 PMULL folding kernel gated on runtime aes detection and input >= 64 bytes, every vector load slices a[..16] first so a miscount panics rather than reads out of bounds; pclmulqdq loads slice a[..N] first; env read only under cfg(test); no build script change. Same review as recorded in skyllc-ai/docenta, re-read against this diff."
 
 [[audits.crossbeam-channel]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
@@ -442,6 +460,12 @@ who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "2.4.1 -> 2.5.0"
 notes = 'Source changes under src/ are doc-comment wording only ("ranges" -> "range"); no logic, no unsafe, no build.rs (build = false). The version bump exists to move the optional wasm-only getrandom dependency and dev-dependencies from 0.3.4 to 0.4 (rand 0.9 -> 0.10 for benches); no new dependencies otherwise. Bench harness rewritten to adapt wyhash to the rand 0.10 TryRng trait, dev-only. Lockfile churn reflects the getrandom/rand major bumps. No fs/net/process/env surface exists or was added.'
+
+[[audits.flate2]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.1.10 -> 1.1.11"
+notes = "Reviewed the delta: zlib-rs backend gains decompress_uninit/compress_uninit forwarding to zlib-rs safe APIs with the written count from total_out as before; reset fixes for C, miniz and zlib-rs backends; zio Writer finished flag, UnexpectedEof on truncation, buf_pos cursor with a no-progress guard; unsafe site count per file unchanged; no build script. Same review as recorded in skyllc-ai/docenta, re-read against this diff."
 
 [[audits.fs4]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
@@ -688,6 +712,12 @@ criteria = "safe-to-deploy"
 version = "1.0.18"
 notes = "Full audit (488 LOC, no_std, zero deps). No fs/net/process/env capability; no build.rs. All 13 unsafe sites reviewed: digit-pair table reads are get_unchecked(pair*2+{0,1}) with pair<100 from divmod100 into a 200-byte ASCII table (in-bounds by construction); buffer writes are checked-index MaybeUninit writes covering exactly [offset, len); slice_buffer_to_str's from_utf8_unchecked is sound because only ASCII table bytes and b'0'+digit are ever written; Buffer::format's pointer cast goes from the largest buffer ([MaybeUninit<u8>; i128 MAX_STR_LEN]) to a smaller same-alignment array, and the unreachable_unchecked is an optimizer hint upheld because write() slices within the buffer. Publisher verified on crates.io: dtolnay."
 
+[[audits.itoa]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.0.18 -> 1.0.19"
+notes = "Reviewed the full delta. The digit writers replace bounds-checked buf[offset] stores with get_unchecked_mut; offsets start at the buffer length (MAX_STR_LEN) and decrease by exactly the digit groups written, and the signed path starts one byte in to reserve the minus sign, so every unchecked index stays in bounds. No build script, I/O, process or network changes. Same review as recorded in skyllc-ai/docenta, re-read against this diff."
+
 [[audits.jobserver]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -811,6 +841,12 @@ who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "0.4.33 -> 0.4.34"
 notes = "Delta review: full diffstat, all risk-pattern additions (unsafe/process/net/fs/build), dependency and build-script changes scanned; nothing outside the crate domain, no new deps beyond same-family path bumps, no build scripts. Mirrored from the docenta and uffs-products repo supply-chain audits performed by the same auditor/owner."
+
+[[audits.log]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "0.4.34 -> 0.4.35"
+notes = "Reviewed the delta: only the html_root_url doc attribute dropped in src/lib.rs; the rest is CI, release-plz config, CHANGELOG, README and version metadata. No build script, unsafe or new dependencies. Same review as recorded in skyllc-ai/docenta, re-read against this diff."
 
 [[audits.lru-slab]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
@@ -1365,6 +1401,12 @@ criteria = "safe-to-deploy"
 delta = "3.5.1 -> 3.8.0"
 notes = "Three minor releases (3.6.0 to 3.8.0). Non-test unsafe: none (the only new unsafe is an fcntl(F_GETFL) in a Linux test). New stdio_pipes transport reopens Linux FIFO stdin/stdout through /proc/self/fd with O_NONBLOCK so the original descriptors keep their flags; falls back to blocking stdio otherwise. AsyncRwTransport bounds incoming lines (16 MiB default). Model deserialization rejects JSON-RPC messages carrying both result and error and reads integral float ids. Client cancels abandoned requests via a drop guard and answers pings during initialize. OAuth (auth feature, not enabled in this workspace): SSRF hardening via a DNS resolver that blocks link-local, metadata and reserved addresses and allows private or loopback only when the base URL names one; reads the standard proxy env vars only to exempt configured proxies; bounded redirects. Streamable-HTTP fixes (feature not enabled here). New Linux-only libc dependency. No build.rs, no process spawning, no new outbound endpoints."
 
+[[audits.rmcp]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "3.8.0 -> 3.9.0"
+notes = "Reviewed the delta: SEP-2640 skill data model (types, SHA-256 digest checks, manifest URI validation, no I/O), HTTP client response bodies bounded (16 MiB JSON, 64 KiB errors), stricter Accept and Mcp-Param parsing, cancellation-safe stdio protocol-error reply, structured OAuth discovery errors, graceful_shutdown sends SIGTERM through process-wrap's safe signal API (libc only for the constant) before killing a child. No build script, no new unsafe; Command/fs only in cfg(test) and tests/. Same review as recorded in skyllc-ai/docenta, re-read against this diff."
+
 [[audits.rmcp-macros]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -1465,6 +1507,12 @@ criteria = "safe-to-deploy"
 delta = "3.5.1 -> 3.8.0"
 notes = "Version bump only, plus the LICENSE file now shipped in the crate. No code change."
 
+[[audits.rmcp-macros]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "3.8.0 -> 3.9.0"
+notes = "Reviewed the delta: CHANGELOG and version metadata only; no code change. Same review as recorded in skyllc-ai/docenta, re-read against this diff."
+
 [[audits.rustc-hash]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
@@ -1552,6 +1600,12 @@ who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "1.14.1 -> 1.15.1"
 notes = "Small delta with no unsafe code and no new runtime dependencies; only criterion is added as a dev-dependency plus a dns_name bench target (the bench file is not even included in the published package). New public API is the const constructor FipsStatus::certified, a trivial enum builder. The TLS-relevant change is a rewrite of the const DNS-name validate function in src/server_name.rs from a per-character state machine to a per-label loop; the two implementations were compared case by case and they enforce the same rules (253-byte total max, 1-63 byte labels, alphanumeric/underscore with interior hyphens only, no empty labels, all-numeric final label rejected, trailing dot accepted), with empty input now rejected by an explicit up-front check rather than the old final-state check — no loosening observed. A matching unit test for FipsStatus Debug formatting is added. Nothing suspicious observed; capability surface is unchanged."
+
+[[audits.rustls-pki-types]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.15.1 -> 1.16.0"
+notes = "Reviewed the delta: DnsName strips one trailing dot on parse and gains into_owned; validation now also rejects a final label that is a hex number (0x...) or a leading-zero number, like the WHATWG ends-in-a-number rule; base64 helper renamed to u8_is_zero with a corrected doc (body unchanged); PEM error text names the real 256 MB limit; doc links. One new unsafe: strip_trailing_dot calls str::from_utf8_unchecked on the input minus a final ASCII '.', which stays valid UTF-8. No build script, I/O or dependency change."
 
 [[audits.rustls-webpki]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
@@ -1721,6 +1775,12 @@ who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "1.16.3 -> 1.16.4"
 notes = "Version bump only (plus the crate's own dev Cargo.lock). No source change."
+
+[[audits.smallvec]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "1.16.4 -> 1.16.5"
+notes = "Reviewed the delta: README and comment re-wrapping plus version metadata only; no code, unsafe or dependency change. Same review as recorded in skyllc-ai/docenta, re-read against this diff."
 
 [[audits.snap]]
 who = "Robert M1 <50460704+githubrobbi@users.noreply.github.com>"
@@ -2336,6 +2396,12 @@ notes = "Delta reviewed for the 2026-09-27 dependency refresh (local diff of the
 [[audits.zstd]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
+delta = "0.13.3 -> 0.13.4"
+notes = "Reviewed the delta: backport of the 0.14 fixes to the 0.13 line. Encoders and decoders built with_context reset the session first, so a reused context starts a new frame; from_continuous checks the sample-size sum for overflow; the auto-finish wrappers skip finishing after a writer panicked; set_pledged_src_size added; zstd-safe requirement 7.1.0 -> 7.4.0. The crate's license changes from MIT to BSD-3-Clause (allowed by deny.toml). No unsafe added, no build script change, no new I/O."
+
+[[audits.zstd]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
 delta = "0.13.3 -> 0.14.0"
 notes = "Delta reviewed for the 2026-09-27 dependency refresh (local diff of the crates.io sources, read in full unless noted). finish_frame epilogue drain, Ok(0) for an empty buffer, with_context constructors, pledged source size, vendored/cmake passthrough; with_prepared_dictionary ties the dictionary lifetime (a soundness fix). License now BSD-3-Clause. Mirrored from the docenta repo supply-chain audit performed by the same auditor/owner."
 
@@ -2356,6 +2422,12 @@ who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
 criteria = "safe-to-deploy"
 delta = "7.2.4 -> 7.3.0"
 notes = "Delta reviewed for the 2026-09-07 dependency refresh (local diff of the registry sources, 6 files). Relicensing MIT OR Apache-2.0 -> BSD-3-Clause (LICENSE files rewritten; the deny gate checks it); the only source change marks the three experimental block-API methods CCtx::compress_block, DCtx::decompress_block and DCtx::insert_block as unsafe fn with Safety docs, bodies unchanged. No new unsafe blocks or FFI calls, build.rs unchanged, no dependency or feature change. Mirrored from the docenta repo supply-chain audit performed by the same auditor/owner."
+
+[[audits.zstd-safe]]
+who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"
+criteria = "safe-to-deploy"
+delta = "7.3.0 -> 7.4.0"
+notes = "Reviewed the delta, focused on the FFI wrappers: the backport of the RUSTSEC-2026-0391/0398/0403 fixes. CCtx/DCtx remember an error that may leave the C context undefined (Poison) and refuse further stream calls until a reset; one-shot calls reset the session afterwards; In/OutBuffer wrappers discard the position zstd reports on a failed call, so no unwritten bytes are marked initialized; InBuffer::wrap panics on pos > len; OutBuffer::around_pos zero-fills initialized..pos after the existing pos <= capacity check; multithreaded frames are tracked so dictionaries and the job table are not freed under running workers; DCtx::try_clone refuses contexts owning a dictionary (ZSTD_copyDCtx is a memcpy) and resets the copy; StableInBuffer(true) is refused; seekable decompress bounds-checked. New unsafe sites are FFI calls with the same contracts plus the bounds-checked zero-fill. zstd-sys requirement 2.0.15 -> 2.0.17; no build script change."
 
 [[audits.zstd-safe]]
 who = "Robert Nio <50460704+githubrobbi@users.noreply.github.com>"

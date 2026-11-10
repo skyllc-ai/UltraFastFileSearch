@@ -372,10 +372,10 @@ jobs:
           shared-key: release-plz-active-pr
 
       - name: Run release-plz release-pr
-        # Pinned to commit SHA of the v0.5.128 tag (resolved 2026-05-08)
+        # Pinned to the commit SHA of its release tag (named in the comment)
         # for supply-chain hygiene.  Bump alongside other action pins
         # via the standard Dependabot or manual-refresh process.
-        uses: release-plz/action@7ef5e4d4b0420630cfcaeb182c01e13651d4c577 # v0.5.145
+        uses: release-plz/action@66b324fd6c72d05d2a08568492ecdd62bfb8a62b # v0.5.148
         with:
           command: release-pr
           config: release-plz.toml
@@ -431,7 +431,7 @@ jobs:
         # job runs on every push but only does work when the PR
         # actually merged.
         id: release-plz
-        uses: release-plz/action@7ef5e4d4b0420630cfcaeb182c01e13651d4c577 # v0.5.145
+        uses: release-plz/action@66b324fd6c72d05d2a08568492ecdd62bfb8a62b # v0.5.148
         with:
           command: release
           config: release-plz.toml
@@ -522,8 +522,14 @@ jobs:
           # is already the tag.
           ref: ${{ inputs.publish_tag || github.ref }}
 
-      - name: Install Rust (nightly toolchain)
-        uses: dtolnay/rust-toolchain@nightly
+      - name: Install pinned nightly (from rust-toolchain.toml)
+        # The pin of the checked-out release tag, never a floating
+        # nightly: `cargo publish` verifies by building the package, and
+        # a nightly the release was never built with can fail on a new
+        # lint or regression (the canary's job, not the publish's).
+        # `rustup show` reads `rust-toolchain.toml` and installs exactly
+        # that channel, like every other job in this workflow.
+        run: rustup show
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3

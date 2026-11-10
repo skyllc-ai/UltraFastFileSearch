@@ -160,7 +160,7 @@ jobs:
         # rejected ("the merge strategy for main is set by the merge queue") and
         # leaves auto-merge armed but NOT enrolled in the queue, so the PR sits
         # CLEAN-but-stuck (cf. #494). `--auto` alone lets the queue own the
-        # squash and enrolls correctly. This step also fires on `synchronize`,
+        # method (MERGE: a merge commit) and enrolls correctly. This step also fires on `synchronize`,
         # so it now re-arms (self-heals enrollment) after an Update-branch.
         if: steps.gate.outputs.eligible == 'true'
         env:

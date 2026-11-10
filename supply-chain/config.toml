@@ -344,22 +344,6 @@ criteria = "safe-to-deploy"
 version = "0.13.1"
 criteria = "safe-to-deploy"
 
-[[exemptions.futures]]
-version = "0.3.32"
-criteria = "safe-to-deploy"
-
-[[exemptions.futures-channel]]
-version = "0.3.32"
-criteria = "safe-to-deploy"
-
-[[exemptions.futures-executor]]
-version = "0.3.32"
-criteria = "safe-to-deploy"
-
-[[exemptions.futures-io]]
-version = "0.3.32"
-criteria = "safe-to-deploy"
-
 [[exemptions.futures-task]]
 version = "0.3.32"
 criteria = "safe-to-deploy"

@@ -68,7 +68,7 @@ members = [
 # Workspace Package Metadata (inherited by all crates)
 # ─────────────────────────────────────────────────────────────────────────────
 [workspace.package]
-version = "0.6.46"
+version = "0.6.47"
 edition = "2024"
 # No `rust-version` claim: the workspace is structurally nightly-only.
 # `crates/uffs-polars` enables `polars/nightly` unconditionally, which
@@ -134,16 +134,16 @@ publish = false
 # proposed-plan output for 12 days because `release-plz update`
 # failed at `cargo package` with this very error.  See
 # `release-automation-baseline.md` §10 for the diagnostic trail.
-uffs-polars = { path = "crates/uffs-polars", version = "0.6.46" }
-uffs-security = { path = "crates/uffs-security", version = "0.6.46" }
-uffs-text = { path = "crates/uffs-text", version = "0.6.46" }
-uffs-time = { path = "crates/uffs-time", version = "0.6.46" }
-uffs-version = { path = "crates/uffs-version", version = "0.6.46" }
-uffs-statusfmt = { path = "crates/uffs-statusfmt", version = "0.6.46" }
-uffs-mft = { path = "crates/uffs-mft", version = "0.6.46" }
-uffs-format = { path = "crates/uffs-format", version = "0.6.46" }
-uffs-core = { path = "crates/uffs-core", version = "0.6.46" }
-uffs-client = { path = "crates/uffs-client", version = "0.6.46" }
+uffs-polars = { path = "crates/uffs-polars", version = "0.6.47" }
+uffs-security = { path = "crates/uffs-security", version = "0.6.47" }
+uffs-text = { path = "crates/uffs-text", version = "0.6.47" }
+uffs-time = { path = "crates/uffs-time", version = "0.6.47" }
+uffs-version = { path = "crates/uffs-version", version = "0.6.47" }
+uffs-statusfmt = { path = "crates/uffs-statusfmt", version = "0.6.47" }
+uffs-mft = { path = "crates/uffs-mft", version = "0.6.47" }
+uffs-format = { path = "crates/uffs-format", version = "0.6.47" }
+uffs-core = { path = "crates/uffs-core", version = "0.6.47" }
+uffs-client = { path = "crates/uffs-client", version = "0.6.47" }
 # `uffs-broker-protocol` carries the wire-protocol types shared between
 # `uffs-broker` (the elevated handle vendor, Windows-only binary) and
 # `uffs-daemon::broker_client` (the handle consumer).  Pure-logic
@@ -152,20 +152,20 @@ uffs-client = { path = "crates/uffs-client", version = "0.6.46" }
 # wire-format byte literals.  Also holds the VSS `HRESULT` retry table
 # (`vss_hresult`) shared by `uffs-vss-requestor` and uffs-products'
 # Content Coordinator.
-uffs-broker-protocol = { path = "crates/uffs-broker-protocol", version = "0.6.46" }
+uffs-broker-protocol = { path = "crates/uffs-broker-protocol", version = "0.6.47" }
 # `uffs-winsvc` — native Windows service control (SCM query/start/stop) +
 # the non-connecting broker-pipe readiness probe.  Layer-0 leaf: its only
 # dependency is the `windows` crate (windows-target), with non-Windows
 # stubs so cross-platform consumers (uffs-update, uffs-cli) compile.
 # Single source of truth for the `sc`/SCM mechanics previously duplicated
 # across uffs-broker, uffs-update, and uffs-cli.
-uffs-winsvc = { path = "crates/uffs-winsvc", version = "0.6.46" }
+uffs-winsvc = { path = "crates/uffs-winsvc", version = "0.6.47" }
 # `uffs-fetch` — hardened release-asset transport (blocking reqwest +
 # rustls with retry/timeout/byte-cap, plus `SHA256SUMS` verification),
 # extracted from `uffs-update` as a small public lib so external products
 # can reuse it. Cross-platform pure-logic leaf; keeps the HTTP/TLS stack
 # out of the lean `uffs` CLI exactly as before.
-uffs-fetch = { path = "crates/uffs-fetch", version = "0.6.46" }
+uffs-fetch = { path = "crates/uffs-fetch", version = "0.6.47" }
 # NOTE: no `uffs-broker` workspace dependency alias on purpose —
 # `uffs-broker` is a binary-only crate (the only `[lib]` it carries is
 # this protocol module's now-extracted sibling); no other workspace
@@ -246,12 +246,12 @@ serde_json = "1.0.154"
 # tier overrides + adaptive-TTL knobs in `uffs-daemon::config`.
 # Pinned to v1.1.2 to match the supply-chain exemption already on
 # the transitive copy pulled by other deps; no new vet entry needed.
-toml = "1.1.8"
+toml = "1.2.1"
 
 # ───── Data Structures ─────
 bitflags = "2.13.2"
 bytemuck = { version = "1.25.2", features = ["derive"] }
-smallvec = "1.16.4"
+smallvec = "1.16.5"
 zerocopy = { version = "0.8.63", features = ["derive"] }
 
 # ───── Error Handling ─────
@@ -259,7 +259,7 @@ thiserror = "2.0.21"
 anyhow = "1.0.104"
 
 # ───── MCP (Model Context Protocol) ─────
-rmcp = { version = "3.8.0", features = ["server", "transport-io", "macros"] }
+rmcp = { version = "3.9.0", features = ["server", "transport-io", "macros"] }
 schemars = "1.2.3"
 
 # ───── HTTP / Tower (for MCP Streamable HTTP gateway) ─────
@@ -316,7 +316,7 @@ strsim = "0.11.1"
 rustc-hash = "2.1.3"
 
 # ───── Formatting / Encoding ─────
-itoa = "1.0.18"
+itoa = "1.0.19"
 sha2 = "0.11.1"
 hex = "0.4.3"
 
@@ -324,7 +324,7 @@ hex = "0.4.3"
 # Blocking HTTP with rustls + the system trust store. `rustls-tls-native-roots`
 # matches the existing transitive reqwest config, so no new crate enters the lock.
 #
-# DELIBERATELY HELD AT 0.12 (re-verified 2026-10-28 against 0.13.5 and polars
+# DELIBERATELY HELD AT 0.12 (re-verified 2026-11-10 against 0.13.5 and polars
 # 0.55.2, the latest of both; everything
 # else in this workspace is at latest).  0.13 still drops
 # `rustls-tls-native-roots` and routes system trust through
@@ -364,7 +364,7 @@ hostname = "0.4.2"
 num_cpus = "1.17.0"
 # Random unique identifiers.  Only the `v4` (random) feature is enabled
 # workspace-wide; consumers that need v1/v5/v7 etc. re-add the feature.
-uuid = { version = "1.29.0", features = ["v4"] }
+uuid = { version = "1.29.2", features = ["v4"] }
 
 # ───── Security / Crypto ─────
 aes-gcm = "0.11.1"

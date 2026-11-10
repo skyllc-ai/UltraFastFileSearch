@@ -211,7 +211,7 @@ jobs:
           fi
 
       - name: Open / update / close the expiry tracking issue
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           STATUS: ${{ steps.probe.outputs.status }}
           EXPIRY: ${{ steps.probe.outputs.expiry }}

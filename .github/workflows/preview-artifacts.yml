@@ -112,7 +112,7 @@ jobs:
     timeout-minutes: 32
     steps:
       - name: Poll check-runs for PR Fast CI / required
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const sha = '${{ needs.gate.outputs.sha }}';
@@ -170,7 +170,7 @@ jobs:
       - run: rustup show
       - run: rustup target add x86_64-pc-windows-msvc
 
-      - uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-xwin
 
@@ -213,7 +213,7 @@ jobs:
           done
           ls -la dist/windows/
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-preview-${{ needs.gate.outputs.sha }}
           path: dist/windows/
@@ -261,7 +261,7 @@ jobs:
 
       - run: rustup show
 
-      - uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: nextest
 
@@ -286,7 +286,7 @@ jobs:
             --target x86_64-pc-windows-msvc \
             --archive-file "uffs-tests-${{ needs.gate.outputs.sha }}.tar.zst"
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nextest-archive-${{ needs.gate.outputs.sha }}
           path: uffs-tests-${{ needs.gate.outputs.sha }}.tar.zst
@@ -310,7 +310,7 @@ jobs:
         with:
           ref: ${{ needs.gate.outputs.sha }}
 
-      - uses: taiki-e/install-action@dfc84ffb7254b048a0a843316ff5a2714dcdc7bd # v2
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: nextest
 
@@ -389,7 +389,7 @@ jobs:
           cat manifest.json
           echo "::endgroup::"
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifest-${{ needs.gate.outputs.sha }}
           path: manifest.json

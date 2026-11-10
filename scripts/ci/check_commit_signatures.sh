@@ -17,9 +17,9 @@
 # same `{{COMMIT_RANGES}}` wiring from the pre-push hook).
 #
 # **Mode**:
-#   range RANGE   -- check every non-merge commit in the git revision
-#                    range RANGE (e.g. `origin/main..HEAD`).  Empty /
-#                    merges-only ranges silently succeed.
+#   range RANGE   -- check every commit, merges included, in the git
+#                    revision range RANGE (e.g. `origin/main..HEAD`).
+#                    An empty range silently succeeds.
 #
 # **What counts as signed** — `git log --format=%G?` status codes:
 #   G  good signature                              -> OK
@@ -57,7 +57,7 @@ usage() {
     cat <<USAGE >&2
 Usage: $(basename "$0") range RANGE
 
-  range RANGE   Verify every non-merge commit in RANGE is signed
+  range RANGE   Verify every commit (merges included) in RANGE is signed
                 (e.g. 'origin/main..HEAD').
 
 Example:
@@ -76,7 +76,7 @@ ${C_YELLOW}Fix (self-heal):${C_RESET} re-sign the whole branch in place, then re
    ${C_CYAN}just sign-branch${C_RESET}
 
    (equivalent to:
-     ${C_CYAN}git rebase --exec 'git commit --amend --no-edit -S' \$(git merge-base origin/main HEAD)${C_RESET}
+     ${C_CYAN}git rebase --rebase-merges --exec 'git commit --amend --no-edit -S' \$(git merge-base origin/main HEAD)${C_RESET}
      ${C_CYAN}git push --force-with-lease${C_RESET})
 
 ${C_YELLOW}Root cause to avoid:${C_RESET} never commit with ${C_CYAN}-c commit.gpgsign=false${C_RESET}.
@@ -96,9 +96,10 @@ case "$mode" in
             printf '%s[FAIL]%s not in a git repository\n' "$C_RED" "$C_RESET" >&2
             exit 1
         fi
-        # `%H<tab>%G?` one line per non-merge commit.  Merge commits are
-        # skipped (`main` requires linear history, so they never reach the
-        # queue; a local merge on a feature branch would be flattened).
+        # `%H<tab>%G?` one line per commit, merges included: PRs land on
+        # `main` as merge commits through the queue, so a merge made on a
+        # branch reaches `main` as-is and must carry a signature like any
+        # other commit (the ruleset rejects it otherwise).
         fail=0
         count=0
         while IFS=$'\t' read -r oid sig; do
@@ -114,7 +115,7 @@ case "$mode" in
                         "$(git log -1 --format='%s' "$oid" 2>/dev/null)" >&2
                     ;;
             esac
-        done < <(git log --no-merges --format='%H%x09%G?' "$arg" 2>/dev/null || true)
+        done < <(git log --format='%H%x09%G?' "$arg" 2>/dev/null || true)
 
         if (( fail )); then
             print_help_block

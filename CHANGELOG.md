@@ -14,6 +14,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.47] - 2026-11-10
+
+### Fixed
+
+- lints: clear what the newest nightly clippy flags (the floating-nightly canary, #641)
+- deps: zstd 0.13.4 / zstd-safe 7.4.0 for polars' copy, so RUSTSEC-2026-0391, -0398 and -0403 no longer need an ignore
+- release: the crates.io publish job builds with the pinned toolchain, not a floating nightly
+- merge: the ship pipeline merges main into the release branch and enrolls it in the merge queue without a squash flag; merge commits are signature-checked
+- just: three recipe messages no longer run the names they quote in backticks
+- citation: CITATION.cff names the current release, and `just ship` keeps it in sync
+
+### Changed
+
+- toolchain: nightly-2026-10-29 -> nightly-2026-11-10
+- deps: every dependency at its latest release, each new version vetted (reqwest held at 0.12, see Cargo.toml)
+- ci: the weekly cargo-vet refresh reports the new imports instead of opening a PR; failed workflows file an issue and send mail
+- ci: every GitHub Action pinned to its latest release SHA
+
 ## [0.6.46] - 2026-10-29
 
 ### Fixed

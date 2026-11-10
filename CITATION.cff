@@ -34,11 +34,10 @@ license: MPL-2.0
 license-url: "https://github.com/skyllc-ai/UltraFastFileSearch/blob/main/LICENSE"
 
 # ── Version ─────────────────────────────────────────────────────────────────
-# Keep this in sync with [workspace.package].version in Cargo.toml.
-# The release pipeline (release-plz / just ship) should bump this automatically
-# once Pattern 5 in build/update_all_versions.rs is extended to cover CITATION.cff.
-version: "0.5.120"
-date-released: "2026-06-09"
+# Kept in sync with [workspace.package].version in Cargo.toml: `just ship`
+# rewrites `version` and `date-released` in the release commit.
+version: "0.6.47"
+date-released: "2026-11-10"
 
 # ── Classification ───────────────────────────────────────────────────────────
 type: software

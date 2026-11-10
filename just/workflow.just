@@ -43,7 +43,7 @@ phase1-test:
 # Phase 2: commit and push (version bump retired — release-plz handles it).
 phase2-ship:
     @printf "\033[0;34m🚀 PHASE 2: Explicit Ship Lane\033[0m\n"
-    @printf "\033[1;33mThis lane performs commit and push. Version bumping now handled by release-plz on `main`.\033[0m\n"
+    @printf "\033[1;33mThis lane performs commit and push. Version bumping now handled by release-plz on main.\033[0m\n"
     @echo "========================================================"
     cargo run -q --release --target-dir target/ci-bootstrap -p uffs-ci-pipeline -- phase2
 
@@ -113,11 +113,13 @@ go-justfile:
 
 # Merge a PR through main's merge queue (the queue-correct incantation).
 #
-# `main` uses a GitHub merge queue, so `gh pr merge <PR> --squash` is
-# silently rejected ("the merge strategy for main is set by the merge
-# queue") and does NOT enroll the PR.  This wrapper uses the right form —
-# `gh pr merge <PR> --auto` with NO method flag (the queue owns the
-# squash) — so the PR enters the queue and merges once its checks pass.
+# `main` uses a GitHub merge queue, so `gh pr merge <PR> --squash` (or
+# any method flag) is rejected ("the merge strategy for main is set by
+# the merge queue") and does NOT enroll the PR.  This wrapper uses the
+# right form — `gh pr merge <PR> --auto` with NO method flag — so the PR
+# enters the queue and merges once its checks pass.  The queue's method
+# is MERGE (`main-protection`): the PR lands as a merge commit with the
+# branch's signed commits kept one by one.  Never squash, never rebase.
 merge PR:
     @printf "\033[0;34m🔀 Enrolling PR #{{ PR }} into main's merge queue...\033[0m\n"
     gh pr merge {{ PR }} --auto
@@ -129,7 +131,9 @@ merge PR:
 # If one slipped through unsigned (e.g. committed with
 # `-c commit.gpgsign=false`), the `commit-signatures` pre-push gate blocks
 # the push.  This rebases the branch in place, re-signing each commit with
-# your configured GPG key, then force-pushes with lease.  `--amend` leaves
+# your configured GPG key, then force-pushes with lease.  `--rebase-merges`
+# keeps every merge the branch carries (a plain rebase would flatten them,
+# and PRs land as merge commits with their history kept).  `--amend` leaves
 # the staged set empty so the per-commit pre-commit hook no-ops; the heavy
 # gates run once on the final push.
 sign-branch:
@@ -143,7 +147,7 @@ sign-branch:
     base=$(git merge-base origin/main HEAD)
     n=$(git rev-list --count "$base"..HEAD)
     printf "\033[0;34m🔏 Re-signing %s commit(s) on '%s' (base %s)...\033[0m\n" "$n" "$branch" "${base:0:10}"
-    git rebase --exec 'git commit --amend --no-edit -S' "$base"
+    git rebase --rebase-merges --exec 'git commit --amend --no-edit -S' "$base"
     printf "\033[0;34m⬆️  Force-pushing (with lease)...\033[0m\n"
     git push --force-with-lease
     printf "\033[0;32m✅ Branch re-signed and pushed — every commit now carries a signature.\033[0m\n"

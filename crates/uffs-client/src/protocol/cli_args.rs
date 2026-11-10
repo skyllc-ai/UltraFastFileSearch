@@ -400,10 +400,6 @@ impl RawCliArgs {
     /// Convert raw CLI values into a fully-populated [`SearchParams`],
     /// performing all sugar expansion.
     #[expect(clippy::too_many_lines, reason = "sugar expansion for 60+ flags")]
-    #[expect(
-        clippy::cognitive_complexity,
-        reason = "three composable sugar rewrites (drive-prefix, ext-glob, regex-ext) plus filter normalisation; splitting further would fragment the parse pipeline"
-    )]
     fn into_search_params(mut self) -> Result<SearchParams, CliArgsError> {
         // ── Pattern sugar: --begins-with / --ends-with / --contains ─
         let raw_pattern = self
@@ -486,13 +482,8 @@ impl RawCliArgs {
             .map_or_default(crate::format::parse_month_spec);
 
         // ── Smart case ─────────────────────────────────────────────
-        let case_sensitive = if self.case {
-            true
-        } else if self.smart_case {
-            pattern.chars().any(char::is_uppercase)
-        } else {
-            false
-        };
+        let case_sensitive =
+            self.case || (self.smart_case && pattern.chars().any(char::is_uppercase));
 
         // ── Ext-pattern sugar: `*.<ext>` → pattern="*" + ext=<ext> ──
         //
