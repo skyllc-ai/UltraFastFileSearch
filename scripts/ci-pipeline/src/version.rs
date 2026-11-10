@@ -70,6 +70,63 @@ pub(crate) fn bump_workspace_version(level: &str) -> Result<()> {
     Ok(())
 }
 
+/// Set `version:` and `date-released:` in `CITATION.cff` to the release
+/// being cut, so the citation metadata names the version it ships with.
+///
+/// The file was meant to be bumped by the R5-retired version tooling and was
+/// left at 0.5.120 for forty releases; this keeps it in the release commit.
+/// Only the two top-level keys are rewritten; the rest of the file (comments
+/// included) is kept byte for byte.  A missing `CITATION.cff` is not an error.
+///
+/// # Errors
+///
+/// Returns an error if the file exists but cannot be read or written, or if
+/// it lacks a top-level `version:` key.
+pub(crate) fn sync_citation_file(version: &str, date: &str) -> Result<()> {
+    let path = std::path::Path::new("CITATION.cff");
+    if !path.exists() {
+        return Ok(());
+    }
+    let content = std::fs::read_to_string(path).context("Failed to read CITATION.cff")?;
+    let updated = sync_citation(&content, version, date)?;
+    if updated != content {
+        std::fs::write(path, updated).context("Failed to write CITATION.cff")?;
+    }
+    Ok(())
+}
+
+/// Rewrite the top-level `version:` and `date-released:` lines of a
+/// `CITATION.cff` text (see [`sync_citation_file`]).
+///
+/// # Errors
+///
+/// Returns an error if `content` has no top-level `version:` key.
+fn sync_citation(content: &str, version: &str, date: &str) -> Result<String> {
+    let mut found_version = false;
+    let mut out = String::with_capacity(content.len());
+    for line in content.split_inclusive('\n') {
+        let ending = if line.ends_with('\n') { "\n" } else { "" };
+        if line.starts_with("version:") {
+            found_version = true;
+            out.push_str("version: \"");
+            out.push_str(version);
+            out.push('"');
+            out.push_str(ending);
+        } else if line.starts_with("date-released:") {
+            out.push_str("date-released: \"");
+            out.push_str(date);
+            out.push('"');
+            out.push_str(ending);
+        } else {
+            out.push_str(line);
+        }
+    }
+    if !found_version {
+        bail!("CITATION.cff has no top-level `version:` key");
+    }
+    Ok(out)
+}
+
 /// Parse `content` (the text of a workspace root `Cargo.toml`) and
 /// extract the `version = "..."` entry from the `[workspace.package]`
 /// table specifically — ignores any unrelated `version = ...` lines in
@@ -100,4 +157,24 @@ pub(crate) fn extract_version_from_cargo_toml(content: &str) -> Result<String> {
         }
     }
     bail!("Version extraction failed - no version found in [workspace.package]")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sync_citation;
+
+    #[test]
+    fn citation_version_and_date_are_rewritten_and_the_rest_kept() {
+        let before = "cff-version: 1.2.0\n# Keep in sync.\nversion: \"0.5.120\"\ndate-released: \"2026-06-09\"\ntype: software\n";
+        let after = sync_citation(before, "0.6.47", "2026-11-10").unwrap();
+        assert_eq!(
+            after,
+            "cff-version: 1.2.0\n# Keep in sync.\nversion: \"0.6.47\"\ndate-released: \"2026-11-10\"\ntype: software\n"
+        );
+    }
+
+    #[test]
+    fn citation_without_version_is_an_error() {
+        let _missing = sync_citation("cff-version: 1.2.0\n", "0.6.47", "2026-11-10").unwrap_err();
+    }
 }

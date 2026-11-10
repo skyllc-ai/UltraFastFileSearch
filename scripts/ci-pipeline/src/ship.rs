@@ -40,7 +40,7 @@ use crate::exec::{
     execute_step_with_tracking,
 };
 use crate::git_ops::{count_unpushed_commits, git_commit, git_push};
-use crate::version::{bump_workspace_version, get_current_version};
+use crate::version::{bump_workspace_version, get_current_version, sync_citation_file};
 use crate::workflow::{
     ALL_STEPS, STEP_CLEAN_ARTIFACTS, STEP_COVERAGE_TESTS, STEP_FORMAT_CHECK, STEP_FORMAT_CODE,
     STEP_GIT_COMMIT, STEP_GIT_PUSH, STEP_PARALLEL_VALIDATION, STEP_TOOLCHAIN_SYNC, WorkflowPhase,
@@ -544,6 +544,11 @@ pub(crate) async fn run_enhanced_phase2(
         // gated by `version_incremented`, and the roll itself is a no-op on an
         // already-rolled file.
         roll_changelog_file(&new_version).context("Failed to roll CHANGELOG [Unreleased]")?;
+        // CITATION.cff names the release too (same commit, same date as the
+        // changelog roll).
+        let release_date = chrono::Local::now().format("%Y-%m-%d").to_string();
+        sync_citation_file(&new_version, &release_date)
+            .context("Failed to sync CITATION.cff to the new version")?;
         state.version_incremented = true;
         state.current_version = new_version;
         state.save()?;
