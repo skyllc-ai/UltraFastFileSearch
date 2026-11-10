@@ -7,8 +7,8 @@ when = "2026-06-17"
 trusted-publisher = "github:RustCrypto/traits"
 
 [[publisher.aes]]
-version = "0.9.3"
-when = "2026-08-28"
+version = "0.9.4"
+when = "2026-11-02"
 trusted-publisher = "github:RustCrypto/block-ciphers"
 
 [[publisher.anyhow]]
@@ -53,8 +53,8 @@ user-login = "Darksonn"
 user-name = "Alice Ryhl"
 
 [[publisher.cc]]
-version = "1.10.0"
-when = "2026-10-23"
+version = "1.11.1"
+when = "2026-11-06"
 trusted-publisher = "github:rust-lang/cc-rs"
 
 [[publisher.cfg-if]]
@@ -138,8 +138,8 @@ when = "2026-05-20"
 trusted-publisher = "github:RustCrypto/block-modes"
 
 [[publisher.ctutils]]
-version = "0.4.7"
-when = "2026-10-29"
+version = "0.4.8"
+when = "2026-11-02"
 trusted-publisher = "github:RustCrypto/utils"
 
 [[publisher.digest]]
@@ -307,13 +307,13 @@ user-login = "cuviper"
 user-name = "Josh Stone"
 
 [[publisher.inout]]
-version = "0.2.5"
-when = "2026-10-19"
+version = "0.2.6"
+when = "2026-11-07"
 trusted-publisher = "github:RustCrypto/utils"
 
 [[publisher.js-sys]]
-version = "0.3.106"
-when = "2026-09-25"
+version = "0.3.107"
+when = "2026-10-30"
 trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
 
 [[publisher.jsonpath_lib_polars_vendor]]
@@ -343,8 +343,8 @@ user-login = "BurntSushi"
 user-name = "Andrew Gallant"
 
 [[publisher.mime]]
-version = "0.3.17"
-when = "2023-03-20"
+version = "0.3.18"
+when = "2026-11-05"
 user-id = 359
 user-login = "seanmonstar"
 user-name = "Sean McArthur"
@@ -635,8 +635,8 @@ user-login = "dtolnay"
 user-name = "David Tolnay"
 
 [[publisher.serde_spanned]]
-version = "1.1.2"
-when = "2026-10-08"
+version = "1.1.3"
+when = "2026-11-06"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -647,8 +647,8 @@ when = "2026-10-12"
 trusted-publisher = "github:RustCrypto/hashes"
 
 [[publisher.signal-hook]]
-version = "0.4.5"
-when = "2026-10-04"
+version = "0.4.6"
+when = "2026-10-31"
 user-id = 5906
 user-login = "vorner"
 user-name = "Michal 'vorner' Vaner"
@@ -661,8 +661,8 @@ user-login = "dtolnay"
 user-name = "David Tolnay"
 
 [[publisher.syn]]
-version = "3.0.9"
-when = "2026-10-12"
+version = "3.0.10"
+when = "2026-11-09"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
@@ -703,22 +703,22 @@ user-login = "Darksonn"
 user-name = "Alice Ryhl"
 
 [[publisher.toml]]
-version = "1.1.8+spec-1.1.0"
-when = "2026-10-09"
+version = "1.2.1+spec-1.1.0"
+when = "2026-11-06"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
 
 [[publisher.toml_datetime]]
-version = "1.1.2+spec-1.1.0"
-when = "2026-10-08"
+version = "1.1.3+spec-1.1.0"
+when = "2026-11-06"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
 
 [[publisher.toml_edit]]
-version = "0.25.17+spec-1.1.0"
-when = "2026-10-09"
+version = "0.25.19+spec-1.1.0"
+when = "2026-11-06"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -731,8 +731,8 @@ user-login = "epage"
 user-name = "Ed Page"
 
 [[publisher.toml_writer]]
-version = "1.1.3+spec-1.1.0"
-when = "2026-10-08"
+version = "1.2.0+spec-1.1.0"
+when = "2026-11-04"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -792,15 +792,22 @@ user-login = "Manishearth"
 user-name = "Manish Goregaokar"
 
 [[publisher.utf8_iter]]
-version = "1.0.4"
-when = "2023-12-01"
+version = "1.1.0"
+when = "2026-10-29"
+user-id = 4484
+user-login = "hsivonen"
+user-name = "Henri Sivonen"
+
+[[publisher.utf_types]]
+version = "1.0.0"
+when = "2026-10-29"
 user-id = 4484
 user-login = "hsivonen"
 user-name = "Henri Sivonen"
 
 [[publisher.uuid]]
-version = "1.29.0"
-when = "2026-10-23"
+version = "1.29.2"
+when = "2026-11-09"
 user-id = 3204
 user-login = "KodrAus"
 user-name = "Ashley Mannix"
@@ -813,38 +820,38 @@ user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
 [[publisher.wasm-bindgen]]
-version = "0.2.129"
-when = "2026-09-25"
+version = "0.2.130"
+when = "2026-10-30"
 trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
 
 [[publisher.wasm-bindgen-futures]]
-version = "0.4.79"
-when = "2026-09-25"
+version = "0.4.80"
+when = "2026-10-30"
 trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
 
 [[publisher.wasm-bindgen-macro]]
-version = "0.2.129"
-when = "2026-09-25"
+version = "0.2.130"
+when = "2026-10-30"
 trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
 
 [[publisher.wasm-bindgen-macro-support]]
-version = "0.2.129"
-when = "2026-09-25"
+version = "0.2.130"
+when = "2026-10-30"
 trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
 
 [[publisher.wasm-bindgen-shared]]
-version = "0.2.129"
-when = "2026-09-25"
+version = "0.2.130"
+when = "2026-10-30"
 trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
 
 [[publisher.web-sys]]
-version = "0.3.106"
-when = "2026-09-25"
+version = "0.3.107"
+when = "2026-10-30"
 trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
 
 [[publisher.winnow]]
-version = "1.0.4"
-when = "2026-07-13"
+version = "1.0.5"
+when = "2026-11-05"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -1004,6 +1011,26 @@ who = "Dan Gohman <dev@sunfishcode.online>"
 criteria = "safe-to-deploy"
 delta = "0.3.9 -> 0.3.10"
 
+[[audits.bytecode-alliance.audits.futures]]
+who = "Joel Dice <joel.dice@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.3.31"
+
+[[audits.bytecode-alliance.audits.futures]]
+who = "Pat Hickey <p.hickey@f5.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.31 -> 0.3.34"
+
+[[audits.bytecode-alliance.audits.futures-channel]]
+who = "Joel Dice <joel.dice@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.3.31"
+
+[[audits.bytecode-alliance.audits.futures-channel]]
+who = "Pat Hickey <p.hickey@f5.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.31 -> 0.3.34"
+
 [[audits.bytecode-alliance.audits.futures-core]]
 who = "Pat Hickey <phickey@fastly.com>"
 criteria = "safe-to-deploy"
@@ -1014,6 +1041,26 @@ notes = "Unsafe used to implement a concurrency primitive AtomicWaker. Well-comm
 who = "Pat Hickey <pat@moreproductive.org>"
 criteria = "safe-to-deploy"
 delta = "0.3.28 -> 0.3.31"
+
+[[audits.bytecode-alliance.audits.futures-executor]]
+who = "Joel Dice <joel.dice@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.3.31"
+
+[[audits.bytecode-alliance.audits.futures-executor]]
+who = "Pat Hickey <p.hickey@f5.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.31 -> 0.3.34"
+
+[[audits.bytecode-alliance.audits.futures-io]]
+who = "Joel Dice <joel.dice@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.3.31"
+
+[[audits.bytecode-alliance.audits.futures-io]]
+who = "Pat Hickey <p.hickey@f5.com>"
+criteria = "safe-to-deploy"
+delta = "0.3.31 -> 0.3.34"
 
 [[audits.bytecode-alliance.audits.futures-macro]]
 who = "Joel Dice <joel.dice@gmail.com>"
@@ -1834,12 +1881,21 @@ notes = "All code written or reviewed by Manish"
 aggregated-from = "https://raw.githubusercontent.com/mozilla-firefox/firefox/main/supply-chain/audits.toml"
 
 [[audits.mozilla.wildcard-audits.utf8_iter]]
-who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
+who = "Henri Sivonen <hsivonen@hsivonen.fi>"
 criteria = "safe-to-deploy"
 user-id = 4484 # Henri Sivonen (hsivonen)
 start = "2022-04-19"
-end = "2024-06-16"
-notes = "Maintained by Henri Sivonen who works at Mozilla."
+end = "2027-10-30"
+notes = "I wrote this crate."
+aggregated-from = "https://raw.githubusercontent.com/mozilla-firefox/firefox/main/supply-chain/audits.toml"
+
+[[audits.mozilla.wildcard-audits.utf_types]]
+who = "Henri Sivonen <hsivonen@hsivonen.fi>"
+criteria = "safe-to-deploy"
+user-id = 4484 # Henri Sivonen (hsivonen)
+start = "2026-09-24"
+end = "2027-10-30"
+notes = "I wrote this crate."
 aggregated-from = "https://raw.githubusercontent.com/mozilla-firefox/firefox/main/supply-chain/audits.toml"
 
 [[audits.mozilla.audits.adler2]]

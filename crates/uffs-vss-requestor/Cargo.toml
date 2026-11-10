@@ -75,7 +75,7 @@ uffs-version = { workspace = true, features = ["build"] }
 # for this internal helper — it's spawned by the Broker, never invoked
 # directly by a user in normal operation, so it skips the `winresource`
 # step `uffs-broker` uses.
-cc = "1.10.0"
+cc = "1.11.1"
 
 [lints]
 workspace = true

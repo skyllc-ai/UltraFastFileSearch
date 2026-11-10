@@ -246,12 +246,12 @@ serde_json = "1.0.154"
 # tier overrides + adaptive-TTL knobs in `uffs-daemon::config`.
 # Pinned to v1.1.2 to match the supply-chain exemption already on
 # the transitive copy pulled by other deps; no new vet entry needed.
-toml = "1.1.8"
+toml = "1.2.1"
 
 # ───── Data Structures ─────
 bitflags = "2.13.2"
 bytemuck = { version = "1.25.2", features = ["derive"] }
-smallvec = "1.16.4"
+smallvec = "1.16.5"
 zerocopy = { version = "0.8.63", features = ["derive"] }
 
 # ───── Error Handling ─────
@@ -259,7 +259,7 @@ thiserror = "2.0.21"
 anyhow = "1.0.104"
 
 # ───── MCP (Model Context Protocol) ─────
-rmcp = { version = "3.8.0", features = ["server", "transport-io", "macros"] }
+rmcp = { version = "3.9.0", features = ["server", "transport-io", "macros"] }
 schemars = "1.2.3"
 
 # ───── HTTP / Tower (for MCP Streamable HTTP gateway) ─────
@@ -316,7 +316,7 @@ strsim = "0.11.1"
 rustc-hash = "2.1.3"
 
 # ───── Formatting / Encoding ─────
-itoa = "1.0.18"
+itoa = "1.0.19"
 sha2 = "0.11.1"
 hex = "0.4.3"
 
@@ -324,7 +324,7 @@ hex = "0.4.3"
 # Blocking HTTP with rustls + the system trust store. `rustls-tls-native-roots`
 # matches the existing transitive reqwest config, so no new crate enters the lock.
 #
-# DELIBERATELY HELD AT 0.12 (re-verified 2026-10-28 against 0.13.5 and polars
+# DELIBERATELY HELD AT 0.12 (re-verified 2026-11-10 against 0.13.5 and polars
 # 0.55.2, the latest of both; everything
 # else in this workspace is at latest).  0.13 still drops
 # `rustls-tls-native-roots` and routes system trust through
@@ -364,7 +364,7 @@ hostname = "0.4.2"
 num_cpus = "1.17.0"
 # Random unique identifiers.  Only the `v4` (random) feature is enabled
 # workspace-wide; consumers that need v1/v5/v7 etc. re-add the feature.
-uuid = { version = "1.29.0", features = ["v4"] }
+uuid = { version = "1.29.2", features = ["v4"] }
 
 # ───── Security / Crypto ─────
 aes-gcm = "0.11.1"
