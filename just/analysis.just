@@ -185,7 +185,7 @@ pgo:
     fi
     if [[ ! -x "$INSTRUMENTED" ]]; then
         printf "\033[1;31m❌ instrumented binary missing under %s/release/\033[0m\n" "$TARGET_DIR"
-        printf "\033[0;34m   Set CARGO_TARGET_DIR or check .cargo/config.toml `build.target-dir`.\033[0m\n"
+        printf "\033[0;34m   Set CARGO_TARGET_DIR or check .cargo/config.toml 'build.target-dir'.\033[0m\n"
         exit 1
     fi
     printf "\033[0;32m  ✓ instrumented binary: %s\033[0m\n" "$INSTRUMENTED"
@@ -214,7 +214,7 @@ pgo:
     printf "\033[0;32m  ✓ merged profile: %s\033[0m\n" "$MERGED"
     RUSTFLAGS="-Cprofile-use=${MERGED}" cargo build --release -p uffs-cli
     printf "\033[0;32m✅ PGO build complete — %s/release/uffs now uses the merged profile\033[0m\n" "$TARGET_DIR"
-    printf "\033[0;34m   Run `just use-local` to install, then re-bench against the pre-PGO baseline.\033[0m\n"
+    printf "\033[0;34m   Run 'just use-local' to install, then re-bench against the pre-PGO baseline.\033[0m\n"
 
 # Windows variant of the PGO pipeline.  Uses PowerShell because
 # `shared.just` sets `windows-shell := powershell.exe` — the bash

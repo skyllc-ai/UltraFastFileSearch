@@ -43,7 +43,7 @@ phase1-test:
 # Phase 2: commit and push (version bump retired — release-plz handles it).
 phase2-ship:
     @printf "\033[0;34m🚀 PHASE 2: Explicit Ship Lane\033[0m\n"
-    @printf "\033[1;33mThis lane performs commit and push. Version bumping now handled by release-plz on `main`.\033[0m\n"
+    @printf "\033[1;33mThis lane performs commit and push. Version bumping now handled by release-plz on main.\033[0m\n"
     @echo "========================================================"
     cargo run -q --release --target-dir target/ci-bootstrap -p uffs-ci-pipeline -- phase2
 
