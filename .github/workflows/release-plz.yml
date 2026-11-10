@@ -522,8 +522,14 @@ jobs:
           # is already the tag.
           ref: ${{ inputs.publish_tag || github.ref }}
 
-      - name: Install Rust (nightly toolchain)
-        uses: dtolnay/rust-toolchain@nightly
+      - name: Install pinned nightly (from rust-toolchain.toml)
+        # The pin of the checked-out release tag, never a floating
+        # nightly: `cargo publish` verifies by building the package, and
+        # a nightly the release was never built with can fail on a new
+        # lint or regression (the canary's job, not the publish's).
+        # `rustup show` reads `rust-toolchain.toml` and installs exactly
+        # that channel, like every other job in this workflow.
+        run: rustup show
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
