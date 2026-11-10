@@ -1443,7 +1443,7 @@ jobs:
               ``,
               `⚠️ **This is a release pipeline failure — immediate attention required.**`,
               ``,
-              `📧 Notification sent to: releasefail@uffs.io`,
+              `📧 Failure mail: the CI Failure Notify workflow files the issue and mails ultrafastfilesearchfailed@nios.net`,
             ].join('\n');
 
             const existing = await github.rest.issues.listForRepo({
