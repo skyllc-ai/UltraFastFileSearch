@@ -3,6 +3,16 @@
 #
 # Dependabot — automated dependency update PRs.
 # See: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+#
+# Reviewers come from .github/CODEOWNERS: GitHub retired the `reviewers`
+# key in this file in favour of code owners.
+#
+# The cargo updater last ran 2026-08-04.  Every cargo job from July on
+# failed with "could not execute process `sccache .../rustc -vV`" because
+# .cargo/config.toml named sccache as the rustc wrapper and the updater's
+# container has none.  #587 replaced it with a shim that falls back to
+# rustc, but GitHub had already stopped scheduling the failing updater.
+# A change to this file on main schedules every updater again.
 
 version: 2
 
@@ -14,8 +24,6 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 10
-    reviewers:
-      - "githubrobbi"
     labels:
       - "dependencies"
       - "rust"
@@ -52,8 +60,6 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
-    reviewers:
-      - "githubrobbi"
     # NOTE: only `dependencies` here. The `ci` *label* was removed because
     # it does not exist in the repo, so Dependabot emitted a "label could
     # not be found: ci" warning on every github-actions PR. The CI nature
