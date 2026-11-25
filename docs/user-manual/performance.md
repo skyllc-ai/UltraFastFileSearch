@@ -53,7 +53,7 @@ A benchmark is only useful if readers can see both the fastest successful run an
 | SATA HDD | WD 8 TB × 2 (WDC WD82PURZ, M: and S:) |
 | USB storage | SanDisk Extreme 58 GB USB stick (G:) |
 | Power profile | AMD Ryzen High Performance |
-| UFFS version | 0.5.120 (latest cross-tool + full-scan-export captures; older per-phase tables carry their version tags — see §5a for current cross-tool numbers) |
+| UFFS version | 0.5.120 (latest cross-tool + full-scan-export captures; older per-phase tables carry their version tags — see §11 for current cross-tool numbers) |
 
 ### Drives Under Test
 
@@ -137,13 +137,13 @@ over 3 rounds.  Pattern: `*` (full scan), limit: 100 rows.
 | **ALL (v0.5.4)** | **25,931,436** | **6.9 s** | **9.6×** |
 | **ALL (v0.5.62)** | **25,931,436** | **5.7 s** | **12.0×** |
 
-Post-Phase-2 the all-drives warm restart dropped 17 % to **5.7 s** (measured
+On v0.5.62 the all-drives warm restart dropped 17 % to **5.7 s** (measured
 n=1 in [`docs/benchmarks/raw/2026-04-v0.5.62_aggregate-baseline.txt:369-391`](../benchmarks/raw/2026-04-v0.5.62_aggregate-baseline.txt)).  Per-drive warm numbers not re-captured on v0.5.62
 yet — they are expected to scale proportionally.
 
 ### Hot (In-Memory Query)
 
-**v0.5.4 per-drive (historical, pre-Phase-1):**
+**v0.5.4 per-drive (historical, before the thin client):**
 
 | Drive | Records | Total | Cold→Hot |
 |-------|--------:|------:|---------:|
@@ -156,28 +156,19 @@ yet — they are expected to scale proportionally.
 | S: | 8,278,106 | 54 ms | **1236×** |
 | **ALL** | **25,931,436** | **163 ms** | **407×** |
 
-**v0.5.66 current (7-drive daemon, `--limit 100`, 30 rounds, [`docs/benchmarks/raw/2026-04-v0.5.66_full-benchmark-suite.txt:573-707`](../benchmarks/raw/2026-04-v0.5.66_full-benchmark-suite.txt)):**
-
-| Pattern                                | CLI e2e p50 | Daemon-side |
-|----------------------------------------|------------:|------------:|
-| `*` (full scan, top-100)               | **1 112 ms**|   1 081 ms  |
-| `notepad.exe` (exact)                  |      29 ms  |       0 ms  |
-| `win*` (prefix)                        |      31 ms  |       1 ms  |
-| `*.dbt` (ext_rare)                     |      32 ms  |       0 ms  |
-| `*.dll` (extension, 167 K match)       |      69 ms  |      42 ms  |
-| `config` (substring)                   |      31 ms  |       1 ms  |
-| `>.*\.(jpg\|png\|heic)$` (regex alt)   |     135 ms  |     108 ms  |
-| `*system32*` (in-path heavy)           |      30 ms  |       0 ms  |
+The v0.5.66 numbers for the same patterns (7-drive daemon, `--limit 100`,
+30 rounds) are in §5.
 
 > **HOT v0.5.4 vs v0.5.66 in one sentence:** daemon-side targeted
 > latency is unchanged (0–3 ms), but CLI end-to-end now has a ~28 ms
 > Windows process-creation floor that v0.5.4 did not report (the
-> Phase 1 thin-client shaved the cold-spawn from ~50 ms to ~28 ms;
+> thin client shaved the cold-spawn from ~50 ms to ~28 ms;
 > per-process startup now dominates sub-30 ms queries).  On v0.5.120
-> that floor has dropped further to **17–18 ms** (see §5a).  The
+> that floor has dropped further to **17–18 ms** (see §11).  The
 > `*` top-100 path has separately regressed from 163 ms to 1 112 ms
-> and is tracked as Phase 5 target #2 (bounded-heap top-N) — see
-> [cross-tool benchmark analysis](../research/cross-tool-benchmark-analysis.md) §7.
+> and is a known regression with a planned fix (a bounded-heap top-N) —
+> see [Known regressions](../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md#known-regressions-published-because-trust--hype)
+> in the archived v0.5.66 report.
 
 
 ## 4. Speedup Summary
@@ -197,52 +188,12 @@ for each drive.  The Cold→Hot ratio is the primary performance metric.
 | M: | 26.4 s | 1.4 s | 18 ms | **1469×** | 19.5× |
 | S: | 67 s | 4.8 s | 54 ms | **1236×** | 14.0× |
 | **ALL (v0.5.4)** | **66 s** | **6.9 s** | **163 ms** | **407×** | **9.6×** |
-| **ALL (v0.5.62)** | **68.5 s** | **5.7 s** | see §5 / §5a | — | **12.0×** |
+| **ALL (v0.5.62)** | **68.5 s** | **5.7 s** | see §5 / §11 | — | **12.0×** |
 
 > On spinning disks (M:, S:) the cold-start penalty is extreme —
 > reading raw MFT from a HDD is 10–60× slower than NVMe.
 > The daemon eliminates this entirely: once loaded, every drive
 > responds in **6–54 ms** regardless of media type.
-
-## 5a. Cross-Tool vs Everything (v0.5.120, C+D apples-to-apples)
-
-On v0.5.120 UFFS wins **30/30 cells at p50** against Everything
-(1.4.1.1032) across C/D/F/G and the combined index — median ratio
-**0.36× (~2.8× faster)**. The C+D subset below is the apples-to-apples
-continuation of the series this page has tracked since v0.5.66.
-Source: [`docs/benchmarks/raw/2026-06-v0.5.120_cross-tool-summary.csv`](../benchmarks/raw/2026-06-v0.5.120_cross-tool-summary.csv) (n=10, HOT, file sink); full four-drive table in the
-[current canonical report](../benchmarks/2026-06-v0.5.120-vs-everything.md).
-
-| Drive | Pattern         | UFFS p50 | ES p50 | UFFS/ES | Rows    |
-|-------|-----------------|---------:|-------:|--------:|--------:|
-| C:    | exact           |    20 ms |  69 ms | **0.29×** |      30 |
-| C:    | prefix          |    80 ms | 102 ms | **0.78×**¹ |  38 285 |
-| C:    | ext_rare        |    19 ms |  59 ms | **0.32×** |       1 |
-| C:    | ext_dll         |    96 ms | 237 ms | **0.41×** | 166 684 |
-| C:    | **ext_regex_alt** | **30 ms** | 82 ms | **0.37×** |  18 085 |
-| C:    | substring       |    39 ms | 105 ms | **0.37×** |  25 320 |
-| D:    | exact           |    20 ms |  67 ms | **0.30×** |       3 |
-| D:    | prefix          |    39 ms |  75 ms | **0.52×** |   8 732 |
-| D:    | ext_rare        |    19 ms |  61 ms | **0.31×** |      11 |
-| D:    | ext_dll         |    37 ms | 117 ms | **0.32×** |  44 529 |
-| D:    | **ext_regex_alt** | **26 ms** | 74 ms | **0.35×** |  10 438 |
-| D:    | substring       |    35 ms |  85 ms | **0.41×** |  12 458 |
-
-¹ `C:prefix` was a statistical tie in every snapshot through v0.5.66
-(99 ms vs 97 ms); on v0.5.120 it is a clear win.
-
-Every one of these 12 cells improved over the
-[archived v0.5.66 snapshot](../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md)
-— median **−33%** (substring C: 67 → 39 ms) — while Everything's own
-numbers held roughly flat. Historical v0.5.66 table and analysis in
-[cross-tool benchmark analysis](../research/cross-tool-benchmark-analysis.md).
-
-> **Note:** The 17–20 ms UFFS floor on every small-result cell is the
-> Windows CLI process-creation + pipe tax — exposed directly by the
-> G-drive empty-result cells in the same v0.5.120 capture (17–18 ms
-> p50 for zero rows).  It was ~28 ms on v0.5.66 (measured in
-> `@/Users/rnio/Private/Github/UltraFastFileSearch/docs/research/perf-phase2-measurement-plan.md`, Null-binary matrix
-> refresh).  The daemon itself responds in 0–3 ms on targeted queries.
 
 ## 5. HOT Query Patterns
 
@@ -263,7 +214,7 @@ hot daemon across all drives (25.9 M records, 30 rounds).
 | size filter | 153 ms | 160 ms | 144 ms | 150 ms |
 | combined | 9 ms | 10 ms | 0 ms | 0 ms |
 
-**v0.5.66 current (`Output_cache_newest:573-707`, 30 rounds, `--limit 100`):**
+**v0.5.66 (30 rounds, `--limit 100`, [`docs/benchmarks/raw/2026-04-v0.5.66_full-benchmark-suite.txt:573-707`](../benchmarks/raw/2026-04-v0.5.66_full-benchmark-suite.txt)):**
 
 | Pattern                                | CLI e2e p50 | CLI e2e p95 | Daemon-side |
 |----------------------------------------|------------:|------------:|------------:|
@@ -280,25 +231,25 @@ hot daemon across all drives (25.9 M records, 30 rounds).
 > - **Daemon-side is unchanged from v0.5.4** — targeted patterns
 >   (exact / prefix / ext / substring / in-path) complete in **0–3 ms**
 >   daemon-side.
-> - CLI end-to-end adds ~28 ms for the post-Phase-1 cold-spawn floor;
+> - CLI end-to-end adds ~28 ms for the cold-spawn floor of the thin client;
 >   the thin-client already shaved this from ~50 ms on v0.5.4 era, but
 >   Windows per-process startup remains the dominant cost for sub-30 ms
 >   queries.
 > - `*` top-100 is now **1 112 ms** (vs 161 ms v0.5.4) — a regression
->   introduced when the Phase 2 top-N modified-sort path was rewritten.
->   Tracked as Phase 5 target #2 (bounded-heap top-N fix).
+>   introduced when the top-N modified-sort path was rewritten; a
+>   bounded-heap top-N fix is planned (see
+>   [Known regressions](../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md#known-regressions-published-because-trust--hype)).
 > - `*.dll` (167 K matches) is 42 ms daemon-side — dominated by the
 >   per-row path-resolution walk, not filtering.
 > - `regex alternation` is 108 ms daemon-side — scans the MFT for the
->   full regex rather than hitting the ext fast-path (needs a trailing
->   `$` anchor for the v0.5.66 rewrite, see Phase 4 verified in the
->   cross-tool doc).
+>   full regex rather than hitting the extension fast path (the
+>   rewrite to the fast path needs a trailing `$` anchor).
 
 ## 6. Profile Internals
 
 The `--profile` flag breaks down where time is spent inside the daemon.
 
-**v0.5.4 historical breakdown (pre-Phase-1 thin-client):**
+**v0.5.4 historical breakdown (before the thin client):**
 
 | Component | Time | Notes |
 |-----------|-----:|-------|
@@ -310,12 +261,12 @@ The `--profile` flag breaks down where time is spent inside the daemon.
 | Output formatting | ~5 ms | Format and write to stdout |
 | **Total** | **~163 ms** | |
 
-**v0.5.66 current breakdown (`*` --limit 100 on 26.1 M records,
-`Output_cache_newest:657-664`, 30 rounds):**
+**v0.5.66 breakdown (`*` --limit 100 on 26.1 M records, 30 rounds,
+[`docs/benchmarks/raw/2026-04-v0.5.66_full-benchmark-suite.txt:657-664`](../benchmarks/raw/2026-04-v0.5.66_full-benchmark-suite.txt)):**
 
 | Component          | Time (v0.5.66) | Notes |
 |--------------------|--------------:|-------|
-| CLI cold-spawn     | ~28 ms         | Post-Phase-1 thin-client + Windows process start |
+| CLI cold-spawn     | ~28 ms         | Thin client + Windows process start |
 | IPC connect        | <1 ms          | Named pipe handshake (shmem fast path) |
 | Daemon search      | **1 081 ms**   | Top-N modified-sort scanning full 26 M rows — regression target |
 | IPC transfer       | <1 ms          | 100 rows back |
@@ -325,9 +276,10 @@ The `--profile` flag breaks down where time is spent inside the daemon.
 
 > The v0.5.4 155 ms daemon figure and the v0.5.66 1 081 ms daemon
 > figure describe the same code path (`uffs * --limit 100` on 26 M
-> records) but the Phase 2 top-N rewrite materialised the full
-> sort-key set instead of bounded-heap top-N.  Fix tracked as Phase 5
-> target #2 in the cross-tool doc; estimated post-fix: ~150–200 ms.
+> records) but the top-N rewrite materialised the full sort-key set
+> instead of a bounded-heap top-N.  The fix is planned (see
+> [Known regressions](../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md#known-regressions-published-because-trust--hype));
+> estimated after it: ~150–200 ms.
 >
 > Targeted queries (`notepad.exe` / `win*` / `*.dll` / `config` /
 > `*system32*`) skip the full scan and return in **0–3 ms daemon-side**
@@ -465,7 +417,7 @@ UFFS ships three validation suites that double as performance
 benchmarks for the query engine under realistic workloads.  All suites
 run against a hot daemon loaded with 25.9M records across 7 drives.
 
-Latest figures from the v0.5.62 validation run (hot daemon, 25.9M records across 7 drives; full capture preserved internally in `LOG/Output_cache` on the test machine, not committed due to size).
+Latest figures from the v0.5.62 validation run (hot daemon, 25.9M records across 7 drives). The raw capture of this run is not published (it is too large), so these figures cannot be re-checked from the repository.
 
 ### CLI Validation (248 tests, parallel)
 
@@ -504,7 +456,7 @@ Latest figures from the v0.5.62 validation run (hot daemon, 25.9M records across
 | Pass rate | **254/254 (100%)** |
 
 > **Total:** 729 tests across CLI, API, and MCP — all pass, all
-> exercising the same hot daemon with 25.9M records.  Post-Phase-2,
+> exercising the same hot daemon with 25.9M records.  On v0.5.62,
 > CLI wall time dropped from 65.7 s to **16.3 s** (−75 %) — largely
 > because the per-test CLI tax fell from ~160 ms to ~28 ms after
 > the Run 10/11 RPC-consolidation and watchdog fixes.
@@ -531,7 +483,49 @@ After a v0.5.62 session (from [`docs/benchmarks/raw/2026-04-v0.5.62_aggregate-ba
 > dropped from ~6 GB to **4.99 GB (−17 %)** thanks to mimalloc +
 > `mi_collect(true)` (OPT-6) and trigram pruning (OPT-7).
 
-## 11. C++ vs Rust Parity Comparison
+## 11. Cross-Tool vs Everything (v0.5.120, C+D apples-to-apples)
+
+On v0.5.120 UFFS wins **30/30 cells at p50** against Everything
+(1.4.1.1032) across C/D/F/G and the combined index — median ratio
+**0.36× (~2.8× faster)**. The C+D subset below is the apples-to-apples
+continuation of the series this page has tracked since v0.5.66.
+Source: [`docs/benchmarks/raw/2026-06-v0.5.120_cross-tool-summary.csv`](../benchmarks/raw/2026-06-v0.5.120_cross-tool-summary.csv) (n=10, HOT, file sink); full four-drive table in the
+[current canonical report](../benchmarks/2026-06-v0.5.120-vs-everything.md).
+
+| Drive | Pattern         | UFFS p50 | ES p50 | UFFS/ES | Rows    |
+|-------|-----------------|---------:|-------:|--------:|--------:|
+| C:    | exact           |    20 ms |  69 ms | **0.29×** |      30 |
+| C:    | prefix          |    80 ms | 102 ms | **0.78×**¹ |  38 285 |
+| C:    | ext_rare        |    19 ms |  59 ms | **0.32×** |       1 |
+| C:    | ext_dll         |    96 ms | 237 ms | **0.41×** | 166 684 |
+| C:    | **ext_regex_alt** | **30 ms** | 82 ms | **0.37×** |  18 085 |
+| C:    | substring       |    39 ms | 105 ms | **0.37×** |  25 320 |
+| D:    | exact           |    20 ms |  67 ms | **0.30×** |       3 |
+| D:    | prefix          |    39 ms |  75 ms | **0.52×** |   8 732 |
+| D:    | ext_rare        |    19 ms |  61 ms | **0.31×** |      11 |
+| D:    | ext_dll         |    37 ms | 117 ms | **0.32×** |  44 529 |
+| D:    | **ext_regex_alt** | **26 ms** | 74 ms | **0.35×** |  10 438 |
+| D:    | substring       |    35 ms |  85 ms | **0.41×** |  12 458 |
+
+¹ `C:prefix` was a statistical tie in every snapshot through v0.5.66
+(99 ms vs 97 ms); on v0.5.120 it is a clear win.
+
+Every one of these 12 cells improved over the
+[archived v0.5.66 snapshot](../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md)
+— median **−33%** (substring C: 67 → 39 ms) — while Everything's own
+numbers held roughly flat. The per-cell v0.5.66 → v0.5.120 deltas are in the
+[current report](../benchmarks/2026-06-v0.5.120-vs-everything.md#vs-the-previous-published-snapshot-v0566-2026-04);
+the full v0.5.66 table (p50 and p95, both tools) is in the
+[archived report](../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md#head-to-head-1-uffs-vs-everything-interactive-queries).
+
+> **Note:** The 17–20 ms UFFS floor on every small-result cell is the
+> Windows CLI process-creation + pipe tax — exposed directly by the
+> G-drive empty-result cells in the same v0.5.120 capture (17–18 ms
+> p50 for zero rows).  It was ~28 ms on v0.5.66 (see the
+> [archived report](../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md#the-targeted-query-fast-path-measured-at-26-m-records)).
+> The daemon itself responds in 0–3 ms on targeted queries.
+
+## 12. C++ vs Rust Parity Comparison
 
 UFFS was rewritten from C++ to Rust.  The parity test runs both
 implementations on the same drives and compares output.  The Rust
@@ -555,14 +549,14 @@ C++ baseline runs warm:
 > v0.5.66 measured 29–32 ms — daemon-side 0–3 ms + the Windows
 > cold-spawn tax).  Unfiltered `*` with
 > `--limit 100` is 1 112 ms CLI e2e on v0.5.66 (was 163 ms on v0.5.4
-> — regression tracked in the archived cross-tool doc; not re-measured
-> since).
+> — a [known regression](../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md#known-regressions-published-because-trust--hype);
+> not re-measured since).
 > The C++ tool re-reads the MFT on every invocation; the Rust daemon
 > never needs to re-read after the initial cold build — on v0.5.120 that
 > gap measures **180×–3 400× for targeted queries** (see the
 > [current canonical report](../benchmarks/2026-06-v0.5.120-vs-everything.md)).
 
-## 12. Running Your Own Benchmarks
+## 13. Running Your Own Benchmarks
 
 UFFS includes two profiling scripts in `scripts/windows/`:
 
