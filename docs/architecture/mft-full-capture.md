@@ -14,6 +14,7 @@
 > offline "as accurately as possible" — not just the namespace, but ACLs, the
 > change journal, free-space map, and transaction log — into one verifiable,
 > transferable bundle per drive. Future-proof: capture now, use later.
+> **Runbook:** [capture, transfer and verify, step by step](mft-capture-verify-runbook.md).
 
 ---
 

@@ -34,7 +34,7 @@ UFFS is built for **exact filename, path, and metadata search** at scales where 
 
 > An open-source NTFS search engine for Windows power users, developers, IT teams, and investigations-style workflows.
 
-📖 **[Full User Manual](docs/user-manual/index.md)** — installation, tutorials, filters, daemon, TUI, MCP integration, and more.
+📖 **[Full User Manual](docs/user-manual/README.md)** — installation, tutorials, filters, daemon, TUI, MCP integration, and more.
 
 > **Open source, forever.** The UFFS platform — engine, daemon, CLI, and MCP server — is licensed under the [Mozilla Public License 2.0](LICENSE). Code released as part of UFFS Core will never be made less open. Commercial products and enterprise offerings are built on top of the open platform, not by restricting it.
 >
@@ -375,6 +375,7 @@ The older C++ implementation remains useful as a parity and regression baseline,
 
 | Topic | Link |
 |-------|------|
+| User manual (every chapter, in reading order) | [docs/user-manual/](docs/user-manual/README.md) |
 | Installation | [docs/user-manual/installation.md](docs/user-manual/installation.md) |
 | Updating (self-update) | [docs/user-manual/updating.md](docs/user-manual/updating.md) |
 | Getting started (5 min) | [docs/user-manual/getting-started.md](docs/user-manual/getting-started.md) |

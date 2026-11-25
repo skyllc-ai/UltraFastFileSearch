@@ -8,7 +8,7 @@ Mac, and proving the offline reconstruction is faithful — including a three-wa
 parity check between the C++ golden tool, `uffs-mft` on Windows, and `uffs-mft`
 on the Mac.
 
-> Design/internals: `docs/architecture/mft-full-capture.md`.
+> Design/internals: [NTFS full-volume capture](mft-full-capture.md).
 > All `uffs-mft` MFT reads require **Windows, elevated (Administrator)**. The
 > offline steps (`metafile-info`, `extract-mft`, `load`, `verify`) run anywhere.
 
