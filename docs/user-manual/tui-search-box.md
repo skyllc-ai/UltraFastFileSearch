@@ -1,8 +1,12 @@
 # TUI Search Box
 
-> **Based on code version:** 0.4.11 | **Document revision:** 1.4
+`uffs-tui` is a terminal UI over the same daemon the `uffs` command uses:
+you type, and the results update as you type. The `uffs-tui` in every
+release zip is the free demo build (see `DEMO-LICENSE.txt` in the zip). Each
+search shows at most 1,000 rows (200 for a one- or two-character pattern);
+when a search hits that cap, the status bar says `(truncated)`.
 
-The UFFS TUI has two panes: the **Search Box** (query input) and the
+The TUI has two panes: the **Search Box** (query input) and the
 **Results Panel** (file listing). A **focus system** determines which pane
 receives keyboard input. The focused pane has a **bright cyan border**; the
 unfocused pane has a dim gray border.
@@ -18,6 +22,26 @@ update live as you type.
 
 > *Launch, type, and browse real NTFS results live against a hot daemon. Recorded against the real binary (see the [demo kit](../../scripts/dev/demo/README.md)).*
 
+## Launching
+
+```bash
+uffs-tui                         # Windows: finds the NTFS drives itself
+uffs-tui --data-dir ~/uffs_data  # macOS / Linux: MFT captures in drive_c/, drive_d/, ...
+uffs-tui --mft-file C.iocp       # one or more capture files (comma-separated or repeated)
+```
+
+The TUI connects to the UFFS daemon and starts it if it is not running,
+exactly as `uffs` does (see [Daemon](daemon.md)). On macOS and Linux it
+needs `--data-dir` or `--mft-file`; without one it shows "No MFT data source
+specified". Other options:
+
+| Option | Effect |
+|--------|--------|
+| `--drive C,D` | Drive letters for capture files whose names do not say |
+| `--no-cache` | Read the MFT fresh instead of the index cache |
+| `--keys windows\|emacs` | Overwrite the keybinding file with a preset (§5) |
+| `--reset-history` | Replace the search history with the built-in examples (§3.4) |
+
 ## 1. Search Patterns
 
 Type directly into the search box. The search engine auto-detects the pattern
@@ -25,15 +49,14 @@ type based on syntax.
 
 ### 1.1 Substring (literal)
 
-Type plain text with no wildcards. Matches any filename or path containing the
-text (case-insensitive by default).
+Type plain text with no wildcards. Matches any file or folder **name**
+containing the text (case-insensitive by default). To search within a folder
+tree, include a path separator (§1.3).
 
 | Input | Matches |
 |-------|---------|
-| `readme` | `README.md`, `readme.txt`, `C:\docs\readme_v2.txt` |
-| `invoice` | `invoice_2024.pdf`, `old_invoices\summary.xlsx` |
-
-Literal patterns match against the **full path** (like Everything and WizFile).
+| `readme` | `README.md`, `readme.txt`, `readme_v2.txt` |
+| `invoice` | `invoice_2024.pdf`, `old_invoices` (a folder) |
 
 ### 1.2 Glob Patterns
 
@@ -71,10 +94,11 @@ Prefix with `>` to use regular expressions.
 |---------|---------|
 | `>.*\.txt$` | Files ending in `.txt` (regex) |
 | `>report_\d{4}` | Files with `report_` followed by 4 digits |
-| `>[Rr]eadme` | Case-sensitive regex for `Readme` or `readme` |
+| `>^readme` | Names starting with `readme` |
 
-Regex patterns are auto-anchored with `$` at the end if not already present,
-so `>.*\.jpg` matches files **ending** in `.jpg` (not `.jpg.bak`).
+A regex matches the file name only, and is case-insensitive unless `[Cc]` is
+on (§2.1). It is not anchored for you: `>.*\.jpg$` matches names ending in
+`.jpg`, while `>.*\.jpg` also matches `x.jpg.bak`.
 
 ### 1.5 Drive Prefix
 
@@ -87,8 +111,9 @@ Prefix any pattern with a drive letter to restrict search to that drive.
 
 ### 1.6 Empty Search Box
 
-When the search box is empty, UFFS shows **all files** (equivalent to `*`),
-sorted by the current sort column (default: most recently modified first).
+When the search box is empty, the TUI searches `*` and shows the first
+1,000 entries by the current sort column (by default the most recently
+modified first).
 
 ## 2. Search Mode Toggles
 
@@ -103,14 +128,15 @@ When active, searches match exact letter casing. When inactive (default),
 
 ### 2.2 Whole Word `[W]`
 
-When active, the pattern must match as a complete word (bounded by word
-boundaries). `log` matches the word "log" but not "blog" or "logging".
-
-Internally, whole-word wraps the pattern in `\b...\b` regex word boundaries.
+When active, the whole file name must equal the pattern (or fully match it,
+for a glob). `log` matches a file named `log`, not `app.log`, `blog` or
+`logging`.
 
 ### 2.3 Name-Only `[NAME]`
 
-When active, patterns match only against the **filename** (not the full path).
+The TUI always matches names, so `[NAME]` does not change its results. It is
+kept with the search in history and in the copied CLI command, where it
+becomes `--name-only`.
 
 ## 3. Keybindings: Windows Preset (Default)
 
@@ -123,7 +149,7 @@ Alt does not work (e.g., macOS Terminal.app).
 | Key | Backup(s) | Action |
 |-----|-----------|--------|
 | `Ctrl+Q` | | Quit the TUI |
-| `Ctrl+R` | | Refresh — reload all drives from MFT / cache |
+| `Ctrl+R` | | Refresh. With the daemon (the normal case) this has no effect: the daemon keeps its index current from the USN journal |
 | `Alt+H` | `Ctrl+G`, `F1` | Cycle help bar pages (Nav → Toggles → Edit → Patterns) |
 
 ### 3.2 Search Box: Text Editing
@@ -131,13 +157,14 @@ Alt does not work (e.g., macOS Terminal.app).
 | Key | Action |
 |-----|--------|
 | *(type)* | Characters are inserted at the cursor; search updates live |
+| `Enter` | Copy the equivalent `uffs` command line to the **system** clipboard |
 | `Ctrl+U` | Clear the entire search line |
 | `Ctrl+Z` | Undo last edit |
 | `Ctrl+Y` | Redo last undone edit |
 | `Ctrl+A` | Select all text in the search box |
 | `Ctrl+C` | Copy selected text (internal clipboard) |
 | `Ctrl+V` | Paste from internal clipboard |
-| `Ctrl+X` | Cut selected text (handled by the text widget) |
+| `Ctrl+X` | Cut selected text (handled by the text widget; not remappable in `keys.toml`) |
 | `Shift+Left/Right` | Select text character by character |
 | `Shift+Home/End` | Select to start/end of line |
 | `Left/Right` | Move cursor |
@@ -146,7 +173,8 @@ Alt does not work (e.g., macOS Terminal.app).
 | `Delete` | Delete character after cursor |
 
 > **Note on clipboard:** Copy/Cut/Paste use the text widget's internal
-> clipboard (yank buffer), not the system clipboard. To paste from another
+> clipboard (yank buffer), not the system clipboard; only `Enter` writes to
+> the system clipboard. To paste from another
 > application, use your terminal's paste mechanism (e.g., `Cmd+V` on macOS,
 > right-click paste on Windows Terminal).
 
@@ -160,7 +188,9 @@ Alt does not work (e.g., macOS Terminal.app).
 | `Alt+T` | `Ctrl+T` | Cycle filter (All → Files → Dirs) | `[FILES]` / `[DIRS]` |
 
 When a toggle is **inactive**, the title bar badge shows the shortcut hint
-(e.g., `[Cc:Tab]`). When **active**, the badge turns yellow: `[Cc]`.
+(e.g., `[Cc:Tab]`). When **active**, the badge turns yellow: `[Cc]`. The
+hints always show the default keys, even after you remap them; the help bar
+(§8) shows your own.
 
 > **macOS note:** The Alt (Option) key inserts special characters in most macOS
 > terminals instead of sending a modifier. Use the Ctrl backup keys, or
@@ -172,18 +202,21 @@ When a toggle is **inactive**, the title bar badge shows the shortcut hint
 Search history is saved automatically. When you clear the search box, the
 longest pattern from your typing session is committed to history. Each
 history entry captures the **full search state**: pattern, case-sensitive,
-whole-word, name-only, and filter mode — stored as a `uffs` CLI command.
+whole-word, name-only and filter mode, stored as a `uffs.exe ...` command
+line; the sort, limit, columns and filters of an entry you browsed to are
+kept as well.
 
-History persists across sessions in `search_history.txt` alongside the
-config file. A default history file with example searches is created on
-first launch.
+History persists across sessions in `search_history.txt`, in the same
+folder as `keys.toml` (§5.1). A default history file with example searches
+is created on first launch, and `uffs-tui --reset-history` restores it. A
+line that cannot be read is commented out as `# INVALID:`.
 
 When the **Search Box is focused**, the arrow keys browse history:
 
 | Key | Action |
 |-----|--------|
 | `↑` | Browse to previous (older) search |
-| `↓` | Browse to next (newer) search |
+| `↓` | Browse to next (newer) search; with no entry selected, start at the oldest |
 
 The first press saves your current input. Browsing past the newest entry
 restores your original text.
@@ -197,17 +230,17 @@ The history file uses CLI command syntax with optional `#` comments:
 
 ```bash
 # Find all Rust source files
-uffs "*.rs" --files-only
+uffs.exe "*.rs" --files-only
 
 # Case-sensitive search for README files
-uffs README --case --name-only
+uffs.exe README --case --name-only
 
-# User-generated (no comment)
-uffs "*.log"
+# Largest logs first
+uffs.exe "*.log" --sort size --limit 50
 ```
 
-Each non-comment, non-blank line is a `uffs` CLI command. Flags map to
-search toggles:
+Each non-comment, non-blank line is a `uffs` (or `uffs.exe`) command line.
+These flags are understood:
 
 | Flag | Toggle |
 |------|--------|
@@ -216,6 +249,8 @@ search toggles:
 | `--name-only` | Name-only `[NAME]` |
 | `--files-only` | Filter: files only `[FILES]` |
 | `--dirs-only` | Filter: dirs only `[DIRS]` |
+| `--smart-case` | Case-sensitive only when the pattern has a capital |
+| `--sort`, `--limit`, `--columns`, `--hide-system` | Sort, row limit (instead of the 1,000-row cap), columns, hiding system files |
 
 #### History Comments in the Status Bar
 
@@ -233,12 +268,13 @@ comment with a position indicator (e.g., `📝 Find all Rust source files
 When the **Search Box** is focused (default on startup):
 - Typing edits the search query
 - `↑`/`↓` browse search history
+- `PgUp`/`PgDn` move focus to the Results Panel and page through it
 - All search toggles and editing keys are active
 
 When the **Results Panel** is focused:
 - `↑`/`↓` navigate result rows
 - `PgUp`/`PgDn` page through results
-- `Enter` shows the full path of the selected file
+- `Enter` shows the full path of the selected file in the status bar (`📋 <path>`)
 - Sort keys (`Ctrl+Shift+S`, `Ctrl+Shift+D`) are active
 - Search toggles (case, word, name-only, filter) still work
 
@@ -253,19 +289,20 @@ Switch to the Emacs preset with:
 uffs-tui --keys emacs
 ```
 
-The Emacs preset changes text-editing keys to Emacs conventions. Toggle,
-focus, and history keys remain the same.
+The Emacs preset changes the text-editing keys to Emacs conventions and adds
+Emacs keys for moving through the results. Toggle, focus and history keys
+remain the same.
 
 ### 4.1 Differences from Windows Preset
 
 | Action | Windows | Emacs |
 |--------|---------|-------|
-| Clear line | `Ctrl+U` | `Ctrl+K` (kill to end of line) |
+| Clear line | `Ctrl+U` | `Ctrl+K` (clears the whole line) |
 | Undo | `Ctrl+Z` | `Ctrl+/` |
 | Redo | `Ctrl+Y` | `Ctrl+Shift+/` |
 | Help cycle | `Alt+H`, `Ctrl+G`, `F1` | `Alt+H`, `F1` |
-
-All other keys (toggles, focus, copy/paste, quit, refresh) are identical.
+| Results: down / up | `↓` / `↑` | `↓` or `Ctrl+J` / `↑` or `Ctrl+K` |
+| Results: page up | `PgUp` | `PgUp` or `Alt+V` |
 
 > **Note:** The Emacs preset does not include `Ctrl+G` for help because
 > Emacs traditionally uses `Ctrl+G` for cancel/abort. Emacs users can
@@ -301,7 +338,7 @@ preset = "windows"
 [app]
 quit = ["ctrl+q"]
 refresh = ["ctrl+r"]
-help_cycle = ["alt+h"]
+help_cycle = ["alt+h", "ctrl+g", "f1"]
 
 [search_box]
 clear_line = ["ctrl+u"]
@@ -314,6 +351,16 @@ toggle_name_only = ["alt+n", "ctrl+f"]
 toggle_filter = ["alt+t", "ctrl+t"]
 toggle_case_sensitive = ["alt+c", "tab"]
 toggle_whole_word = ["alt+w", "ctrl+w"]
+copy_cli_command = ["enter"]
+
+[results]
+nav_down = ["down"]
+nav_up = ["up"]
+page_down = ["pagedown"]
+page_up = ["pageup"]
+show_path = ["enter"]
+sort_cycle = ["ctrl+shift+s"]
+sort_direction = ["ctrl+shift+d"]
 ```
 
 Each action accepts an array of key strings. The first entry is the primary
@@ -338,15 +385,15 @@ config file after upgrading.
 The search box title bar shows the current state at a glance:
 
 ```
-┌ Search NTFS Drives [C D E F] 23,082,056 Files [Cc:Tab] [W:^W] ──────┐
+┌ Search NTFS Drives [] 0 Files [Cc:Tab] [W:^W] ────────────────────────┐
 │ your search pattern here                                              │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
 | Element | Meaning |
 |---------|---------|
-| `[C D E F]` | Loaded drives (each letter colored uniquely) |
-| `23,082,056 Files` | Total indexed file records across all drives |
+| `[]` | The drives the TUI loaded itself. With the daemon (the normal case) the daemon holds the drives, so this stays empty |
+| `0 Files` | The records the TUI loaded itself; `0` with the daemon, for the same reason |
 | `[Cc]` / `[Cc:Tab]` | Case-sensitive toggle (yellow = active, gray = inactive with hint) |
 | `[W]` / `[W:^W]` | Whole-word toggle (yellow = active, gray = inactive with hint) |
 | `[NAME]` | Name-only mode (shown only when active) |
@@ -358,12 +405,13 @@ Below the search box, the status bar shows search results summary:
 
 ```
 ┌ Status ──────────────────────────────────────────────────────────────┐
-│ 1,234 matches  │  23ms  │  23,082,056 records across 4 drives       │
+│ 🔌 1,000 matches  │  23ms  │  23,082,056 records scanned  │  (truncated) │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-This includes match count, search duration, total records scanned, and
-number of drives searched.
+It shows the rows returned (at most the row cap, so not always every
+match), the search time, the records scanned, and `(truncated)` when the
+row cap was reached.
 
 ## 8. Help Bar
 
@@ -382,17 +430,6 @@ at the bottom of the screen:
 > automatically reflects your changes. On macOS, Alt-modified keys are
 > automatically hidden in favor of Ctrl backup keys, since the Option key
 > sends special characters in most macOS terminals.
-
-
-## Document Revision History
-
-| Revision | Date | Code Version | Changes |
-|----------|------|--------------|---------|
-| 1.0 | 2026-03-25 | 0.4.11 | Initial document covering search patterns, mode toggles, Windows/Emacs keybindings, customization, title bar anatomy, status bar, help bar. |
-| 1.1 | 2026-03-25 | 0.4.11 | Added `F1` and `Ctrl+G` as backup help cycle keys (Windows preset). Added help cycle row to Emacs differences table. Added revision history. |
-| 1.2 | 2026-03-25 | 0.4.11 | Help bar is now fully dynamic — reads key labels from the active keymap at runtime. Platform-aware: Alt keys automatically hidden on macOS in favor of Ctrl backups. Removed all hardcoded key strings from help bar rendering. |
-| 1.3 | 2026-03-25 | 0.4.11 | Added focus system: Esc toggles between Search Box and Results Panel. ↑/↓ now browse search history when Search Box is focused, navigate rows when Results is focused. Visual focus indicator (cyan border). Removed explicit history_back/history_forward keybindings. Help bar is now focus-aware — Nav page shows context-appropriate keys. Help bar title shows current focus state. |
-| 1.4 | 2026-03-25 | 0.4.11 | New history file format: entries stored as `uffs` CLI commands with optional `#` comments. History entries now capture full search state (pattern + all toggles). Browsing history restores toggles. Status bar shows "History Note" with comment text when browsing commented entries. Default history file with example searches shipped on first launch. |
 
 ## See also
 
