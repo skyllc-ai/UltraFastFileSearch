@@ -110,7 +110,7 @@ file and socket are removed on exit.
 
 | Setting | `uffsd` flag | Default |
 |---------|--------------|---------|
-| Idle timeout | `--idle-timeout <SECS>` | `7200` (2 hours; ×3 after a TUI, GUI or MCP session) |
+| Idle timeout | `--idle-timeout <SECS>` | `7200` (2 hours; ×3 after a TUI, GUI or MCP session); `0` = never |
 | Disable retirement | `--no-retire` | Off |
 
 These are flags of the daemon program `uffsd` itself, for people who
@@ -126,8 +126,8 @@ uffsd --data-dir ~/uffs_data --idle-timeout 1800
 uffsd --data-dir ~/uffs_data --no-retire
 ```
 
-`--idle-timeout 0` does **not** mean "never": the daemon retires at its
-first idle check.  To keep the daemon running for good, use
+`--idle-timeout 0` means "never", the same as `--no-retire`.  To keep
+the daemon running for good across logins too, use
 `uffs --daemon resident on` (below).
 
 ### Permanent residency (start at login, never retire)

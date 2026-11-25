@@ -72,7 +72,7 @@ pub(crate) fn log_daemon_starting(config: &DaemonConfig) {
         drives = ?config.drives,
         data_dir = ?config.data_dir,
         no_cache = config.no_cache,
-        no_retire = config.no_retire,
+        retire = ?config.retire,
         "uffsd starting"
     );
 }
@@ -153,13 +153,8 @@ pub(crate) fn bootstrap_lifecycle_manager(
         uffs_client::daemon_ctl::ephemeral_lifecycle_dir,
     );
 
-    let idle_timeout = if config.no_retire {
-        None
-    } else {
-        Some(core::time::Duration::from_secs(config.idle_timeout))
-    };
     let mut lifecycle_mgr =
-        lifecycle::LifecycleManager::new(&lifecycle_dir, idle_timeout, event_tx);
+        lifecycle::LifecycleManager::new(&lifecycle_dir, config.retire.idle_limit(), event_tx);
 
     tracing::info!(data_dir = %lifecycle_mgr.data_dir().display(), "Lifecycle data directory");
 
@@ -296,8 +291,7 @@ mod tests {
             data_dir: None,
             drives,
             device_sources,
-            idle_timeout: 0,
-            no_retire: false,
+            retire: crate::Retire::Never,
             no_cache: false,
             log_level: "info".to_owned(),
             log_file: None,

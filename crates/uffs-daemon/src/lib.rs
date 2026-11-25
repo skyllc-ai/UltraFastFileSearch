@@ -123,6 +123,8 @@ pub(crate) mod telemetry;
 /// Tracing-subscriber bootstrap (re-exports [`init_tracing`] as part
 /// of the daemon library's public API).
 pub mod log_init;
+/// When an idle daemon retires.
+mod retire;
 /// Graceful-shutdown + force-exit watchdog.
 mod shutdown;
 /// Pre-spawn startup helpers (panic-hook install, data-source
@@ -130,6 +132,7 @@ mod shutdown;
 mod startup;
 
 pub use log_init::init_tracing;
+pub use retire::Retire;
 
 /// Configuration for [`run_daemon`].
 pub struct DaemonConfig {
@@ -148,10 +151,8 @@ pub struct DaemonConfig {
     /// `spawn_journal_loops_for_warm_shards`'s ephemeral-instance
     /// guard in `lib.rs`).
     pub device_sources: Vec<(String, uffs_mft::platform::DriveLetter)>,
-    /// Idle timeout in seconds (0 = use default 7200s / 2 hours).
-    pub idle_timeout: u64,
-    /// Disable auto-retire.
-    pub no_retire: bool,
+    /// When the daemon retires on idle (`--idle-timeout`, `--no-retire`).
+    pub retire: Retire,
     /// Skip cache.
     pub no_cache: bool,
     /// Log level string (e.g. "info", "debug").

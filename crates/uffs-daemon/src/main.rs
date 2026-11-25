@@ -12,6 +12,7 @@
 //! uffs-daemon                          # default settings
 //! uffs-daemon --mft-file C.bin D.bin   # load specific MFT files
 //! uffs-daemon --idle-timeout 300       # retire after 5 min idle
+//! uffs-daemon --idle-timeout 0         # never retire (as --no-retire)
 //! uffs-daemon --no-retire              # stay running indefinitely
 //! uffs-daemon --log-level debug        # verbose logging
 //! ```
@@ -92,7 +93,8 @@ struct Cli {
     #[arg(long = "drive", value_name = "LETTER")]
     drives: Vec<uffs_mft::platform::DriveLetter>,
 
-    /// Idle timeout in seconds before auto-retire (default: 7200 = 2 hours).
+    /// Idle timeout in seconds before auto-retire (default: 7200 = 2 hours;
+    /// 0 = never retire, the same as `--no-retire`).
     #[arg(long, default_value = "7200")]
     idle_timeout: u64,
 
@@ -199,8 +201,7 @@ async fn main() -> anyhow::Result<()> {
         mft_files: cli.mft_files,
         data_dir: cli.data_dir_arg,
         drives: cli.drives,
-        idle_timeout: cli.idle_timeout,
-        no_retire: cli.no_retire,
+        retire: uffs_daemon::Retire::from_flags(cli.idle_timeout, cli.no_retire),
         no_cache: cli.no_cache,
         log_level: cli.log_level,
         log_file: cli.log_file,
