@@ -131,7 +131,7 @@ mod shutdown;
 /// gathering, lifecycle bootstrap).
 mod startup;
 
-pub use log_init::init_tracing;
+pub use log_init::{TracingSetup, init_tracing};
 pub use retire::Retire;
 
 /// Configuration for [`run_daemon`].

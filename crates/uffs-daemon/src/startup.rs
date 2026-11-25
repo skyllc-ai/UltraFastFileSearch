@@ -23,20 +23,11 @@ pub(crate) fn validate_data_sources(
     device_sources: &[(String, uffs_mft::platform::DriveLetter)],
     lifecycle_mgr: &lifecycle::LifecycleManager,
 ) -> anyhow::Result<()> {
-    let has_data = !mft_files.is_empty() || !device_sources.is_empty() || {
-        #[cfg(windows)]
-        {
-            !drives.is_empty()
-        }
-        #[cfg(not(windows))]
-        {
-            // `drives` is Windows-only; no auto-discovery on macOS/Linux.
-            // The explicit type pins the annotation clippy expects on
-            // discarded bindings.
-            let _: &[uffs_mft::platform::DriveLetter] = drives;
-            false
-        }
-    };
+    // Live drives are a data source on Windows only (no auto-discovery on
+    // macOS/Linux).
+    let has_data = !mft_files.is_empty()
+        || !device_sources.is_empty()
+        || (cfg!(windows) && !drives.is_empty());
     if !has_data {
         tracing::error!(
             "No data sources provided. On macOS/Linux pass --mft-file; \

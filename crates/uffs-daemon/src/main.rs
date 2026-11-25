@@ -171,7 +171,16 @@ async fn main() -> anyhow::Result<()> {
         .or_else(|_| std::env::var("RUST_LOG"))
         .unwrap_or_else(|_| cli.log_level.clone());
 
-    let _guard = uffs_daemon::init_tracing(&log_spec, cli.log_file.as_deref());
+    let tracing_setup = uffs_daemon::init_tracing(&log_spec, cli.log_file.as_deref());
+    // Tracing is not up for these (they say why it is not up as asked), so
+    // stderr is the channel; a failure to write it is the daemon's error.
+    {
+        use std::io::Write as _;
+        let mut stderr = std::io::stderr().lock();
+        for warning in &tracing_setup.warnings {
+            writeln!(stderr, "{warning}")?;
+        }
+    }
 
     // Startup parameter dump — emitted at DEBUG so it is available for
     // diagnostics (`--log-level debug`) but never pollutes the default
