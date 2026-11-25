@@ -28,15 +28,23 @@ uffs --agg by_extension
 # How much space does each drive use?
 uffs --agg by_drive
 
-# Size distribution — tiny, small, medium, large, huge
+# Size distribution — files per size range (1 KB, 100 KB, 1 MB, 100 MB, 1 GB, 10 GB)
 uffs --agg by_size
 
-# When were files last modified?
+# When were files last modified? (one bucket per month)
 uffs --agg by_age
 ```
 
 All `uffs --agg` commands accept every filter from the [filters](filters.md) page.
 Aggregation reuses the same search pipeline — it just changes the output.
+
+`uffs --agg <PRESET>` searches everything (`*`) and takes no pattern of
+its own.  To aggregate over a pattern, put the pattern first and add
+`--agg`:
+
+```bash
+uffs "*.rs" --agg by_size
+```
 
 ### Inline aggregation (search + aggregate in one command)
 
@@ -53,8 +61,11 @@ uffs '*.pdf' --facet extension
 # Size statistics for matching files
 uffs '*.pdf' --stats size
 
-# Size histogram
+# Size histogram (1 MiB buckets by default)
 uffs '*.pdf' --histogram size
+
+# Size histogram with 10 MiB buckets
+uffs '*.pdf' --histogram size:10485760
 
 # Include rows alongside aggregation
 uffs '*.pdf' --count --rows
@@ -76,14 +87,20 @@ A preset is a one-word shortcut that expands into a tuned set of analytics.
 | `by_type` | Semantic type breakdown (code, document, picture, video, archive, …) with count, size, waste, share% | "What types of files do I have?" |
 | `by_extension` | Top 50 extensions by count & size with share% | "Which extensions use the most space?" |
 | `by_drive` | Per-drive totals: count, logical size, allocated size, waste | "How full is each drive?" |
-| `by_size` | Size-bucket histogram: Empty, Tiny (<1 KB), Small (<1 MB), Medium (<100 MB), Large (<1 GB), Huge (<10 GB), Massive (10 GB+) | "What's the size distribution?" |
-| `by_age` | Age buckets: today, this_week, this_month, this_quarter, this_year, last_year, older, ancient (>5 yr) | "How stale is my data?" |
+| `by_size` | Count and size per size range, split at 1 KB, 100 KB, 1 MB, 100 MB, 1 GB and 10 GB, plus size totals (sum/min/max/avg) | "What's the size distribution?" |
+| `by_age` | Monthly histogram of the modified date, with count, size and share% per month | "How stale is my data?" |
 | `storage` | Logical vs allocated size, waste per drive, waste per extension | "Where's my slack space going?" |
 | `activity` | Modified/created/accessed monthly histograms | "When are files being touched?" |
 | `top_folders` | Largest top-level folders (path rollup at depth 1) with count & size | "Which root folders are biggest?" |
 | `duplicates` | Candidate duplicate groups (same name + size), with reclaimable bytes | "Do I have duplicate files?" |
-| `media` | Media-only breakdown: pictures/audio/video by type, extension, size, creation date | "What media do I have?" |
+| `media` | Type breakdown (top 12), size stats, top 30 extensions, monthly creation histogram. It does **not** filter to media itself: add `--type picture`, `--type video` or `--type audio` | "What media do I have?" |
 | `cleanup` | Zero-byte files, no-extension files, distinct extension count, total files | "What's worth cleaning up?" |
+
+Presets also answer to short names: `type` (`by_type`), `ext` or
+`extension` (`by_extension`), `drive`, `size`, `age`, `folders`
+(`top_folders`) and `dups` (`duplicates`).  In power syntax a preset is
+written `preset:NAME`, so it can be stacked with other specs:
+`--agg preset:by_type --agg stats:size`.
 
 ### Using presets
 
@@ -94,8 +111,8 @@ uffs --agg by_type
 # Scoped to one drive
 uffs --agg by_extension --drives C
 
-# Scoped to a file pattern
-uffs --agg by_size "*.rs"
+# Scoped to a file pattern (pattern first)
+uffs "*.rs" --agg by_size
 
 # Scoped with filters
 uffs --agg by_type --newer 30d --min-size 1mb
@@ -126,19 +143,28 @@ The `--agg` flag is repeatable — stack multiple specs in one command.
 | **count** | `count` | Total matching record count |
 | **stats** | `stats:FIELD` | Sum, min, max, avg for a numeric/timestamp field |
 | **terms** | `terms:FIELD,top=N` | Top-N values by count, with size metrics per bucket |
-| **histogram** | `hist:FIELD,interval=N` | Fixed-width numeric buckets |
+| **histogram** | `hist:FIELD,interval=N` | Fixed-width numeric buckets (default interval 1 MiB) |
 | **date histogram** | `datehist:FIELD,calendar=INTERVAL` | Calendar-aligned time buckets |
-| **range** | `range:FIELD,bins=A..B+C..D` | Custom numeric ranges |
+| **range** | `range:FIELD,bins=A..B+C..D` | Custom numeric ranges; leave the end off the last one (`A..`) for "A and up" |
 | **missing** | `missing:FIELD` | Count records where the field has no value |
 | **distinct** | `distinct:FIELD` | Count unique values |
-| **rollup** | `rollup:path,depth=N,top=N` | Directory tree rollup at a given depth |
+| **rollup** | `rollup:path,depth=N,top=N` | Directory tree rollup at a given depth (default depth 1, top 30) |
+| | `rollup:drive` | Rollup per drive |
+| | `rollup:ancestor,record=N,drive=L` | Rollup under one directory, given its record number |
 | **duplicates** | `duplicates:KEY+KEY,top=N` | Duplicate candidate detection |
+| **preset** | `preset:NAME` | Expands to the preset's specs |
+
+Bucket kinds (`terms`, `hist`, `datehist`, `range`, `rollup`) take
+`metrics=M+M` to choose the numbers per bucket: `count`, `total_bytes`,
+`total_allocated`, `waste_bytes`, `waste_pct`, `avg_size`, `min_size`,
+`max_size`, `share_count`, `share_bytes`.  `stats` takes `metrics=` too,
+from `sum`, `min`, `max`, `avg`, `value_count`, `missing_count`.
 
 ### 3.3 Examples
 
 ```bash
-# Top 20 extensions (default is 50)
-uffs "*" --agg "terms:extension,top=20"
+# Top 50 extensions (default is 20)
+uffs "*" --agg "terms:extension,top=50"
 
 # Size statistics for all files
 uffs "*" --agg "stats:size"
@@ -153,7 +179,7 @@ uffs "*" --agg "hist:size,interval=10485760"
 uffs "*" --agg "datehist:created,calendar=month"
 
 # Custom size ranges
-uffs "*" --agg "range:size,bins=0..1048576+1048576..1073741824+1073741824..∞"
+uffs "*" --agg "range:size,bins=0..1048576+1048576..1073741824+1073741824.."
 
 # Count files with no extension
 uffs "*" --agg "missing:extension"
@@ -181,7 +207,7 @@ Not every field supports every operation.  Here's what works:
 | `created` | NTFS creation timestamp |
 | `modified` | NTFS last-write timestamp |
 | `accessed` | NTFS last-access timestamp |
-| `descendants` | Child count (directories only) |
+| `descendants` | Entries in a directory's whole subtree, plus 1 for the directory itself |
 | `tree_size` | Recursive subtree size (directories only) |
 | `tree_allocated` | Recursive subtree allocated size |
 | `bulkiness` | allocated ÷ logical × 100 |
@@ -225,18 +251,18 @@ actually in each group without a follow-up search.
 uffs "*" --agg "terms:extension,top=10,sample=3"
 ```
 
-Output:
+Output (abridged):
 ```
-Key                Count   Total Size   Count%    Size%
-─────────────── ──────── ────────── ──────── ────────
-dll               185,000   412.0 GB    15.3%    22.1%
-  → ntdll.dll (2.1 MB) modified:2025-12-01
-  → msvcrt.dll (1.8 MB) modified:2025-11-15
-  → kernel32.dll (1.2 MB) modified:2025-12-01
-exe                42,000   298.0 GB     8.6%    14.6%
-  → Teams.exe (289 MB) modified:2026-03-20
-  → chrome.exe (245 MB) modified:2026-04-01
-  → code.exe (132 MB) modified:2026-03-28
+  Key                                   Count     Total Size   Count%    Size%
+  ------------------------------ ------------ -------------- -------- --------
+  dll                                 185,000      412.00 GB    15.3%    22.1%
+    → ntdll.dll (2.10 MB) mod:2025-12-01
+    → msvcrt.dll (1.80 MB) mod:2025-11-15
+    → kernel32.dll (1.20 MB) mod:2025-12-01
+  exe                                  42,000      298.00 GB     8.6%    14.6%
+    → Teams.exe (289.00 MB) mod:2026-03-20
+    → chrome.exe (245.00 MB) mod:2026-04-01
+    → code.exe (132.00 MB) mod:2026-03-28
 ```
 
 Each bucket also carries a **drill-down predicate** — the exact filter
@@ -252,7 +278,8 @@ automatically.
 ## 6. Pagination
 
 High-cardinality aggregations (extensions, folder rollups) may produce more
-buckets than the default top-N.  Use pagination to walk through all of them:
+buckets than fit on one screen.  Pagination walks through the buckets a
+spec returns, a page at a time:
 
 ```bash
 # First page
@@ -263,9 +290,18 @@ uffs --agg by_extension --agg-page-size 20 --agg-cursor "eyJza..."
 ```
 
 The response includes:
-- `next_cursor` — opaque token for the next page (null if this is the last)
-- `other_count` — how many records fell into buckets beyond the current page
-- `values_complete` — `true` if all values fit in the current page
+- `next_cursor` — opaque token for the next page (absent on the last page)
+- `other_count` — how many records fell into groups that were not returned
+- `values_complete` — `true` when `other_count` is 0, that is, no group
+  was cut off
+
+Paging stays within the spec's top-N cap: `by_extension` stops at 50
+groups however you page.  To get more groups, ask for them with power
+syntax:
+
+```bash
+uffs --agg 'terms:extension,top=2000' --format json
+```
 
 ## 7. Duplicate detection
 
@@ -283,14 +319,15 @@ uffs "*" --agg "duplicates:size+name,verify=first_bytes,top=50"
 uffs "*" --agg "duplicates:size+name,verify=sha256,top=20"
 ```
 
-Output:
+Output (abridged; `✓` marks a verified group):
 ```
-Duplicate Candidates — 1,847 groups, 12,340 files, 48.2 GB reclaimable
+=== duplicate_candidates ===
+  Groups: 1,847  Files: 12,340  Reclaimable: 48.20 GB
 
-Name                    Copies  File Size  Reclaimable  Verified
-─────────────────────── ────── ────────── ─────────── ────────
-boost_1_90_0.zip            3    278 MB       556 MB       ✓
-node_modules.tar.gz         5    145 MB       580 MB       ✓
+  Name                                       Copies    File Size    Reclaimable     ✓
+  ---------------------------------------- -------- ------------ -------------- -----
+  boost_1_90_0.zip                                3    278.00 MB      556.00 MB     ✓
+  node_modules.tar.gz                             5    145.00 MB      580.00 MB     ✓
 ```
 
 ### Verification modes
@@ -322,32 +359,42 @@ uffs --agg by_extension --format tsv
 
 ### JSON structure
 
-Every aggregation response contains:
+`--format json` prints an **array** with one object per result.  The
+`kind` of each object is one of `count`, `stats`, `buckets` (terms,
+histograms, ranges), `rollup`, `duplicates`, `missing` or `distinct`.
+`label` is present when the spec has one (presets do).  A terms result
+looks like this:
 
 ```json
-{
-  "label": "by_extension",
-  "kind": "terms",
-  "field": "extension",
-  "buckets": [
-    {
-      "key": "dll",
-      "count": 185000,
-      "total_bytes": 442000000000,
-      "total_allocated": 445000000000,
-      "avg_size": 2389189.2,
-      "share_count": 15.3,
-      "share_bytes": 22.1,
-      "sample_rows": [...],
-      "drilldown": [...]
-    }
-  ],
-  "other_count": 42000,
-  "total_groups": 1847,
-  "values_complete": false,
-  "next_cursor": "eyJza..."
-}
+[
+  {
+    "label": "by_extension",
+    "kind": "buckets",
+    "field": "extension",
+    "buckets": [
+      {
+        "key": "dll",
+        "count": 185000,
+        "total_bytes": 442000000000,
+        "total_allocated": 445000000000,
+        "avg_size": 2389189.2,
+        "share_count": 15.3,
+        "share_bytes": 22.1,
+        "sample_rows": [ { "fields": { "name": "ntdll.dll", "size": "2202009" } } ],
+        "drilldown": [ { "field": "extension", "op": "eq", "value": "dll" } ]
+      }
+    ],
+    "other_count": 42000,
+    "total_groups": 1847,
+    "exact": true,
+    "values_complete": false,
+    "next_cursor": "eyJza..."
+  }
+]
 ```
+
+`count`, `missing` and `distinct` results carry a `value`; `stats`
+results carry a `stats` object.
 
 ## 9. Combining aggregation with search
 
@@ -373,12 +420,16 @@ uffs "*" --newer 7d --facet type
 | `--facet FIELD` | `terms:FIELD,top=20` | Top values of a field |
 | `--facet FIELD:N` | `terms:FIELD,top=N` | Top N values |
 | `--stats FIELD` | `stats:FIELD` | Sum/min/max/avg for a field |
-| `--histogram FIELD` | `hist:FIELD` | Size-bucketed histogram |
+| `--histogram FIELD` | `hist:FIELD` | Histogram with 1 MiB buckets |
+| `--histogram FIELD:N` | `hist:FIELD,interval=N` | Histogram with buckets N wide |
 
 ## 10. MCP / daemon API
 
 For MCP agents and HTTP clients, aggregation is accessed through the
-`uffs_aggregate` tool (or the `aggregations` array on `uffs_search`).
+`uffs_aggregate` tool.  Its arguments are `pattern` (default `*`),
+`preset`, `aggregations` (power-syntax specs), `drives`, `filter`
+(`all`, `files`, `dirs`), `type_filter` (for example `picture`),
+`cursor` and `page_size`.
 
 ### Preset call
 
@@ -458,7 +509,7 @@ uffs "*" --agg "distinct:extension" --drives D
 ### "Find all Rust code stats in my GitHub folder"
 
 ```bash
-uffs --agg overview "*.rs" --path-contains GitHub
+uffs "*.rs" --agg overview --in-path '*GitHub*'
 ```
 
 ### "Monthly modification activity for the last 2 years"

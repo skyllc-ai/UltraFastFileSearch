@@ -71,7 +71,8 @@ Projects/                     ← Tree Size = 15 MB (sum of all below)
 In this example, the `Projects/` directory has:
 - **Size** = 0 (directories themselves have zero logical size in NTFS)
 - **Tree Size** = 15 MB (1 + 2 + 10 + 2)
-- **Descendants** = 4 files + 2 subdirectories = 6
+- **Descendants** = 8: the 7 entries below it (3 subdirectories and 4
+  files) plus 1 for `Projects/` itself
 
 ### When to use
 
@@ -123,25 +124,24 @@ For **directories**, bulkiness uses the tree metrics:
 - **"Which folders have the worst packing efficiency?"** →
   `--dirs-only --min-bulkiness 200 --sort -bulkiness`
 
-## 4. Descendants (Child Count)
+## 4. Descendants
 
-Descendants counts the **direct children** of a directory — both files
-and subdirectories at the immediate level (not recursive).
+Descendants counts **every entry in a directory's whole subtree**, at
+every depth, plus 1 for the directory itself.  Files, subdirectories and
+the files' named data streams (see [§10](#10-alternate-data-streams-ads))
+all count, so a file with one extra stream counts 2.
 
 | Descendants | Meaning |
 |-------------|---------|
-| **0** | Empty directory |
-| **1–10** | Small directory |
-| **1 000+** | Very large directory (may cause Explorer slowdown) |
-
-> Despite the name, "descendants" in UFFS means **immediate children**,
-> not the full recursive subtree.  (Tree Size and Tree Allocated handle
-> the recursive view.)
+| **0** | A file (files have no descendants) |
+| **1** | Empty directory (only the directory itself) |
+| **2–10** | Small directory tree |
+| **1 000+** | Large directory tree |
 
 ### When to use
 
 - **"Find empty directories for cleanup"** →
-  `--dirs-only --max-descendants 0`
+  `--dirs-only --max-descendants 1`
 - **"Find bloated directories"** →
   `--dirs-only --min-descendants 1000 --sort -descendants`
 
@@ -157,11 +157,11 @@ filter and sort by *what a file is*, not just its extension.
 | `picture` | Images (`.jpg`, `.png`, `.gif`, `.svg`, `.heic`, …) |
 | `video` | Video files (`.mp4`, `.mkv`, `.mov`, `.avi`, …) |
 | `audio` | Sound files (`.mp3`, `.flac`, `.wav`, `.aac`, …) |
-| `archive` | Compressed archives (`.zip`, `.rar`, `.7z`, `.tar`, …) |
+| `archive` | Compressed archives (`.zip`, `.rar`, `.7z`, `.tar`, `.iso`, …) |
 | `executable` | Runnable programs (`.exe`, `.msi`, `.bat`, `.cmd`, …) |
 | `database` | Data stores (`.db`, `.sqlite`, `.sql`, `.mdf`, …) |
 | `config` | Configuration (`.json`, `.yaml`, `.toml`, `.xml`, `.ini`, …) |
-| `disk` | Disk images (`.iso`, `.vmdk`, `.vhd`, `.img`, …) |
+| `disk` | Disk images (`.vmdk`, `.vhd`, `.img`, `.dmg`, …; `.iso` counts as `archive`) |
 | `system` | OS internals (`.sys`, `.dll`, `.drv`, `.ocx`, …) |
 | `web` | Web files (`.html`, `.css`, `.jsx`, `.vue`, `.wasm`, …) |
 | `script` | Shell scripts (`.sh`, `.bash`, `.lua`, `.pl`, …) |
@@ -243,7 +243,7 @@ precision:
 | Metric | What it counts |
 |--------|---------------|
 | **Name Length** | Characters in the filename only (e.g. `report.pdf` = 10) |
-| **Path Length** | Characters in the full path (e.g. `C:\Users\me\report.pdf` = 25) |
+| **Path Length** | Characters in the full path (e.g. `C:\Users\me\report.pdf` = 22) |
 
 ### Why it matters
 
@@ -293,16 +293,16 @@ Common uses:
 
 ### In UFFS
 
-By default, UFFS indexes only the primary (unnamed) stream.  Use
-`--full` mode to include extension records that contain ADS entries.
-Use `--hide-ads` to exclude ADS entries from results.
+UFFS indexes named streams too.  Each one appears in the results as its
+own entry, named `file:stream` (for example
+`setup.exe:Zone.Identifier`).  Use `--hide-ads` to leave them out.
 
 ```bash
-# Show all ADS entries
-uffs '*' --full
+# Find downloaded-file markers
+uffs '*Zone.Identifier'
 
-# Hide ADS entries
-uffs '*' --full --hide-ads
+# Search without ADS entries
+uffs '*.exe' --hide-ads
 ```
 
 ## 11. The MFT: How UFFS Reads Your Files
@@ -339,7 +339,7 @@ The MFT contains everything UFFS needs except two things:
 | Tree Size | Directories | "How much content is in this folder tree?" |
 | Tree Allocated | Directories | "How much drive space does this folder tree consume?" |
 | Bulkiness | Both | "How efficiently is space used? (waste ratio)" |
-| Descendants | Directories | "How many items are directly inside?" |
+| Descendants | Directories | "How many entries are in this folder tree?" |
 | Type | Both | "What kind of file is this?" |
 | Attributes | Both | "What flags does NTFS set on this?" |
 | Name Length | Both | "How long is the filename?" |

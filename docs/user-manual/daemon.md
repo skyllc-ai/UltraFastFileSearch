@@ -8,16 +8,16 @@ Searches that would normally take 60+ seconds to load data complete in
 ## 1. Architecture
 
 ```
-┌─────────┐                          ┌─────────────┐
-│ uffs CLI ├──── JSON-RPC over ──────┤ uffs-daemon  │
-│ uffs-tui │     local IPC socket    │  (in-memory  │
-│ uffs --mcp │                         │   MFT index) │
-└─────────┘                          └─────────────┘
+┌────────────┐                         ┌──────────────┐
+│ uffs CLI   ├──── JSON-RPC over ──────┤ uffsd        │
+│ uffs-tui   │     local IPC           │ (in-memory   │
+│ uffs --mcp │                         │  MFT index)  │
+└────────────┘                         └──────────────┘
 ```
 
 The daemon loads MFT data once at startup, then serves any number of
 search queries without re-reading disk.  Multiple CLI, TUI, and MCP
-clients share the same daemon instance.
+clients share the same daemon instance.  There is one daemon per user.
 
 | Transport | Platform |
 |-----------|----------|
@@ -36,7 +36,7 @@ On non-Windows platforms, the daemon works with MFT capture files (`.iocp`,
 uffs --daemon start --data-dir ~/uffs_data
 
 # Or with individual MFT files
-uffs --daemon start --mft-file /path/to/C_mft.iocp --mft-file /path/to/D_mft.iocp
+uffs --daemon start --mft-file /path/to/C_mft.iocp,/path/to/D_mft.iocp
 
 # Search (daemon is already running — instant results)
 uffs "*.rs" --data-dir ~/uffs_data
@@ -46,7 +46,10 @@ uffs "*.dll" --data-dir ~/uffs_data
 ```
 
 The `--data-dir` flag points to a directory with `drive_c/`, `drive_d/`, etc.
-subdirectories, each containing an MFT capture file.
+subdirectories, each containing an MFT capture file.  `--mft-file` takes
+one path or a comma-separated list; give it once (a second `--mft-file`
+replaces the first).  The daemon reads `.iocp`, `.bin`, `.raw`, `.mft`
+and `.uffs` files; see [Cache & Data Sources](cache-and-data.md).
 
 ### Windows (Live NTFS Drives)
 
@@ -67,7 +70,12 @@ uffs --daemon start --drive C --drive D
 > **Note:** Live MFT access needs elevation. Install the Access Broker **once**
 > (`uffs-broker --install`, from an elevated terminal) and the daemon — its
 > start/stop/restart and non-elevated updates — runs with **no UAC**; otherwise
-> start it from an Administrator terminal.
+> start it from an Administrator terminal, or let `uffs --daemon start
+> --elevate` (or `UFFS_ELEVATE=1`) ask for elevation.
+
+`uffs --daemon start` accepts `--mft-file`, `--data-dir`, `--drive`,
+`--no-cache`, `--elevate`, `--log-level` and `--log-file`.  It ignores
+any other flag without a warning.
 
 ## 3. Auto-Start
 
@@ -77,8 +85,8 @@ any client), the auto-start mechanism handles everything:
 1. CLI checks if a daemon is already running (reads PID file, probes
    socket).
 2. If no daemon is found, the CLI **spawns one in the background**,
-   passing along `--data-dir`, `--mft-file`, and drive flags from
-   the current command.
+   passing along `--data-dir`, `--mft-file`, `--drive`, `--no-cache`
+   and the log flags from the current command.
 3. The CLI waits for the daemon to become "Ready" (MFT loaded, index
    built).
 4. The CLI sends the search query over IPC.
@@ -87,27 +95,40 @@ This means your first `uffs *.txt --data-dir ~/uffs_data` on a clean
 machine does everything: spawn daemon, load MFT, build index, search,
 return results.  The next search is instant.
 
+Set `UFFS_NO_AUTOSTART=1` (any value other than empty or `0`) to turn
+auto-start off: a search with no daemon running then fails at once
+with an error instead of starting one.  This is for people who run
+`uffsd` themselves.
+
 ## 4. Idle Retirement
 
 The daemon retires automatically after being idle for **2 hours**
-(7200 seconds).  No cleanup needed — the PID file and socket are
-removed on exit.
+when only the CLI has used it, and **6 hours** once a TUI, GUI or MCP
+session has connected.  While a connection is open the daemon does not
+retire; it waits another full window.  No cleanup needed — the PID
+file and socket are removed on exit.
 
-| Setting | Flag | Default |
-|---------|------|---------|
-| Idle timeout | `--idle-timeout <SECS>` | `7200` (2 hours) |
+| Setting | `uffsd` flag | Default |
+|---------|--------------|---------|
+| Idle timeout | `--idle-timeout <SECS>` | `7200` (2 hours; ×3 after a TUI, GUI or MCP session) |
 | Disable retirement | `--no-retire` | Off |
 
-These flags are passed by the auto-start mechanism.  You can also set
-them on `uffs --daemon start`:
+These are flags of the daemon program `uffsd` itself, for people who
+start it by hand.  `uffs --daemon start` does not accept them (it
+ignores them), and auto-start passes only the `--no-retire` that
+`resident on` records (see below).
 
 ```bash
-# Never retire (run indefinitely)
-uffs --daemon start --data-dir ~/uffs_data --idle-timeout 0
+# Retire after 30 minutes of idle time
+uffsd --data-dir ~/uffs_data --idle-timeout 1800
 
-# Retire after 30 minutes
-uffs --daemon start --data-dir ~/uffs_data --idle-timeout 1800
+# Never retire
+uffsd --data-dir ~/uffs_data --no-retire
 ```
+
+`--idle-timeout 0` does **not** mean "never": the daemon retires at its
+first idle check.  To keep the daemon running for good, use
+`uffs --daemon resident on` (below).
 
 ### Permanent residency (start at login, never retire)
 
@@ -156,24 +177,27 @@ The login item delivers residency at boot, and the auto-spawn marker
 revives a dead daemon on the next search.  Neither notices a service
 that vanishes **mid-session while nobody is searching**.  On macOS and
 Linux launchd and systemd close that gap; on Windows the `Run` key
-fires once at login and never again.  So `resident on` also arms
-**`uffs-watchdog`**, a small user-level supervisor.
+fires once at login and never again.  So on Windows `resident on` also
+arms **`uffs-watchdog`**, a small user-level supervisor.  The watchdog
+is Windows-only.
+
+> **Release packages do not include `uffs-watchdog` yet.**  When the
+> program is not next to `uffs`, `resident on` prints
+> `(watchdog binary not found next to uffs — skipping supervision)` and
+> residency works without it: the login item and the auto-spawn marker
+> still apply.
 
 | | |
 |---|---|
 | Supervises | `uffsd` (daemon) and `uffsmcp` (MCP HTTP gateway) |
 | Does **not** supervise | the Access Broker — see below |
 | Privileges | none; it runs as you, like everything else residency touches |
-| Poll interval | 5 s (`UFFS_WATCHDOG_POLL_SECS=<secs>` to change) |
+| Poll interval | 5 s, slowing to at most 60 s while nothing changes; back to 5 s on any change (`UFFS_WATCHDOG_POLL_SECS=<secs>` sets the base) |
 | Crash budget | 3 respawns per 60 s, then it gives up and says so |
 | Log | `watchdog.log`, beside the PID file |
 
-It is a **separate binary** on purpose.  A supervisor cannot supervise
-its own death, so it has to outlive the teardowns that kill what it
-watches — `just use-local` force-kills `uffsd` and `uffsmcp` by image
-name, and a different image name survives that.  It is also not a
-`uffs` subcommand, because a long-running `uffs.exe` would lock the
-most frequently replaced binary in the tree.
+It is a **separate program** so that it survives when `uffsd` and
+`uffsmcp` are stopped or replaced.
 
 **A deliberate stop always wins.**  `uffs --daemon stop`, `--daemon
 kill`, and `uffs --mcp stop` record *stop intent* next to the PID file
@@ -214,7 +238,7 @@ ask for that), `HonourStopIntent` (gone because you stopped it),
 `GaveUp` (respawned too often inside the window — something is broken
 in a way restarting cannot fix), and `Leave`.
 
-Liveness is read from `uffs --status --json`, which reports every
+Liveness is read from `uffs --status --json --brief`, which reports every
 service under its own key, so one service's state can never be
 mistaken for another's.  An unreadable probe means *unknown*, and
 unknown is always left alone — a supervisor that restarts things it
@@ -290,12 +314,12 @@ rather get that error sooner, for example `UFFS_CLIENT_TIMEOUT_SECS=120`.
 | `uffs --daemon status_drives` | Per-drive tier + telemetry table (resident bytes, query rate, pins) |
 | `uffs --daemon stop` | Graceful shutdown via RPC (records stop intent) |
 | `uffs --daemon kill` | Hard kill + remove PID/socket files (records stop intent) |
-| `uffs --daemon restart` | Stop → re-start with same data sources |
+| `uffs --daemon restart` | Stop, then start again with the same capture files; other start flags (`--drive`, `--data-dir`, `--no-cache`, log flags) are not kept |
 | `uffs --daemon resident on\|off\|status` | Login autostart + no idle retire; arms the watchdog |
-| `uffs --daemon preload` | Promote drive(s) to `Hot` and pin the tier |
-| `uffs --daemon hibernate` | Demote drive(s) to `Cold` (frees RAM, cache stays) |
+| `uffs --daemon preload <DRIVES>` | Promote drive(s) to `Hot` and pin the tier; at least one drive is required |
+| `uffs --daemon hibernate [DRIVES]` | Demote drive(s) to `Cold` (frees RAM, cache stays); with no drive, every drive |
 | `uffs --daemon load` | Hot-load additional MFT file(s) into a running daemon |
-| `uffs --daemon forget` | Evict drive(s) and delete their on-disk caches |
+| `uffs --daemon forget <DRIVES> [--force]` | Evict drive(s) and delete their on-disk caches; refuses a drive that is not `Cold` unless `--force` (`-f`), which hibernates it first |
 | `uffs --daemon changed-since <DRIVE>` | USN-journal delta probe: which files changed since a cursor (read-only) |
 
 `stop` and `kill` record *stop intent* so the [watchdog](#the-watchdog-surviving-crashes-and-installers)
@@ -309,7 +333,7 @@ The short view is a one-glance health summary:
 $ uffs --daemon status
 ═══ UFFS Daemon ═══
 ● running  PID 72558
-  Version:  0.6.24
+  Version:  0.6.47
   Uptime:   2m 25s
   Drives:   7 loaded · 25,846,853 records
   Queries:  2 (avg 1.19ms, 0.0/s)
@@ -329,7 +353,7 @@ in here):
 $ uffs --daemon status -v
 ═══ UFFS Daemon ═══
 ● running  PID 52044
-  Version:     0.6.31
+  Version:     0.6.47
   Uptime:      10 m   20 s
   Drives:      7 loaded · 24,897,476 records
   Queries:     0
@@ -401,7 +425,7 @@ G      warm         2 MiB 0.00    10m ago           -                         0
 
 | Column | Meaning |
 |--------|---------|
-| `TIER` | `hot` / `warm` / `parked` / `cold` — see [Memory tiers](#memory-tiers-and-why-you-never-see-hot) |
+| `TIER` | `hot` / `warm` / `parked` / `cold` — see [Memory tiers](#memory-tiers-and-why-you-never-see-hot); `loading` while the drive is being brought back for a search |
 | `RESIDENT` | Bytes held in RAM for that drive, scaled to `MiB` / `GiB` |
 | `QPM` | Queries per minute against that drive (drives the tiering decisions) |
 | `LAST QUERY` | How long since it was last searched |
@@ -409,7 +433,8 @@ G      warm         2 MiB 0.00    10m ago           -                         0
 | `PROMOTIONS` | How often this drive has been promoted back up the ladder; a high count on an idle machine means the thresholds are too aggressive for your workload |
 
 > **`uffs --daemon stats` has been folded into `uffs --daemon status -v`.**
-> The old command now prints a one-line redirect.
+> The old command now fails with an error that points to
+> `uffs --daemon status -v` (or `--json`).
 
 
 ### `uffs --daemon changed-since`: USN-journal delta probe
@@ -482,7 +507,7 @@ document.
 
 ## 6. Logging
 
-The daemon runs detached — its stdout is `/dev/null`.  To capture logs,
+The daemon runs detached — its output goes nowhere.  To capture logs,
 use `--log-file` and `--log-level`:
 
 ```bash
@@ -496,8 +521,25 @@ uffs --daemon start --data-dir ~/uffs_data \
 | `--log-level <LEVEL>` | `info` | Tracing level: `error`, `warn`, `info`, `debug`, `trace` |
 | `--log-file <PATH>` | *(none)* | Write daemon logs to this file |
 
-The `RUST_LOG` and `UFFS_LOG_DIR` environment variables also control
-logging — see [Advanced Diagnostics](advanced-diagnostics.md) for details.
+- With level `debug` or `trace` and no `--log-file`, the daemon logs
+  to `uffsd.log` in the log directory on its own.
+- Logs go to one file per day: `--log-file ~/uffs_daemon.log` writes
+  `~/uffs_daemon.<YYYY-MM-DD>.log`, and the newest 7 files are kept.
+- The `UFFS_LOG` environment variable, when set, replaces
+  `--log-level` (it also takes filters such as `uffs_mft=debug`).
+- `UFFS_LOG_DIR` sets the log directory; with it set and no
+  `--log-file`, `uffs --daemon start` logs to `$UFFS_LOG_DIR/uffsd.log`.
+
+The log directory, unless `UFFS_LOG_DIR` is set:
+
+| Platform | Log directory |
+|----------|---------------|
+| Windows | `%LOCALAPPDATA%\uffs\logs` |
+| macOS | `~/Library/Logs/uffs` |
+| Linux | `$XDG_STATE_HOME/uffs/logs` (default `~/.local/state/uffs/logs`) |
+
+See [Advanced Diagnostics](advanced-diagnostics.md) for all environment
+variables.
 
 ## 7. Platform Differences
 
@@ -512,12 +554,15 @@ logging — see [Advanced Diagnostics](advanced-diagnostics.md) for details.
 
 | Platform | Default path |
 |----------|-------------|
-| macOS | `~/Library/Application Support/uffs/uffs-daemon.sock` |
-| Linux | `$XDG_RUNTIME_DIR/uffs/uffs-daemon.sock` or `/tmp/uffs/uffs-daemon.sock` |
-| Windows | `\\.\pipe\uffs-daemon` |
+| macOS | `~/Library/Application Support/uffs/daemon.sock` |
+| Linux | `$XDG_RUNTIME_DIR/uffs/daemon.sock`, else `~/.local/share/uffs/daemon.sock` |
+| Windows | Named pipe `\\.\pipe\uffs-<16 hex digits>` (derived from your user account), plus a fallback socket `%LOCALAPPDATA%\uffs\daemon.sock` |
 
-PID files are stored alongside the socket.  `uffs --daemon kill` removes
-both if a graceful stop fails.
+The PID file is `daemon.pid` in the `uffs` folder of your local data
+directory (`%LOCALAPPDATA%\uffs\` on Windows,
+`~/Library/Application Support/uffs/` on macOS, `~/.local/share/uffs/`
+on Linux).  `uffs --daemon kill` removes the PID file and the socket if
+a graceful stop fails.
 
 ## 8. Performance
 
@@ -536,7 +581,9 @@ Measured on AMD Ryzen 9 3900XT (12c/24t, 64 GB DDR4), 7 NTFS volumes
 | Hard kill                   | ~25 ms     |
 
 Cold startup is dominated by raw MFT reading.  Warm cache startup
-deserializes `.iocp` files (~7 s for 25.9M records).  Once loaded,
+loads each drive's encrypted index cache (`<letter>_index.uffs`),
+applies the changes recorded in the USN journal since, and rebuilds the
+search index (~7 s for 25.9M records).  Once loaded,
 the daemon-side search takes ~151 ms for all 25.9M records; the
 ~200–380 ms CLI time includes process spawn, IPC round-trip, and
 stdout formatting.
@@ -558,30 +605,8 @@ stdout formatting.
 
 ## 10. Readiness Verification
 
-A comprehensive test script exercises all daemon lifecycle combinations
-(10 scenarios, 68 steps):
-
-```bash
-# macOS/Linux: with a data directory
-rust-script scripts/dev/daemon-readiness.rs ~/uffs_data
-
-# macOS/Linux: with a single MFT file
-rust-script scripts/dev/daemon-readiness.rs /path/to/C_mft.iocp
-
-# macOS/Linux: with custom search pattern
-rust-script scripts/dev/daemon-readiness.rs ~/uffs_data --pattern "*.dll"
-
-# Windows: auto-discovers live NTFS drives (no path needed)
-rust-script scripts/dev/daemon-readiness.rs
-
-# Windows: with custom pattern
-rust-script scripts/dev/daemon-readiness.rs --pattern "*.exe"
-```
-
-Scenarios tested: clean lifecycle, idempotent ops on stopped daemon, double
-start, hard kill recovery, graceful stop→start cycle, restart data
-preservation, double restart, stats accumulation, kill→status, and search
-auto-start.
+Developers can exercise the daemon lifecycle with the scripts in the
+repository's `scripts/dev/` folder.
 
 ## See also
 
