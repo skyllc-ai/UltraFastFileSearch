@@ -14,14 +14,14 @@ results.
 |------|--------|
 | `--files-only` | Show only files (exclude directories) |
 | `--dirs-only` | Show only directories (exclude files) |
-| `--hide-system` | Hide NTFS system files (names starting with `$`) |
+| `--hide-system` | Hide the NTFS metafiles (`$MFT`, `$Bitmap`, `$LogFile`, …); other names that start with `$` stay |
 | `--hide-ads` | Hide NTFS Alternate Data Stream entries |
 
 ```bash
 # All PDF files — no directory entries
 uffs '*.pdf' --files-only
 
-# All directories named "backup"
+# All directories whose name contains "backup"
 uffs backup --dirs-only
 
 # Everything, but suppress $MFT, $Bitmap, $LogFile, etc.
@@ -114,27 +114,43 @@ dates**:
 
 #### ISO Date
 
-Use `YYYY-MM-DD` format for absolute dates:
+Use `YYYY-MM-DD` format for absolute dates.  A date means **midnight UTC**
+at the start of that day (not midnight in your local time zone):
 
 ```bash
---newer 2026-01-15       # Modified on or after 15 January 2026
---older 2025-06-01       # Modified before 1 June 2025
+--newer 2026-01-15       # Modified on or after 15 January 2026, 00:00 UTC
+--older 2025-06-01       # Modified before 1 June 2025, 00:00 UTC
 ```
 
 #### Named Time Specs
 
-| Name | Meaning |
-|------|---------|
-| `today` | Since midnight today |
-| `yesterday` | Since midnight yesterday |
-| `this_week` | Since start of current week |
-| `this_month` | Since start of current month |
-| `this_year` | Since 1 January of current year |
-| `ytd` | Year-to-date (same as `this_year`) |
-| `last_7d` | Last 7 days |
-| `last_30d` | Last 30 days |
-| `last_90d` | Last 90 days |
-| `last_year` | Last 365 days |
+Days start at **midnight UTC**, and weeks start on Monday.  A named range
+has a start and an end: `--newer NAME` uses its start, `--older NAME` uses
+its end.  So `--newer last_week` alone means "since the start of last
+week"; give the same name to both to get exactly that range:
+`--newer last_week --older last_week`.
+
+| Name | Start | End |
+|------|-------|-----|
+| `today` | Midnight today | Midnight today |
+| `yesterday` | Midnight yesterday | Midnight today |
+| `this_week` | Monday of this week | (same) |
+| `last_week` | Monday of last week | Monday of this week |
+| `next_week` | Monday of next week | The Monday after |
+| `this_month` | 1st of this month | (same) |
+| `last_month` | 1st of last month | 1st of this month |
+| `next_month` | 1st of next month | 1st of the month after |
+| `this_year`, `ytd` | 1 January this year | (same) |
+| `last_year` | 1 January last year | 1 January this year (the previous calendar year) |
+| `tomorrow`, `next_day` | Midnight tomorrow | Midnight the day after |
+| `last_7d` | 7 days ago (from now) | (same) |
+| `last_30d` | 30 days ago | (same) |
+| `last_90d` | 90 days ago | (same) |
+| `last_365d` | 365 days ago | (same) |
+
+Every name with an underscore also works without it (`lastweek`,
+`thismonth`, `last30d`, `nextday`, …), and names are not case-sensitive.
+For "the last 365 days" use `last_365d` (or `365d`), not `last_year`.
 
 #### `--between` Shorthand
 
@@ -202,6 +218,8 @@ not be set) by prefixing with `!`.
 | `system` | `s` | `0x0004` | System file |
 | `directory` | `dir`, `d` | `0x0010` | Directory entry |
 | `archive` | `a` | `0x0020` | Archive (modified since backup) |
+| `device` | — | `0x0040` | Device (reserved by Windows) |
+| `normal` | — | `0x0080` | Normal (no other attribute set) |
 | `temporary` | `temp`, `t` | `0x0100` | Temporary file |
 | `sparse` | — | `0x0200` | Sparse file |
 | `reparse` | — | `0x0400` | Reparse point (symlink, junction) |
@@ -214,6 +232,18 @@ not be set) by prefixing with `!`.
 | `noscrub` | `no_scrub_data`, `x` | `0x20000` | No scrub data |
 | `pinned` | `p` | `0x80000` | Pinned to local storage |
 | `unpinned` | `u` | `0x100000` | Not pinned |
+
+Names are not case-sensitive.
+
+### Presets
+
+| Preset | Also Accepted | Same as |
+|--------|---------------|---------|
+| `system-files` | `system_files`, `sysfiles` | `hidden,system` |
+| `user-files` | `user_files`, `userfiles` | `!hidden,!system` |
+| `compressed-encrypted` | `compressed_encrypted`, `compenc` | `compressed,encrypted` |
+
+Presets mix with other names: `--attr user-files,readonly`.
 
 ### Examples
 
@@ -245,32 +275,36 @@ uffs '*' --attr sparse --files-only
 
 ## 5. Descendant Filters
 
-Descendant filters operate on directories, filtering by the number of
-direct children (files and subdirectories) they contain.
+Descendant filters operate on directories.  A directory's descendant
+count is the number of entries in its **whole subtree** (files and
+directories at every depth, with each alternate data stream counted as
+an entry), **plus 1 for the directory itself**.  An empty directory
+therefore has 1; a file has 0.
 
 | Flag | Meaning |
 |------|---------|
-| `--min-descendants <N>` | Directories with at least N children |
-| `--max-descendants <N>` | Directories with at most N children |
-| `--exact-descendants <N>` | Exactly N children (shorthand for `--min-descendants N --max-descendants N`) |
+| `--min-descendants <N>` | Descendant count of at least N |
+| `--max-descendants <N>` | Descendant count of at most N |
+| `--exact-descendants <N>` | Exactly N (shorthand for `--min-descendants N --max-descendants N`) |
 
 ### Examples
 
 ```bash
-# Find empty directories (zero children)
-uffs '*' --dirs-only --max-descendants 0
+# Find empty directories (the count is 1: the directory itself)
+uffs '*' --dirs-only --max-descendants 1
 
-# Find large directories with 1000+ items
+# Find large directory trees with 1000+ entries
 uffs '*' --dirs-only --min-descendants 1000
 
-# Directories with exactly 0 children, sorted by path
-uffs '*' --dirs-only --max-descendants 0 --sort path
+# Empty directories, sorted by path
+uffs '*' --dirs-only --exact-descendants 1 --sort path
 ```
 
 ### Best Practice
 
-- Empty-directory detection (`--max-descendants 0`) is one of the most
-  popular cleanup workflows.
+- Empty-directory detection (`--dirs-only --max-descendants 1`) is one of
+  the most popular cleanup workflows.  Keep `--dirs-only`: files have a
+  count of 0 and would match too.
 - Combine with `--sort -descendants` to rank directories by the size of their subtree.
 
 ## 6. Extension Filters
@@ -300,6 +334,11 @@ Extensions are case-insensitive.  A leading dot is stripped automatically
 | `music` | `audio` | mp3, wav, flac, aac, ogg, wma, m4a, opus, aiff |
 | `archives` | `compressed` | zip, rar, 7z, tar, gz, bz2, xz, iso |
 | `code` | `source` | rs, py, js, ts, java, c, cpp, h, hpp, go, rb, php, swift, kt |
+| `executables` | `exec` | exe, msi, bat, cmd, ps1, com, scr, vbs, wsf, dll, sys |
+
+These collections are not the same lists as the `--type` categories
+(§9): for example `--ext executables` includes `dll` and `sys`, while
+`--type executable` does not.
 
 ### Examples
 
@@ -324,13 +363,14 @@ uffs '*' --ext documents,mp4,heic
 
 - Collections are the fastest way to search for "all images" or "all
   documents" without remembering every extension.
-- Use `--ext` instead of a complex glob like `>.*\.(jpg|png|gif)$` — it
-  is both simpler and faster.
+- Use `--ext jpg,png,gif` instead of a regex like `>.*\.(jpg|png|gif)$`:
+  it is simpler to write (UFFS runs that exact regex shape as an extension
+  lookup anyway, but any other regex tests every name).
 
 ## 7. Exclude Filter
 
-The `--exclude` flag removes files matching a glob pattern **after** the
-main pattern match.
+The `--exclude` flag removes entries whose name matches a pattern
+**after** the main pattern match.
 
 ```bash
 # All .txt files, but skip anything starting with "backup"
@@ -341,10 +381,16 @@ uffs '*' --exclude '*.tmp' --files-only
 
 # Rust files, but skip test files
 uffs '*.rs' --exclude '*test*'
+
+# Several patterns: separate them with |
+uffs '*' --files-only --exclude '*.tmp|*.bak'
 ```
 
 The exclude pattern is matched against the **filename only** (not the full
-path) and is always case-insensitive.
+path) and is always case-insensitive.  Like a search pattern, a plain word
+without wildcards matches anywhere in the name.  Use `--exclude` or
+`--not-contains`, not both: together they currently do not work as
+expected.
 
 ## 8. Path Filter
 
@@ -360,12 +406,26 @@ uffs '*.rs' --in-path '*projects*'
 # Only files under Windows\System32
 uffs '*.dll' --in-path '*windows\system32*'
 
-# Combine with exclude — files in temp dirs but not backup dirs
+# Combine with exclude — .dat files in temp dirs, but not named *backup*
 uffs '*.dat' --in-path '*temp*' --exclude '*backup*'
+
+# Everything under C:\Users (the directory path ends with a \)
+uffs '*.docx' --drive C --in-path 'c:\users\*'
 ```
 
 The glob is matched **case-insensitively** against the directory path only
-(not the filename).  This is a post-filter — applied after path resolution.
+(not the filename).  The directory path includes the drive and ends with
+`\`, for example `C:\Users\me\`.  A plain word without wildcards matches
+anywhere in it, and `|` separates alternatives.  This is a post-filter —
+applied after path resolution.
+
+`--not-in-path` does the opposite: it takes a **comma-separated** list of
+globs and drops every entry whose directory path matches any of them.
+
+```bash
+# Every .log file, except those under AppData or a cache folder
+uffs '*.log' --not-in-path '*appdata*,*cache*'
+```
 
 ## 9. Type Filter
 
@@ -384,34 +444,47 @@ uffs '*' --type database      # All database files
 
 | Category | Extensions |
 |----------|-----------|
-| `archive` | zip, rar, 7z, tar, gz, bz2, xz |
+| `archive` | zip, rar, 7z, tar, gz, bz2, xz, iso |
 | `audio` | mp3, wav, flac, aac, ogg, wma, m4a, opus, aiff |
-| `backup` | bak, old, orig, swp, tmp, temp |
-| `cad` | dwg, dxf, step, stl, obj, fbx, blend, gltf, glb |
-| `cert` | pem, crt, cer, pfx, p12, key, jks |
-| `code` | rs, py, js, ts, java, c, cpp, h, go, rb, php, swift, kt |
-| `config` | ini, cfg, yaml, yml, toml, json, xml, env, reg, plist |
-| `data` | csv, tsv, parquet, avro, arrow, ndjson, dat, hdf5 |
-| `database` | db, sqlite, mdb, sql, ldf, mdf, ndf, dbf |
+| `backup` | bak, old, orig, swp, tmp, temp, `~` |
+| `cad` | dwg, dxf, step, stp, stl, obj, fbx, blend, 3ds, gltf, glb |
+| `cert` | pem, crt, cer, der, pfx, p12, key, csr, jks |
+| `code` | rs, py, js, ts, java, c, cpp, h, hpp, go, rb, php, swift, kt |
+| `config` | ini, cfg, conf, yaml, yml, toml, json, xml, env, properties, reg, inf, plist |
+| `data` | csv, tsv, parquet, avro, arrow, ndjson, jsonl, dat, sav, hdf5 |
+| `database` | db, sqlite, sqlite3, mdb, accdb, sql, ldf, mdf, ndf, dbf |
 | `disk` | vmdk, vhd, vhdx, vdi, qcow2, img, wim, iso, dmg |
 | `document` | doc, docx, pdf, txt, rtf, odt, xls, xlsx, ppt, pptx, csv, md |
-| `ebook` | epub, mobi, azw, djvu, cbr, cbz |
+| `ebook` | epub, mobi, azw, azw3, djvu, cbr, cbz |
 | `executable` | exe, msi, bat, cmd, ps1, com, scr |
 | `font` | ttf, otf, woff, woff2, eot, fon |
 | `log` | log, out, err, trace, evt, evtx |
-| `picture` | jpg, jpeg, png, gif, bmp, tiff, webp, svg, ico, raw, heic |
-| `script` | sh, bash, zsh, lua, pl, tcl, awk, sed |
+| `picture` | jpg, jpeg, png, gif, bmp, tiff, tif, webp, svg, ico, raw, heic |
+| `script` | sh, bash, zsh, fish, csh, ksh, awk, sed, lua, pl, pm, tcl |
 | `shortcut` | lnk, url, desktop, webloc |
 | `system` | sys, dll, drv, ocx, cpl, ax, mui |
-| `video` | mp4, avi, mkv, mov, wmv, flv, webm, mpeg, m4v, 3gp |
-| `web` | html, htm, css, scss, jsx, tsx, vue, svelte, wasm |
+| `video` | mp4, avi, mkv, mov, wmv, flv, webm, mpeg, mpg, m4v, 3gp |
+| `web` | html, htm, css, scss, less, sass, jsx, tsx, vue, svelte, wasm, xhtml |
 | `directory` | (NTFS directory flag) |
 | `file` | (no extension) |
 | `other` | (unknown extension) |
 
-> `--type` is a post-filter.  Directories use the `directory` category.
-> Files without an extension use `file`.  Extensions not in any category
-> map to `other`.
+> **Filtering and display can differ for a few extensions.**  `--type X`
+> matches every extension in X's row above, so `--type data` finds `.csv`
+> files and `--type disk` finds `.iso` files.  The `type` *column* and the
+> `type` sort show a single category per file, picked in this order:
+> document, picture, video, audio, archive, code, executable, script, web,
+> font, database, config, log, backup, disk, data, cad, shortcut, system,
+> cert, ebook.  So a `.csv` file shows as `document` and an `.iso` file as
+> `archive`.
+
+> **How it runs.**  For every category with an extension list, `--type`
+> becomes an extension filter applied during the scan (combined with
+> `--ext` when both are given: only extensions in both lists remain).
+> Only `directory`, `file` and `other` are checked afterwards, as a
+> post-filter.  Directories use the `directory` category, files without
+> an extension use `file`, and extensions not in any category map to
+> `other`.
 
 ## 10. Bulkiness Filter
 
@@ -537,14 +610,14 @@ hide. These filters surface exactly those names.
 
 ```bash
 # Every file/dir whose own NAME is ill-formed (not valid UTF-8)
-uffs '*' --malformed --filter all
+uffs '*' --malformed
 
 # The inverse — only well-formed names
 uffs '*' --well-formed
 
 # Every entry whose PATH has an ill-formed component (e.g. a clean-named file
 # living under a crooked directory)
-uffs '*' --malformed-path --filter all
+uffs '*' --malformed-path
 ```
 
 | Flag | Matches |
@@ -565,14 +638,15 @@ column emits the **true WTF-8 bytes as hex** so you can tell them apart and
 recover the exact name (decode with `xxd -r -p`):
 
 ```bash
-# Surface the malformed flag + the true bytes as columns
-uffs '*' --malformed --columns path,malformed,malformed_path,name_hex --format json
+# Surface the malformed flag + the true bytes as columns (CSV)
+uffs '*' --malformed --columns path,malformed,malformed_path,name_hex
 ```
 
 The `malformed` / `malformed_path` columns render `0`/`1` like the attribute
 flags (`--columns ...,malformed`); `name_hex` is non-empty only for ill-formed
-names. None of these appear unless explicitly requested. Default output is
-unchanged.
+names. In CSV, none of these appear unless explicitly requested.  In
+`--format json` (which ignores `--columns`), every row carries `malformed`
+and `malformed_path`, and an ill-formed row also carries `name_hex`.
 
 ### Inline corrupt-name markers (`--normalize-malformed`)
 
@@ -631,7 +705,7 @@ uffs '*.pdf' --files-only --newer 30d --sort size --sort-desc --limit 10
 ### Find Empty Directories on C: Drive
 
 ```bash
-uffs '*' --dirs-only --max-descendants 0 --drive C
+uffs '*' --dirs-only --max-descendants 1 --drive C
 ```
 
 ### Find Hidden Encrypted Files Over 1 MB
@@ -652,7 +726,7 @@ uffs '*' --ext archives --older 730d --files-only --sort size --sort-desc
 uffs '*' --ext code --newer-created 7d --files-only
 ```
 
-### Find Large Directories with Many Children
+### Find Large Directory Trees with Many Entries
 
 ```bash
 uffs '*' --dirs-only --min-descendants 500 --sort descendants --sort-desc --limit 20
@@ -682,13 +756,25 @@ uffs '*.log' --in-path '*windows\system32*' --newer 7d
 uffs '*' --dirs-only --min-treesize 10GB --sort treesize --sort-desc --limit 20
 ```
 
+### Files Deleted Since a Baseline (`--diff`)
+
+`--diff <BASELINE>` searches the files that were **deleted** since a
+baseline MFT capture (made earlier with `uffs --snapshot`), instead of the
+live files.  Every filter on this page applies to that set.  The drive
+must be loaded in the daemon.
+
+```bash
+# .txt files deleted from C: since the baseline, modified in the last 30 days
+uffs '*.txt' --diff C_baseline.bin --drive C --newer 30d
+```
+
 ## 17. Quick Reference
 
 ```text
 SCOPE
   --files-only               Files only (no directories)
   --dirs-only                Directories only (no files)
-  --hide-system              Hide $-prefixed NTFS system files
+  --hide-system              Hide the NTFS metafiles ($MFT, $Bitmap, …)
   --hide-ads                 Hide Alternate Data Stream entries
 
 SIZE
@@ -712,10 +798,10 @@ DATE / TIME
 ATTRIBUTES
   --attr <LIST>              Require/exclude NTFS attrs (hidden, !system, …)
 
-DESCENDANTS
-  --min-descendants <N>      Minimum child count (dirs)
-  --max-descendants <N>      Maximum child count (dirs)
-  --exact-descendants <N>    Exact child count (min = max)
+DESCENDANTS (entries in the whole subtree + 1; empty dir = 1)
+  --min-descendants <N>      Minimum descendant count (dirs)
+  --max-descendants <N>      Maximum descendant count (dirs)
+  --exact-descendants <N>    Exact descendant count (min = max)
 
 EXTENSIONS & TYPE
   --ext <LIST>               Filter by extension or collection alias
@@ -723,7 +809,11 @@ EXTENSIONS & TYPE
 
 PATH
   --in-path <GLOB>           Filter by directory path glob
+  --not-in-path <GLOBS>      Drop entries whose directory path matches any glob
   --exclude <GLOB>           Exclude files matching filename glob
+
+DELETED FILES
+  --diff <BASELINE>          Search files deleted since a baseline capture
 
 TREE METRICS
   --min-treesize <SIZE>      Minimum subtree logical size (dirs)
@@ -746,10 +836,12 @@ LIMIT
 
 TIME SPEC FORMATS
   90s / 30m / 24h / 7d / 2w       Relative durations
-  2026-01-15                       ISO date (YYYY-MM-DD)
-  today / yesterday / this_week    Named ranges
-  last_7d / last_30d / last_90d    Named durations
-  this_month / this_year / ytd     Calendar ranges
+  2026-01-15                       ISO date (YYYY-MM-DD, midnight UTC)
+  today / yesterday / tomorrow     Named days (UTC)
+  this_week / last_week / next_week  Calendar weeks (Monday start)
+  this_month / last_month / next_month  Calendar months
+  this_year / ytd / last_year      Calendar years
+  last_7d / last_30d / last_90d / last_365d  Named durations
 ```
 
 ## See also

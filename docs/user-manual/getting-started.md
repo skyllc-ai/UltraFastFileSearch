@@ -25,25 +25,34 @@ Point `--data-dir` at a directory containing MFT captures organised
 in `drive_c/`, `drive_d/`, etc.  See [Cache & Data Sources](cache-and-data.md)
 for how to set this up.
 
-> **First search is slow (~7 s warm cache, or ~66 s cold).** The daemon
-> is loading the MFT into memory.  Every search after that completes in
-> ~200 ms end-to-end (~150 ms daemon-side for 25.9M records).
+> **First search is slow (on the test machine: ~7 s with a warm cache,
+> or ~66 s cold).** The daemon is loading the MFT into memory.  Every
+> search after that completed in ~200 ms end-to-end on that machine
+> (~150 ms daemon-side for 25.9M records).
 
 ## 2. Understanding the Output
 
-UFFS prints CSV by default.  Each row is one file or directory:
+Each row is one file or directory.  CSV is the format for scripts and
+files (it is used when the output is piped or redirected, and with
+`--out`); `--format table` gives an aligned table for reading in a
+terminal.  Name the columns you want with `--columns`:
+
+```bash
+uffs "*.txt" --columns name,size,modified,path
+```
 
 ```
-Name,Size,Modified,Path
-notes.txt,1234,2026-04-01 09:15:32,C:\Users\me\Documents\notes.txt
-readme.txt,567,2026-03-28 14:22:01,C:\Projects\readme.txt
+"Name","Size","Last Written","Path"
+
+"notes.txt",1234,2026-04-01 09:15:32,"C:\Users\me\Documents\notes.txt"
+"readme.txt",567,2026-03-28 14:22:01,"C:\Projects\readme.txt"
 ```
 
 | Column | What it shows |
 |--------|--------------|
 | **Name** | Filename with extension |
 | **Size** | Logical file size in bytes |
-| **Modified** | Last modification timestamp |
+| **Last Written** (`modified`) | Last modification timestamp, in local time |
 | **Path** | Full path including drive letter |
 
 You can change which columns appear, switch to JSON or table format,
@@ -86,7 +95,7 @@ second one was instant.  That is the daemon.
 
 ```
 ┌─────────┐        IPC socket        ┌─────────────┐
-│ uffs CLI ├──────────────────────────┤ uffs-daemon  │
+│ uffs CLI ├──────────────────────────┤ uffsd        │
 │          │   JSON-RPC over Unix     │  (in-memory  │
 └─────────┘   domain socket (Mac)     │   MFT index) │
               named pipe (Windows)    └─────────────┘
@@ -94,7 +103,8 @@ second one was instant.  That is the daemon.
 
 - The daemon **starts automatically** on your first search.
 - It loads the MFT once and holds it in memory.
-- Every subsequent search completes in ~200 ms end-to-end.
+- Every subsequent search completed in ~200 ms end-to-end on the test
+  machine.
 - Multiple CLI and TUI sessions share the same daemon.
 - It retires automatically after being idle.
 
@@ -114,11 +124,11 @@ tools for most often.
 The #1 reason people use file search.
 
 ```bash
-uffs invoice                                    # Paths containing "invoice"
+uffs invoice                                    # Names containing "invoice"
 uffs '*.pdf'                                    # All PDFs across every drive
-uffs 'dir:node_modules'                         # Directories named node_modules
+uffs 'dir:node_modules'                         # Directories whose name contains node_modules
 uffs --contains report                          # Names containing "report"
-uffs 'c:/Users/*.docx'                          # Word docs on C: under Users
+uffs '*.docx' --drive C --in-path '*\users\*'   # Word docs on C: under a Users folder
 uffs --begins-with IMG --ext pictures           # Photos starting with IMG
 ```
 
@@ -132,9 +142,9 @@ uffs '*' --ext executables --sort -size         # Executables ranked by size
 uffs '*' --type code --newer 7d                 # Source code modified this week
 uffs '*' --type video --min-size 100MB          # Large videos
 uffs '*.pdf' --newer 7d --files-only            # Recent PDFs
-uffs '*' --newer-accessed 24h --files-only      # Files opened today
+uffs '*' --newer-accessed 24h --files-only      # Files opened in the last 24 hours
 uffs '*' --month jan,feb --ext documents        # Docs from January & February
-uffs '*' --ext config --in-path '*projects*'    # Config files in project trees
+uffs '*' --type config --in-path '*projects*'   # Config files in project trees
 ```
 
 ### Triage and Cleanup
@@ -154,7 +164,7 @@ uffs '*' --files-only --older 365d --min-size 100MB # Old large files
 uffs '*.tmp' --older 30d --sort -size           # Old temp files
 
 # ── Empty / broken structures ─────────────────────────────
-uffs '*' --dirs-only --max-descendants 0        # Empty directories
+uffs '*' --dirs-only --max-descendants 1        # Empty directories (count 1 = itself)
 uffs '*' --files-only --max-size 0              # Zero-byte files
 
 # ── Path & name problems ─────────────────────────────────
@@ -181,12 +191,12 @@ uffs '>[0-9]{4}-[0-9]{2}-[0-9]{2}' --ext csv   # Date-stamped CSVs
 
 # ── Project / folder scoping ─────────────────────────────
 uffs '*.rs' --in-path '*projects*'              # Rust files in project dirs
-uffs 'path:*node_modules*package.json'          # package.json in node_modules
+uffs package.json --in-path '*node_modules*'    # package.json in node_modules
 
 # ── Multi-drive & output ─────────────────────────────────
 uffs '*.exe' --drives C,D,E --sort -size --limit 10
 uffs '*.rs' --format json --limit 5             # NDJSON output
-uffs '*.dll' --columns Name,Size,Path           # Selective columns
+uffs '*.dll' --columns name,size,path           # Selective columns
 uffs '*.txt' --out results.csv                  # Write to file
 ```
 

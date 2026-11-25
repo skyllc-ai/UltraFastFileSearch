@@ -46,7 +46,7 @@ first.
 | Column Name | Aliases | Description |
 |-------------|---------|-------------|
 | `type` | `folder` | Semantic file category (`code`, `picture`, …) |
-| `descendants` | `decendents` | Entries in the whole subtree (directories) |
+| `descendants` | `decendents` | Entries in the whole subtree, plus 1 for the directory itself (files: 0) |
 | `tree_size` | `treesize` | Sum of logical sizes in subtree ([concept](concepts.md#2-tree-size-and-tree-allocated)) |
 | `tree_allocated` | `treeallocated` | Sum of allocated sizes in subtree |
 | `bulkiness` | — | Waste ratio % ([concept](concepts.md#3-bulkiness-waste-ratio)) |
@@ -289,7 +289,7 @@ CORE COLUMNS
 
 DERIVED COLUMNS
   type (folder)           Semantic file category (code, picture, …)
-  descendants             Entries in the whole subtree (directories)
+  descendants             Entries in the subtree + 1 (files: 0)
   treesize                Subtree logical size total
   treeallocated           Subtree allocated size total
   bulkiness               Waste ratio (100% = perfect)

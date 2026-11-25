@@ -93,11 +93,13 @@ Prefix with `>` to use regular expressions.
 | Pattern | Meaning |
 |---------|---------|
 | `>.*\.txt$` | Files ending in `.txt` (regex) |
-| `>report_\d{4}` | Files with `report_` followed by 4 digits |
+| `>report_[0-9]{4}` | Files with `report_` followed by 4 digits |
 | `>^readme` | Names starting with `readme` |
 
 A regex matches the file name only, and is case-insensitive unless `[Cc]` is
-on (§2.1). It is not anchored for you: `>.*\.jpg$` matches names ending in
+on (§2.1). Write character classes out (`[0-9]`, not `\d`): while the search is
+case-insensitive, `\d`, `\w`, `\s` and `\b` do not work (see
+[Search Modes](search-modes.md#4-regex-search)). It is not anchored for you: `>.*\.jpg$` matches names ending in
 `.jpg`, while `>.*\.jpg` also matches `x.jpg.bak`.
 
 ### 1.5 Drive Prefix

@@ -24,16 +24,22 @@ uffs <PATTERN> [OPTIONS]
 
 | Syntax | Mode | Detail |
 |--------|------|--------|
-| `*.ext` | Glob | Wildcards `*`, `?`, `[…]` → [Search Modes §2](search-modes.md#2-glob-patterns-default) |
-| `word` | Literal | Substring match on full path → [Search Modes §3](search-modes.md#3-literal-search) |
-| `>regex` | Regex | `>` prefix activates regex → [Search Modes §4](search-modes.md#4-regex-search) |
-| `c:/path*` | Path-aware | Contains separators → [Search Modes §5](search-modes.md#5-path-aware-patterns) |
+| `*.ext` | Glob | Wildcards `*` and `?`, and `\|` for OR (`*.rs\|*.toml`) → [Search Modes §2](search-modes.md#2-glob-patterns-default) |
+| `word` | Literal | Case-insensitive substring match on the file name → [Search Modes §3](search-modes.md#3-literal-search) |
+| `>regex` | Regex | `>` prefix activates regex (matched against the file name) → [Search Modes §4](search-modes.md#4-regex-search) |
+| `src\*.rs` | Path-aware | Contains `\` or `/`: walks directory names → [Search Modes §5](search-modes.md#5-path-aware-patterns) |
+| `C:` or `C:\` | Drive | Everything on that drive → [Search Modes §13](search-modes.md#13-drive-scoping) |
+
+The pattern is matched against the **file name**, not the full path,
+unless it contains a `\` or `/`.  A pattern cannot start with `-` (it
+would be read as a flag); for names that begin with a dash, use
+`--begins-with`, e.g. `uffs --begins-with --draft`.
 
 ### Scope Prefixes (Everything-compatible)
 
 | Prefix | Effect | Detail |
 |--------|--------|--------|
-| `path:` | Match against the **full path**, not just filename | [Search Modes §10](search-modes.md#10-scope-prefixes) |
+| `path:` | Match names as usual, and also return **everything under** each matching directory | [Search Modes §10](search-modes.md#10-scope-prefixes) |
 | `dir:` | Only search **directories** | Same as `--dirs-only` |
 | `file:` | Only search **files** | Same as `--files-only` |
 
@@ -44,7 +50,11 @@ uffs <PATTERN> [OPTIONS]
 | `--begins-with <PREFIX>` | Sugar for `PREFIX*` | [Search Modes §11](search-modes.md#11-pattern-sugar-flags) |
 | `--ends-with <SUFFIX>` | Sugar for `*SUFFIX` | Same |
 | `--contains <NEEDLE>` | Sugar for `*NEEDLE*` | Same |
-| `--not-contains <NEEDLE>` | Exclude names containing NEEDLE | Maps to `--exclude` |
+| `--not-contains <NEEDLE>` | Exclude names containing NEEDLE | Like `--exclude '*NEEDLE*'`; use one or the other, not both |
+
+If you give more than one way to build the pattern, the first one wins in
+this order: the pattern itself, `--begins-with`, `--ends-with`,
+`--contains`.
 
 ### Search Modifiers
 
@@ -52,15 +62,16 @@ uffs <PATTERN> [OPTIONS]
 |------|--------|--------|
 | `--case` | Case-sensitive matching | [Search Modes §6](search-modes.md#6-case-sensitivity) |
 | `--smart-case` | Auto case-sensitive if pattern has uppercase | [Search Modes §6](search-modes.md#6-case-sensitivity) |
-| `--word` | Whole-word boundaries (`\b…\b`) | [Search Modes §7](search-modes.md#7-whole-word-matching---word) |
-| `--name-only` | Match filename only, not full path | [Search Modes §8](search-modes.md#8-name-only-matching---name-only) |
-| `--in-path <GLOB>` | Filter by directory path (not filename) | [Search Modes §12](search-modes.md#12-path-directory-filter) |
+| `--word` | Accepted, but currently has no effect | [Search Modes §7](search-modes.md#7-whole-word-matching---word) |
+| `--name-only` | Names are already matched by default; this flag makes a pattern with `\` or `/` an error | [Search Modes §8](search-modes.md#8-name-only-matching---name-only) |
+| `--in-path <GLOB>` | Keep only entries whose directory path matches | [Search Modes §12](search-modes.md#12-path-directory-filter) |
+| `--not-in-path <GLOBS>` | Drop entries whose directory path matches any of these (comma-separated) | [Filters §8](filters.md#8-path-filter) |
 
 ### Drive Selection
 
 | Flag | Example | Effect |
 |------|---------|--------|
-| `--drive <X>` | `--drive C` | Search single drive |
+| `-d, --drive <X>` | `--drive C` | Search single drive |
 | `--drives <X,Y>` | `--drives C,D,E` | Search multiple drives concurrently |
 | Pattern prefix | `c:/*.dll` | Infer drive from pattern |
 
@@ -80,7 +91,7 @@ All filters are detailed in the [Filters guide](filters.md).  Summary:
 |------|----------|-------------------|
 | `--files-only` | Scope | Files only |
 | `--dirs-only` | Scope | Directories only |
-| `--hide-system` | Scope | Hide `$`-prefixed NTFS metadata files |
+| `--hide-system` | Scope | Hide the NTFS metafiles (`$MFT`, `$Bitmap`, `$LogFile`, …) |
 | `--hide-ads` | Scope | Hide Alternate Data Stream entries |
 | `--min-size <SIZE>` | Size | Minimum logical size (e.g. `100MB`, `1GB`) |
 | `--max-size <SIZE>` | Size | Maximum logical size |
@@ -99,9 +110,9 @@ All filters are detailed in the [Filters guide](filters.md).  Summary:
 | `--attr <LIST>` | Attribute | Require/exclude NTFS attributes |
 | `--type <CATEGORY>` | Type | Semantic type: code, picture, video, … |
 | `--ext <LIST>` | Extension | Filter by extension or collection |
-| `--min-descendants <N>` | Tree | Min child count (dirs) |
-| `--max-descendants <N>` | Tree | Max child count (dirs) |
-| `--exact-descendants <N>` | Tree | Exactly N children |
+| `--min-descendants <N>` | Tree | Min entries in the whole subtree, +1 for the directory itself (an empty directory has 1) |
+| `--max-descendants <N>` | Tree | Max entries in the whole subtree (+1 for the directory) |
+| `--exact-descendants <N>` | Tree | Exactly N (same count) |
 | `--min-treesize <SIZE>` | Tree | Min subtree logical size ([concept](concepts.md#2-tree-size-and-tree-allocated)) |
 | `--max-treesize <SIZE>` | Tree | Max subtree logical size |
 | `--min-tree-allocated <SIZE>` | Tree | Min subtree allocated size |
@@ -113,6 +124,7 @@ All filters are detailed in the [Filters guide](filters.md).  Summary:
 | `--min-path-length <N>` | Derived | Min full-path character count |
 | `--max-path-length <N>` | Derived | Max full-path character count |
 | `--in-path <GLOB>` | Path | Directory path must match glob |
+| `--not-in-path <GLOBS>` | Path | Directory path must match none of these globs (comma-separated) |
 | `--exclude <GLOB>` | Exclude | Exclude matching filenames |
 | `--malformed` | Forensic | Only ill-formed-UTF-16 names ([guide](filters.md#14a-malformed-name-filters-forensic)) |
 | `--well-formed` | Forensic | Only valid names (inverse of `--malformed`) |
@@ -130,7 +142,7 @@ Summary:
 |------|---------|--------|
 | `--sort <SPEC>` | `--sort -size` | Sort by column: ascending, or descending with a leading `-` or `:desc` |
 | `--sort <SPEC>` | `--sort size:asc,name` | Multi-tier with explicit direction |
-| `--sort-desc` | | Flip primary sort direction |
+| `--sort-desc` | `--sort size --sort-desc` | Make the primary sort column descending |
 
 **Popular sort columns:** `size`, `modified`, `created`, `name`, `ext`,
 `path`, `treesize`, `bulkiness`, `pathlength`, `namelength`,
@@ -144,14 +156,21 @@ Summary:
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--format <FMT>` | `csv` | Output format: `csv`, `json`, `table`, `custom` |
-| `--columns <LIST>` | `all` | Columns to output (comma-separated or `all`) |
-| `--out <DEST>` | `console` | Output destination: `console` or a filename |
+| `-f, --format <FMT>` | see below | Output format: `csv`, `json`, `table`, `custom` |
+| `--columns <LIST>` | see below | Columns to output (comma-separated, `all`, or `parity`) |
+| `--out <DEST>` | `console` | Output destination: `console` or a filename (always written as CSV) |
 | `--sep <CHAR>` | `,` | Column separator (CSV mode) |
 | `--quotes <CHAR>` | `"` | Quote character for string fields |
 | `--header <BOOL>` | `true` | Include header row (`--header false` to suppress) |
 | `--pos <STR>` | `1` | Representation for true/active boolean attributes |
 | `--neg <STR>` | `0` | Representation for false/inactive boolean attributes |
+
+CSV is the format for scripts and files: it is used when the output is
+piped or redirected, and always with `--out`.  `--format table` gives an
+aligned table for reading in a terminal.  Name the columns you want with
+`--columns`, for example `--columns name,size,modified,path`; the default
+set depends on how the output is produced (see
+[Output Formats §5](output-formats.md#5-column-selection)).
 
 ## 5. Inline Aggregation Flags
 
@@ -184,15 +203,19 @@ results.  For the `uffs --agg` command, see §6 below.
 > [Daemon](daemon.md)). For low-level NTFS volume/record inspection, use the
 > separate `uffs-mft` tool (`uffs-mft --help`).
 
+### `uffs --search`
+
+An explicit search, the same as the bare default: `uffs --search '*.pdf'`
+is `uffs '*.pdf'`.
+
 ### `uffs --stats`
 
-Show file statistics.  Without a path, connects to the daemon and
-runs the `overview` aggregate preset.  With a path, loads a parquet
-index file.
+Show file statistics: connects to the daemon and runs the `overview`
+aggregate preset.  `--data-dir` and `--mft-file` are passed on to the
+daemon.
 
 ```bash
-uffs --stats                    # Daemon mode (live overview)
-uffs --stats index.parquet      # Parquet mode (--top 20 for largest files)
+uffs --stats                    # Live overview of every loaded drive
 ```
 
 ### `uffs --agg` (alias: `uffs --aggregate`)
@@ -221,6 +244,14 @@ what was deleted since. Reads the live NTFS MFT: **Windows + Administrator**.
 uffs --snapshot --drive C --out C_baseline.bin   # zstd-compressed (default)
 uffs --snapshot --drive C --out C_base.bin --no-compress
 ```
+
+| Option | Effect |
+|--------|--------|
+| `-d, --drive <D>` | Drive to capture (required) |
+| `-o, --out <FILE>` | Output file (required) |
+| `--no-compress` | Store uncompressed |
+| `--compression-level <N>` | zstd level 1-22 (default 3) |
+| `--raw` | Headerless raw dump for other MFT tools; implies `--no-compress`, and `uffs --diff` cannot load it |
 
 ### `uffs --deleted`: forensic tombstone read
 
@@ -254,6 +285,20 @@ uffs --daemon kill                            # Force kill + cleanup
 uffs --daemon restart                         # Stop then restart
 ```
 
+More actions:
+
+| Action | Effect |
+|--------|--------|
+| `load` | Load more MFT files or drives into the running daemon |
+| `hibernate [DRIVE...]` | Free a drive's memory; its encrypted cache stays on disk |
+| `preload <DRIVE...>` | Bring drives back into memory and keep them there for a while |
+| `forget <DRIVE...>` | Remove drives from the daemon and delete their caches |
+| `resident on\|off\|status` | Keep UFFS running from login, without idle shutdown |
+| `status_drives` | Per-drive memory tier and statistics |
+| `changed-since <DRIVE>` | Files changed since a USN-journal cursor |
+
+`uffs --daemon --help` lists the options of each action.
+
 > **Full guide:** [Daemon](daemon.md)
 
 ### `uffs --mcp`
@@ -264,7 +309,8 @@ Manage the MCP server for AI agent integration.
 uffs --mcp run                      # Run on stdin/stdout (for AI hosts)
 uffs --mcp start                    # Start HTTP server on :8080 (background)
 uffs --mcp start --port 9090        # Custom port
-uffs --mcp status                   # Health + stats
+uffs --mcp status                   # Is the MCP server process running?
+uffs --mcp stats                    # MCP and daemon performance stats
 uffs --mcp stop                     # Graceful shutdown
 uffs --mcp reload                   # Reload all MCP sessions after binary update
 ```
@@ -280,7 +326,28 @@ view.
 uffs --status                       # Short: one glyph-led line per component
 uffs --status -v                    # Long: expand every section
 uffs --status --json                # Machine-readable superset of all sections
+uffs --status --brief               # Short JSON: only the up/down flags a supervisor needs
 ```
+
+### `uffs --update`
+
+Update UFFS in place.  Without an action it updates to the latest
+release; actions include `check`, `doctor`, `repair`, `apply` and
+`recover`.  `--upgrade` is accepted as another name for it.  See
+[Updating](updating.md).
+
+```bash
+uffs --update                       # Update to the latest release
+uffs --update doctor                # Self-update health check
+```
+
+### `uffs --uninstall`
+
+Remove UFFS from this machine.  See [Uninstall](uninstall.md).
+
+### `uffs --help` / `uffs --version`
+
+Print the help text, or the version.
 
 ## 7. Advanced / Diagnostic Flags
 
@@ -292,10 +359,8 @@ These flags are for power users, profiling, and parity testing:
 | `--profile` | Show detailed timing breakdown |
 | `--benchmark` | Time the whole pipeline including output formatting; the rows are rendered into a sink instead of the screen (add `-v` to also print them). The profile block reports the output pass as its own line |
 | `--no-output` | Match only: the daemon builds no rows, so this times "how many files match" and nothing else. Auto-set when stdout is a null device |
-| `--no-bitmap` | Disable MFT bitmap optimisation (read ALL records) |
 | `--no-cache` | Bypass cache; re-read MFT fresh |
-| `--query-mode <MODE>` | Force query path: `auto`, `index`, `dataframe` |
-| `--tz-offset <HOURS>` | Override timezone offset for timestamps |
+| `--tz-offset <HOURS>` | Show CSV timestamps at this offset from UTC instead of the local one |
 | `--parity-compat` | C++ parity-compatible output (25 baseline columns) |
 
 > **Full diagnostics guide:** [Advanced Diagnostics](advanced-diagnostics.md)
@@ -310,7 +375,7 @@ Quick taste:
 
 ```bash
 uffs '*.pdf' --newer 7d --sort -size --limit 20
-uffs '*' --dirs-only --max-descendants 0
+uffs '*' --dirs-only --max-descendants 1     # Empty directories
 uffs '>.*\.log$' --newer 24h
 ```
 
