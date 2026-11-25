@@ -423,7 +423,7 @@ fn kill_and_restart_daemon(uffs_bin: &str, drives: &[String]) {
 
 fn daemon_total_records(uffs_bin: &str) -> Option<u64> {
     let out = Command::new(uffs_bin)
-        .args(["--daemon", "stats"])
+        .args(["--daemon", "status", "-v"])
         .output()
         .ok()?;
     let text = String::from_utf8_lossy(&out.stdout);

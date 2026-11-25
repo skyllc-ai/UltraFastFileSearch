@@ -11,7 +11,7 @@
 //
 // Exercises ALL meaningful daemon lifecycle combinations:
 //
-//   Scenario A: Clean lifecycle (start → search → stats → stop)
+//   Scenario A: Clean lifecycle (start → search → status -v → stop)
 //   Scenario B: Idempotent operations (stop/kill/status when not running)
 //   Scenario C: Double-start (start when already running)
 //   Scenario D: Hard kill recovery (start → kill → start)
@@ -753,7 +753,7 @@ fn scenario_a(r: &mut Runner) {
         Ok(format!("[{n} rows]"))
     });
     r.step("A7  Stats show queries", |r| {
-        let out = r.run_ok(&["--daemon", "stats"])?;
+        let out = r.run_ok(&["--daemon", "status", "-v"])?;
         if !out.contains("Queries served:") { bail!("Missing stats"); }
         let detail: Vec<&str> = out.lines()
             .map(|l| l.trim())
@@ -790,7 +790,7 @@ fn scenario_b(r: &mut Runner) {
         Ok(String::new())
     });
     r.step("B5  Stats when not running", |r| {
-        let out = r.run_ok(&["--daemon", "stats"])?;
+        let out = r.run_ok(&["--daemon", "status", "-v"])?;
         if !out.contains("not running") { bail!("Expected 'not running', got: {out}"); }
         Ok(String::new())
     });
@@ -897,7 +897,7 @@ fn scenario_h(r: &mut Runner) {
         Ok(String::new())
     });
     r.step("H3  Stats show ≥3 queries", |r| {
-        let out = r.run_ok(&["--daemon", "stats"])?;
+        let out = r.run_ok(&["--daemon", "status", "-v"])?;
         let count_line = out.lines()
             .find(|l| l.contains("Queries served:"))
             .unwrap_or("");

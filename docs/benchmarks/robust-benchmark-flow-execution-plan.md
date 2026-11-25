@@ -162,7 +162,7 @@ whether restore is *lossless* (we can put it back byte-for-byte) or *managed*
 
 | # | Resource | Mutated by | Snapshot | Restore | Lossless? |
 |---|----------|-----------|----------|---------|-----------|
-| R1 | UFFS daemon run-state (running? which drives? PID) | every stage | `uffs --status` + `uffs --daemon stats` parsed to JSON | restart with same drive set, or leave stopped if it was stopped | Managed |
+| R1 | UFFS daemon run-state (running? which drives? PID) | every stage | `uffs --status` + `uffs --daemon status --json` | restart with same drive set, or leave stopped if it was stopped | Managed |
 | R2 | UFFS cache dir `%LOCALAPPDATA%\uffs\cache` (+ legacy `%TEMP%\uffs_index_cache`) | COLD runs (`-PurgeCacheFirst`) | **copy** per-drive `*.uffs` files to bundle `backup/uffs-cache/` | copy files back, restoring the user's pre-run cache so no forced rebuild | Lossless |
 | R3 | `Everything.ini` (`%APPDATA%\Everything\Everything.ini`) | capacity/isolation probe (drive isolation) | **copy** whole file + sha256 | write file back verbatim, verify sha256 | Lossless |
 | R4 | Everything.exe process (running? minimized? with which config) | preflight / isolation restarts | record running state + path | restart Everything the way we found it (or kill if it was not running) | Managed |
@@ -356,7 +356,7 @@ table). Collected via:
 | RAM total / speed | `sysinfo` crate |
 | OS name + build | `sysinfo` crate |
 | Per-drive: filesystem, bus type (NVMe/SATA/USB), free/used | `sysinfo` disks (+ `Get-PhysicalDisk` via `Host::run` for bus type on Windows) |
-| Per-drive record counts | `uffs --daemon stats` after warm-up (via `Host::run`) |
+| Per-drive record counts | `uffs --daemon status --json` after warm-up (via `Host::run`) |
 | Tool versions | `Host::run`: `uffs --version`, `uffs.com --version`, `es.exe -get-everything-version` |
 | Elevation state | `Host::is_elevated()` |
 | Page-cache intent | recorded per stage (cold/warm/hot), see R8 |

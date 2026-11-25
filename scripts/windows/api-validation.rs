@@ -773,7 +773,7 @@ fn run_tests(sock: &str, specs: Vec<TestSpec>, args: &ScriptArgs) -> Vec<TestRes
                         match spec.method.as_str() {
                             "status" => full.extend(["daemon".into(), "status".into()]),
                             "drives" => full.extend(["daemon".into(), "status".into()]),
-                            "stats"  => full.extend(["daemon".into(), "stats".into()]),
+                            "stats"  => full.extend(["daemon".into(), "status".into(), "-v".into()]),
                             "keepalive" => full.extend(["daemon".into(), "status".into()]),
                             "search" => full.push("\"*\"".into()),
                             other => full.push(format!("# RPC method: {other} (no CLI equivalent)")),
