@@ -4,12 +4,7 @@ UFFS supports single- and multi-tier sorting of search results.  Sort
 specifications are applied after all filters, so you are always sorting
 the final result set.
 
-> **See also:** [CLI Overview](cli-overview.md) · [Filters](filters.md) ·
-> [Search Modes](search-modes.md) · [Output Formats](output-formats.md)
-
----
-
-## 1  Basic Usage
+## 1. Basic Usage
 
 ```bash
 # Sort by file size (largest first — size defaults to descending)
@@ -25,9 +20,7 @@ uffs '*.log' --sort modified
 Without `--sort`, results are returned in the natural order produced by
 the search engine (typically by MFT record number).
 
----
-
-## 2  Sort Columns
+## 2. Sort Columns
 
 > **New to UFFS?** See [Concepts](concepts.md) for what each metric
 > (Size on Disk, Tree Size, Bulkiness, etc.) actually measures.
@@ -38,7 +31,7 @@ the search engine (typically by MFT record number).
 |-------------|---------|---------|-------------|
 | `name` | — | asc | Filename (case-folded) |
 | `size` | — | desc | Logical file size in bytes |
-| `sizeondisk` | `allocated` | desc | Allocated size on disk ([why it differs](concepts.md#1--size-vs-size-on-disk)) |
+| `sizeondisk` | `allocated` | desc | Allocated size on disk ([why it differs](concepts.md#1-size-vs-size-on-disk)) |
 | `modified` | `date`, `written` | desc | Last modification timestamp |
 | `created` | — | desc | Creation timestamp |
 | `accessed` | — | desc | Last access timestamp |
@@ -53,9 +46,9 @@ the search engine (typically by MFT record number).
 |-------------|---------|---------|-------------|
 | `type` | `folder` | asc | Semantic file category (`code`, `picture`, …) |
 | `descendants` | — | desc | Direct child count (directories) |
-| `tree_size` | `treesize` | desc | Sum of logical sizes in subtree ([concept](concepts.md#2--tree-size--tree-allocated)) |
+| `tree_size` | `treesize` | desc | Sum of logical sizes in subtree ([concept](concepts.md#2-tree-size-and-tree-allocated)) |
 | `tree_allocated` | `treeallocated` | desc | Sum of allocated sizes in subtree |
-| `bulkiness` | — | desc | Waste ratio % ([concept](concepts.md#3--bulkiness-waste-ratio)) |
+| `bulkiness` | — | desc | Waste ratio % ([concept](concepts.md#3-bulkiness-waste-ratio)) |
 | `name_length` | `namelength`, `namelen` | desc | Character count of filename |
 | `path_length` | `pathlength`, `pathlen` | desc | Character count of full path |
 
@@ -97,9 +90,7 @@ specify `:asc` or `:desc` explicitly:
 - **Text columns** (name, path, drive, ext, type, path_only) default to
   **ascending** — alphabetical order is the natural expectation.
 
----
-
-## 3  Explicit Direction
+## 3. Explicit Direction
 
 You can override the default direction with a `:asc` or `:desc` suffix:
 
@@ -127,9 +118,7 @@ uffs '*.iso' --sort size --sort-desc
 > When using `:asc` / `:desc` suffixes, the `--sort-desc` flag is
 > ignored for columns that already have an explicit direction.
 
----
-
-## 4  Multi-Tier Sorting
+## 4. Multi-Tier Sorting
 
 Separate multiple sort columns with commas.  The first column is the
 primary sort; subsequent columns break ties.
@@ -159,9 +148,7 @@ uffs '*.exe' --sort size
 # UFFS internally sorts by:  size:desc, name:asc
 ```
 
----
-
-## 5  Deterministic String Sorting
+## 5. Deterministic String Sorting
 
 String-based columns (`name`, `path`, `ext`) use a **two-phase
 comparison** that is both intuitive and fully deterministic:
@@ -193,9 +180,7 @@ efficiently.
 > `--smart-case`.  Those flags control which files **match** — not how
 > results are **ordered**.
 
----
-
-## 6  Examples and Recipes
+## 6. Examples and Recipes
 
 ### Top 20 Largest Files
 
@@ -269,9 +254,7 @@ uffs '*' --files-only --sort path_length --limit 20
 uffs '*' --sort directory_flag:desc,name
 ```
 
----
-
-## 7  Quick Reference
+## 7. Quick Reference
 
 ```text
 SORT SYNTAX
@@ -319,3 +302,10 @@ NOTES
   • Boolean columns sort true/false groups, then by name within each.
   • See concepts.md for what each metric means.
 ```
+
+## See also
+
+- [CLI Overview](cli-overview.md): every flag and command at a glance
+- [Filters](filters.md): narrow results by size, date, type, attributes and more
+- [Search Modes](search-modes.md): glob, literal and regex patterns
+- [Output Formats](output-formats.md): CSV, JSON and table output, and choosing columns

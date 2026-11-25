@@ -1,4 +1,4 @@
-# UFFS TUI — Search Box User Manual
+# TUI Search Box
 
 > **Based on code version:** 0.4.11 | **Document revision:** 1.4
 
@@ -17,8 +17,6 @@ update live as you type.
 ![UFFS TUI: launch against a hot daemon, type a query, and browse real NTFS results live](../../assets/demo/uffs-tui.gif)
 
 > *Launch, type, and browse real NTFS results live against a hot daemon. Recorded against the real binary (see the [demo kit](../../scripts/dev/demo/README.md)).*
-
----
 
 ## 1. Search Patterns
 
@@ -92,8 +90,6 @@ Prefix any pattern with a drive letter to restrict search to that drive.
 When the search box is empty, UFFS shows **all files** (equivalent to `*`),
 sorted by the current sort column (default: most recently modified first).
 
----
-
 ## 2. Search Mode Toggles
 
 Toggles modify how the search engine interprets your pattern. Active toggles
@@ -116,9 +112,7 @@ Internally, whole-word wraps the pattern in `\b...\b` regex word boundaries.
 
 When active, patterns match only against the **filename** (not the full path).
 
----
-
-## 3. Keybindings — Windows Preset (Default)
+## 3. Keybindings: Windows Preset (Default)
 
 The Windows preset is the default. Keys follow common Windows conventions
 (VS Code, Everything file search) with Ctrl-key backups for terminals where
@@ -132,7 +126,7 @@ Alt does not work (e.g., macOS Terminal.app).
 | `Ctrl+R` | | Refresh — reload all drives from MFT / cache |
 | `Alt+H` | `Ctrl+G`, `F1` | Cycle help bar pages (Nav → Toggles → Edit → Patterns) |
 
-### 3.2 Search Box — Text Editing
+### 3.2 Search Box: Text Editing
 
 | Key | Action |
 |-----|--------|
@@ -156,7 +150,7 @@ Alt does not work (e.g., macOS Terminal.app).
 > application, use your terminal's paste mechanism (e.g., `Cmd+V` on macOS,
 > right-click paste on Windows Terminal).
 
-### 3.3 Search Box — Mode Toggles
+### 3.3 Search Box: Mode Toggles
 
 | Key | Backup | Action | Title badge |
 |-----|--------|--------|-------------|
@@ -173,7 +167,7 @@ When a toggle is **inactive**, the title bar badge shows the shortcut hint
 > configure your terminal to send Alt as Meta/Esc+ (iTerm2: Preferences →
 > Profiles → Keys → "Left Option key" → Esc+).
 
-### 3.4 Search Box — History
+### 3.4 Search Box: History
 
 Search history is saved automatically. When you clear the search box, the
 longest pattern from your typing session is committed to history. Each
@@ -251,9 +245,7 @@ When the **Results Panel** is focused:
 The focused pane has a **bright cyan border**; the unfocused pane has a
 dim gray border.
 
----
-
-## 4. Keybindings — Emacs Preset
+## 4. Keybindings: Emacs Preset
 
 Switch to the Emacs preset with:
 
@@ -278,8 +270,6 @@ All other keys (toggles, focus, copy/paste, quit, refresh) are identical.
 > **Note:** The Emacs preset does not include `Ctrl+G` for help because
 > Emacs traditionally uses `Ctrl+G` for cancel/abort. Emacs users can
 > customize this in `keys.toml` if desired.
-
----
 
 ## 5. Customizing Keybindings
 
@@ -343,8 +333,6 @@ When a new version of UFFS adds new keybindings to the preset, they are
 you have customized. This means you never need to manually update your
 config file after upgrading.
 
----
-
 ## 6. Title Bar Anatomy
 
 The search box title bar shows the current state at a glance:
@@ -364,8 +352,6 @@ The search box title bar shows the current state at a glance:
 | `[NAME]` | Name-only mode (shown only when active) |
 | `[FILES]` / `[DIRS]` | Filter mode (shown only when active) |
 
----
-
 ## 7. Status Bar
 
 Below the search box, the status bar shows search results summary:
@@ -378,8 +364,6 @@ Below the search box, the status bar shows search results summary:
 
 This includes match count, search duration, total records scanned, and
 number of drives searched.
-
----
 
 ## 8. Help Bar
 
@@ -400,8 +384,6 @@ at the bottom of the screen:
 > sends special characters in most macOS terminals.
 
 
----
-
 ## Document Revision History
 
 | Revision | Date | Code Version | Changes |
@@ -411,3 +393,9 @@ at the bottom of the screen:
 | 1.2 | 2026-03-25 | 0.4.11 | Help bar is now fully dynamic — reads key labels from the active keymap at runtime. Platform-aware: Alt keys automatically hidden on macOS in favor of Ctrl backups. Removed all hardcoded key strings from help bar rendering. |
 | 1.3 | 2026-03-25 | 0.4.11 | Added focus system: Esc toggles between Search Box and Results Panel. ↑/↓ now browse search history when Search Box is focused, navigate rows when Results is focused. Visual focus indicator (cyan border). Removed explicit history_back/history_forward keybindings. Help bar is now focus-aware — Nav page shows context-appropriate keys. Help bar title shows current focus state. |
 | 1.4 | 2026-03-25 | 0.4.11 | New history file format: entries stored as `uffs` CLI commands with optional `#` comments. History entries now capture full search state (pattern + all toggles). Browsing history restores toggles. Status bar shows "History Note" with comment text when browsing commented entries. Default history file with example searches shipped on first launch. |
+
+## See also
+
+- [Search Modes](search-modes.md): glob, literal and regex patterns
+- [Daemon](daemon.md): the resident index server and how to manage it
+- [Getting Started](getting-started.md): your first search and everyday recipes

@@ -2,11 +2,6 @@
 
 Frequently asked questions about UFFS.
 
-> **See also:** [Getting Started](getting-started.md) ·
-> [Troubleshooting](troubleshooting.md) · [Glossary](glossary.md)
-
----
-
 ### Why is UFFS so fast?
 
 UFFS reads the NTFS Master File Table (MFT) directly, bypassing the
@@ -19,8 +14,6 @@ for search.  Queries run against this index in microseconds.
 
 > **Deep dive:** [Concepts](concepts.md)
 
----
-
 ### Does UFFS work on macOS and Linux?
 
 Yes, with offline MFT captures.  UFFS cannot read NTFS drives natively
@@ -28,8 +21,6 @@ on non-Windows platforms, but it can analyse MFT data exported from
 a Windows machine.
 
 > **Setup guide:** [Cache & Data Sources](cache-and-data.md)
-
----
 
 ### Does UFFS need Administrator privileges?
 
@@ -40,9 +31,7 @@ runs unelevated with no UAC prompt.  Without the broker you need an
 Administrator terminal each time.  On macOS and Linux, no — UFFS reads
 regular files (MFT captures).
 
-> **Details:** [Installation §3](installation.md#3--platform-requirements)
-
----
+> **Details:** [Installation §3](installation.md#3-platform-requirements)
 
 ### Why does the first search take so long?
 
@@ -50,8 +39,6 @@ The daemon is loading the MFT and building the in-memory index.  This
 only happens once (~7 s from cache, or ~66 s cold for a large system).
 Every subsequent search completes in ~200 ms end-to-end.
 See [Performance](performance.md) for full benchmark data.
-
----
 
 ### How much memory does UFFS use?
 
@@ -65,16 +52,12 @@ It depends on the number of files.  Rough benchmarks:
 
 The daemon retires after 2 hours idle, releasing all memory.
 
----
-
 ### Can I search file contents?
 
 No.  UFFS searches file metadata — names, paths, sizes, timestamps,
 and NTFS attributes.  It does not read file contents.
 
 For content search, use tools like ripgrep (`rg`) or Windows Search.
-
----
 
 ### What is the difference between Size and SizeOnDisk?
 
@@ -84,9 +67,7 @@ rounded up to the cluster size (usually 4 KB).
 
 A 1-byte file has Size=1 but SizeOnDisk=4096.
 
-> **Full explanation:** [Concepts §1](concepts.md#1--size-vs-size-on-disk)
-
----
+> **Full explanation:** [Concepts §1](concepts.md#1-size-vs-size-on-disk)
 
 ### What is Bulkiness?
 
@@ -96,9 +77,7 @@ Bulkiness = (SizeOnDisk / Size) × 100.  It measures allocation waste.
 - **500** — 5× more disk space than logical data (wasteful)
 - **409600** — a 1-byte file using one 4 KB cluster
 
-> **Guide:** [Concepts §3](concepts.md#3--bulkiness-waste-ratio)
-
----
+> **Guide:** [Concepts §3](concepts.md#3-bulkiness-waste-ratio)
 
 ### Does UFFS see recently created files?
 
@@ -109,8 +88,6 @@ created after startup are not visible until you restart the daemon:
 uffs --daemon restart
 ```
 
----
-
 ### Can UFFS delete or move files?
 
 No.  UFFS is read-only — it searches and reports.  To act on results,
@@ -120,17 +97,13 @@ pipe the output to other tools:
 uffs '*.bak' --columns Path --header false | xargs rm -v
 ```
 
----
-
 ### What is the `.iocp` file format?
 
 The `.iocp` file is UFFS's serialised binary cache.  It stores the
 parsed MFT index so the daemon can start quickly without re-parsing
 the raw MFT data.
 
-> **Details:** [Cache & Data Sources §3](cache-and-data.md#3--mft-file-formats)
-
----
+> **Details:** [Cache & Data Sources §3](cache-and-data.md#3-mft-file-formats)
 
 ### How do I update the index after file changes?
 
@@ -142,16 +115,12 @@ uffs --daemon restart
 uffs --daemon restart --no-cache
 ```
 
----
-
 ### Can multiple users share one daemon?
 
 The daemon listens on a local IPC socket (Unix domain socket on
 macOS/Linux, named pipe on Windows).  By default, it is scoped to the
 current user.  Multiple CLI sessions, TUI instances, and MCP clients
 from the same user share one daemon.
-
----
 
 ### What NTFS features does UFFS support?
 
@@ -169,3 +138,9 @@ from the same user share one daemon.
 | Reparse points / symlinks | ✓ | Detected via attribute flag |
 | File contents | ✗ | Metadata only |
 | ACLs / permissions | ✗ | Not read |
+
+## See also
+
+- [Getting Started](getting-started.md): your first search and everyday recipes
+- [Troubleshooting](troubleshooting.md): common errors and their fixes
+- [Glossary](glossary.md): the terms the chapters use

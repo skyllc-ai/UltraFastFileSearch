@@ -1,15 +1,10 @@
-# Cache & Data Sources
+# Cache and Data Sources
 
 UFFS reads NTFS data from three types of sources.  This page explains
 each source, the caching pipeline, and how to set up offline MFT
 analysis on non-Windows platforms.
 
-> **See also:** [Installation](installation.md) · [Daemon](daemon.md) ·
-> [Concepts](concepts.md) · [Performance](performance.md)
-
----
-
-## 1  Data Source Priority
+## 1. Data Source Priority
 
 When the daemon starts, it looks for data in this order:
 
@@ -27,9 +22,7 @@ When the daemon starts, it looks for data in this order:
 | `--data-dir <DIR>` | Auto-discover MFT files in `drive_c/`, `drive_d/`, etc. |
 | `--no-cache` | Bypass cache; always re-parse raw MFT data |
 
----
-
-## 2  The Data Pipeline
+## 2. The Data Pipeline
 
 ```
 Raw MFT data              Cached index            In-memory index
@@ -48,9 +41,7 @@ depending on record count and media type (NVMe vs HDD).
 directly, skipping the expensive MFT parse step.  Startup drops to
 2–5 seconds per drive (~7 s total for 7 drives / 25.9M records).
 
----
-
-## 3  MFT File Formats
+## 3. MFT File Formats
 
 UFFS accepts three raw MFT file formats:
 
@@ -63,9 +54,7 @@ UFFS accepts three raw MFT file formats:
 When auto-discovering files in `--data-dir`, UFFS prefers `.iocp` over
 `.bin` over `.mft`.
 
----
-
-## 4  Data Directory Layout
+## 4. Data Directory Layout
 
 The `--data-dir` flag expects a directory with subdirectories named
 `drive_<letter>/`, each containing one MFT capture:
@@ -112,9 +101,7 @@ name matters.
    uffs '*.txt' --data-dir ~/uffs_data
    ```
 
----
-
-## 5  Cache Location
+## 5. Cache Location
 
 Cache files (`.iocp`) are written alongside the source MFT file by
 default.  The daemon looks for a cached version before parsing the
@@ -148,9 +135,7 @@ Use `--no-cache` when:
 - You suspect cache corruption.
 - You are benchmarking raw parse performance.
 
----
-
-## 6  Drive Letter Inference
+## 6. Drive Letter Inference
 
 When using `--mft-file`, UFFS infers the drive letter from the
 filename:
@@ -167,3 +152,10 @@ If inference fails, use `--drive` or `--drives` to specify explicitly:
 ```bash
 uffs '*' --mft-file /path/to/unknown.bin --drive C
 ```
+
+## See also
+
+- [Installation](installation.md): install UFFS and put it on your PATH
+- [Daemon](daemon.md): the resident index server and how to manage it
+- [Concepts](concepts.md): what each size, count and attribute means
+- [Performance](performance.md): measured numbers and how to benchmark your machine

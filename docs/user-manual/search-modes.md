@@ -4,12 +4,7 @@ UFFS supports several search modes that determine how your pattern is
 interpreted and matched against the NTFS Master File Table.  Choosing the
 right mode can dramatically improve both precision and performance.
 
-> **See also:** [CLI Overview](cli-overview.md) · [Filters](filters.md) ·
-> [Sorting](sorting.md) · [Output Formats](output-formats.md)
-
----
-
-## 1  Pattern Types at a Glance
+## 1. Pattern Types at a Glance
 
 | Syntax | Mode | Matches Against | Example |
 |--------|------|-----------------|---------|
@@ -21,9 +16,7 @@ right mode can dramatically improve both precision and performance.
 
 UFFS auto-detects the mode from the pattern you type — no flag needed.
 
----
-
-## 2  Glob Patterns (Default)
+## 2. Glob Patterns (Default)
 
 Any pattern containing wildcard characters (`*`, `?`, `[…]`) is treated as
 a **glob**.  Globs are the most common and fastest search mode.
@@ -80,9 +73,7 @@ uffs 'log_202?.txt'
 - Use `**` only when you genuinely need to match across multiple directory
   levels in a path-aware search.
 
----
-
-## 3  Literal Search
+## 3. Literal Search
 
 A pattern with **no wildcards** is treated as a **literal substring match
 against the full path**.  This is the most natural search for "I know part
@@ -111,9 +102,7 @@ uffs README
   path" lookups.
 - Combine with `--ext` or `--files-only` to narrow results fast.
 
----
-
-## 4  Regex Search
+## 4. Regex Search
 
 Prefix your pattern with `>` to enter **regex mode**.  The regex is applied
 to filenames by default, or to full paths if the regex contains path
@@ -145,9 +134,7 @@ uffs '>.*\.log$'
   Whenever possible, combine with `--ext` or other filters to shrink the
   candidate set first.
 
----
-
-## 5  Path-Aware Patterns
+## 5. Path-Aware Patterns
 
 A pattern is **path-aware** when it contains directory separators (`\` or
 `/`).  Path-aware patterns are matched against the **full reconstructed
@@ -167,21 +154,19 @@ uffs '>D:\\Users\\.*\.docx$'
 > Literal patterns (no wildcards) are **always path-aware** by default.
 > Glob patterns are path-aware **only** if they contain separators.
 
----
-
-## 6  Case Sensitivity
+## 6. Case Sensitivity
 
 By default, all matching is **case-insensitive** — consistent with Windows
 NTFS semantics.  You have two ways to enable case-sensitive matching:
 
-### `--case`  (Explicit Case-Sensitive)
+### `--case` (Explicit Case-Sensitive)
 
 ```bash
 # Only finds "README.md", not "readme.md" or "Readme.md"
 uffs README.md --case
 ```
 
-### `--smart-case`  (Auto-Detect)
+### `--smart-case` (Auto-Detect)
 
 When `--smart-case` is enabled, UFFS becomes case-sensitive **only if your
 pattern contains at least one uppercase letter**.  All-lowercase patterns
@@ -202,9 +187,7 @@ uffs Readme --smart-case
   convention — it does the right thing most of the time.
 - Use `--case` for exact forensic lookups where casing matters.
 
----
-
-## 7  Whole-Word Matching (`--word`)
+## 7. Whole-Word Matching (`--word`)
 
 The `--word` flag wraps your pattern in `\b…\b` word-boundary anchors,
 turning it into a regex that matches only at word boundaries.
@@ -220,9 +203,7 @@ uffs error --word --ext log --newer 7d
 This is particularly useful for common words like `test`, `data`, `log`,
 or `error` that frequently appear as substrings of longer names.
 
----
-
-## 8  Name-Only Matching (`--name-only`)
+## 8. Name-Only Matching (`--name-only`)
 
 By default, literal patterns match against the **full path**.  The
 `--name-only` flag restricts matching to the **filename component only**
@@ -241,9 +222,7 @@ uffs hallo --name-only
 > `--name-only` is **incompatible** with patterns that contain path
 > separators (`\` or `/`) — the search will return an error.
 
----
-
-## 9  Match-All Pattern (`*`)
+## 9. Match-All Pattern (`*`)
 
 The single wildcard `*` matches **every** file and directory.  It is the
 starting point for pure-filter workflows where you don't care about the
@@ -260,9 +239,7 @@ uffs '*' --dirs-only --max-descendants 0
 uffs '*' --newer 1d
 ```
 
----
-
-## 10  Scope Prefixes
+## 10. Scope Prefixes
 
 UFFS supports **Everything-compatible scope prefixes** that modify how
 the pattern is applied.  Prefix the pattern with `path:`, `dir:`, or
@@ -295,9 +272,7 @@ uffs 'file:README*'
 > `file:` sets `files_only=true`.  The prefix is stripped before sending
 > the pattern to the daemon.
 
----
-
-## 11  Pattern Sugar Flags
+## 11. Pattern Sugar Flags
 
 These flags generate patterns from simple keywords, saving you from
 writing glob syntax:
@@ -329,9 +304,7 @@ uffs '*.log' --not-contains debug
 > with each other and with providing a pattern directly.  `--not-contains`
 > can be combined with any of them (it maps to `--exclude`).
 
----
-
-## 12  Path Directory Filter
+## 12. Path Directory Filter
 
 The `--in-path` flag restricts results to files whose **directory path**
 matches a glob — independent of the search pattern.  This is different
@@ -350,9 +323,7 @@ uffs '*.dll' --in-path '*windows\system32*'
 > "report" only in the directory portion — the filename is excluded from
 > the match.  See [Filters §8](filters.md) for details.
 
----
-
-## 13  Drive Scoping
+## 13. Drive Scoping
 
 You can scope your search to specific drives using three methods:
 
@@ -363,13 +334,13 @@ You can scope your search to specific drives using three methods:
 uffs 'c:/*.dll'
 ```
 
-### `--drive` Flag  (Single Drive)
+### `--drive` Flag (Single Drive)
 
 ```bash
 uffs '*.exe' --drive C
 ```
 
-### `--drives` Flag  (Multiple Drives)
+### `--drives` Flag (Multiple Drives)
 
 ```bash
 # Search C: and D: concurrently
@@ -379,9 +350,7 @@ uffs '*.pdf' --drives C,D,E
 Drive letters are case-insensitive.  You may include the colon
 (`C:` or `C`) — both work.
 
----
-
-## 14  Performance Mental Model
+## 14. Performance Mental Model
 
 Not all searches are equal.  Here is a rough performance ranking from
 fastest to slowest:
@@ -403,9 +372,7 @@ fastest to slowest:
 - Scope to a single drive when possible — it halves the search space
   per extra drive you exclude.
 
----
-
-## 15  Quick Reference
+## 15. Quick Reference
 
 ```text
 PATTERN SYNTAX
@@ -440,3 +407,10 @@ DRIVE SCOPING
   --drives C,D,E       Multiple drives
   c:/*.ext             Drive prefix in pattern
 ```
+
+## See also
+
+- [CLI Overview](cli-overview.md): every flag and command at a glance
+- [Filters](filters.md): narrow results by size, date, type, attributes and more
+- [Sorting](sorting.md): sort columns and multi-tier sorts
+- [Output Formats](output-formats.md): CSV, JSON and table output, and choosing columns

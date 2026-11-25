@@ -7,18 +7,13 @@ returns compact summaries instead of individual file listings.  One aggregation
 call can answer questions that would otherwise require scanning millions of
 rows.
 
-> **See also:** [CLI Overview](cli-overview.md) · [Filters](filters.md) ·
-> [Output Formats](output-formats.md)
-
 | Without aggregation | With aggregation |
 |---------------------|------------------|
 | `uffs '*' --ext pdf` → 48 000 rows, count them yourself | `uffs --agg overview --ext pdf` → `total_count: 48 000` |
 | `uffs '*' --sort -size --limit 50` → top 50, but what % is that? | `uffs --agg by_type` → full breakdown with percentages |
 | Three separate queries for C:, D:, E: | `uffs --agg by_drive` → all drives in one call |
 
----
-
-## 1  Quick start
+## 1. Quick start
 
 ```bash
 # Full filesystem overview — the single best first command
@@ -71,9 +66,7 @@ uffs '*.pdf' --agg "terms:extension,top=30"
 By default, `--count`, `--facet`, `--stats`, and `--histogram` suppress
 row output.  Add `--rows` to get both.
 
----
-
-## 2  Presets
+## 2. Presets
 
 A preset is a one-word shortcut that expands into a tuned set of analytics.
 
@@ -114,13 +107,11 @@ uffs --agg overview --format json
 uffs --agg by_extension --format csv
 ```
 
----
-
-## 3  Custom aggregation specs
+## 3. Custom aggregation specs
 
 When presets aren't enough, build your own with `--agg`:
 
-### 3.1  Power syntax
+### 3.1 Power syntax
 
 ```
 KIND:FIELD,option=value,option=value
@@ -128,7 +119,7 @@ KIND:FIELD,option=value,option=value
 
 The `--agg` flag is repeatable — stack multiple specs in one command.
 
-### 3.2  Available kinds
+### 3.2 Available kinds
 
 | Kind | Syntax | What it does |
 |------|--------|--------------|
@@ -143,7 +134,7 @@ The `--agg` flag is repeatable — stack multiple specs in one command.
 | **rollup** | `rollup:path,depth=N,top=N` | Directory tree rollup at a given depth |
 | **duplicates** | `duplicates:KEY+KEY,top=N` | Duplicate candidate detection |
 
-### 3.3  Examples
+### 3.3 Examples
 
 ```bash
 # Top 20 extensions (default is 50)
@@ -177,13 +168,11 @@ uffs "*" --agg "rollup:path,depth=2,top=10"
 uffs "*" --agg "count" --agg "stats:size" --agg "terms:type,top=10"
 ```
 
----
-
-## 4  Groupable and aggregatable fields
+## 4. Groupable and aggregatable fields
 
 Not every field supports every operation.  Here's what works:
 
-### 4.1  Fields you can aggregate (stats: sum, min, max, avg)
+### 4.1 Fields you can aggregate (stats: sum, min, max, avg)
 
 | Field | What it measures |
 |-------|------------------|
@@ -199,7 +188,7 @@ Not every field supports every operation.  Here's what works:
 | `name_length` | Character count of file name |
 | `path_length` | Character count of full path |
 
-### 4.2  Fields you can group by (terms, rollup)
+### 4.2 Fields you can group by (terms, rollup)
 
 | Field | Cardinality | Example values |
 |-------|-------------|----------------|
@@ -220,14 +209,12 @@ Not every field supports every operation.  Here's what works:
 | `temporary` | Fixed (2) | `true` / `false` |
 | `offline` | Fixed (2) | `true` / `false` |
 
-### 4.3  Fields you can bucket (histogram, date histogram)
+### 4.3 Fields you can bucket (histogram, date histogram)
 
 All aggregatable fields (§4.1) support bucketing — that is, grouping into
 fixed-width or calendar-aligned ranges.
 
----
-
-## 5  Samples and drill-down
+## 5. Samples and drill-down
 
 Every terms/rollup/duplicate bucket can optionally include **sample rows**
 — a few representative files from that bucket — so you can see what's
@@ -262,9 +249,7 @@ needed to re-query just that bucket's contents:
 An MCP agent can read this and construct a targeted `uffs_search` call
 automatically.
 
----
-
-## 6  Pagination
+## 6. Pagination
 
 High-cardinality aggregations (extensions, folder rollups) may produce more
 buckets than the default top-N.  Use pagination to walk through all of them:
@@ -282,9 +267,7 @@ The response includes:
 - `other_count` — how many records fell into buckets beyond the current page
 - `values_complete` — `true` if all values fit in the current page
 
----
-
-## 7  Duplicate detection
+## 7. Duplicate detection
 
 The `duplicates` preset finds files that share the same **name and size**
 — probable duplicates that waste disk space.
@@ -321,9 +304,7 @@ node_modules.tar.gz         5    145 MB       580 MB       ✓
 A **verification budget** caps I/O: 256 MB and 10 000 file reads by default.
 Groups beyond the budget are kept but marked unverified.
 
----
-
-## 8  Output formats
+## 8. Output formats
 
 ```bash
 # Human-readable table (default)
@@ -368,9 +349,7 @@ Every aggregation response contains:
 }
 ```
 
----
-
-## 9  Combining aggregation with search
+## 9. Combining aggregation with search
 
 By default, `uffs --agg` returns **only** aggregate results and no file rows.
 Use `--rows` to get both:
@@ -396,9 +375,7 @@ uffs "*" --newer 7d --facet type
 | `--stats FIELD` | `stats:FIELD` | Sum/min/max/avg for a field |
 | `--histogram FIELD` | `hist:FIELD` | Size-bucketed histogram |
 
----
-
-## 10  MCP / daemon API
+## 10. MCP / daemon API
 
 For MCP agents and HTTP clients, aggregation is accessed through the
 `uffs_aggregate` tool (or the `aggregations` array on `uffs_search`).
@@ -440,9 +417,7 @@ For MCP agents and HTTP clients, aggregation is accessed through the
 
 See `uffs://cookbook` in the MCP resource list for more examples.
 
----
-
-## 11  Recipes
+## 11. Recipes
 
 ### "How much space do my photos take?"
 
@@ -492,9 +467,7 @@ uffs --agg overview "*.rs" --path-contains GitHub
 uffs "*" --newer 730d --agg "datehist:modified,calendar=month"
 ```
 
----
-
-## 12  Performance notes
+## 12. Performance notes
 
 Aggregation operates directly on the compact in-memory index — the same
 data structure used for search.  Key performance characteristics:
@@ -516,3 +489,9 @@ top-N buckets in the output.
 
 **Parallel per drive** — each indexed drive is scanned in its own thread.
 Per-drive accumulators are merged at the end (O(G) where G = group count).
+
+## See also
+
+- [CLI Overview](cli-overview.md): every flag and command at a glance
+- [Filters](filters.md): narrow results by size, date, type, attributes and more
+- [Output Formats](output-formats.md): CSV, JSON and table output, and choosing columns

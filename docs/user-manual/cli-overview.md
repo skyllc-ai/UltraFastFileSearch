@@ -11,16 +11,7 @@ command required; management lives under `--<command>` (§6).
 
 > *Real commands, real result counts, real measured latency on a hot daemon. Recorded against the real CLI (see the [demo kit](../../scripts/dev/demo/README.md)).*
 
-> **See also:**
-> [Getting Started](getting-started.md) ·
-> [Search Modes](search-modes.md) ·
-> [Filters](filters.md) ·
-> [Sorting](sorting.md) ·
-> [Output Formats](output-formats.md)
-
----
-
-## 1  Search (Default Action)
+## 1. Search (Default Action)
 
 When the first token is not a `--command`, `uffs` performs a search.  The
 first positional argument is the pattern.
@@ -33,16 +24,16 @@ uffs <PATTERN> [OPTIONS]
 
 | Syntax | Mode | Detail |
 |--------|------|--------|
-| `*.ext` | Glob | Wildcards `*`, `?`, `[…]` → [Search Modes §2](search-modes.md#2--glob-patterns-default) |
-| `word` | Literal | Substring match on full path → [Search Modes §3](search-modes.md#3--literal-search) |
-| `>regex` | Regex | `>` prefix activates regex → [Search Modes §4](search-modes.md#4--regex-search) |
-| `c:/path*` | Path-aware | Contains separators → [Search Modes §5](search-modes.md#5--path-aware-patterns) |
+| `*.ext` | Glob | Wildcards `*`, `?`, `[…]` → [Search Modes §2](search-modes.md#2-glob-patterns-default) |
+| `word` | Literal | Substring match on full path → [Search Modes §3](search-modes.md#3-literal-search) |
+| `>regex` | Regex | `>` prefix activates regex → [Search Modes §4](search-modes.md#4-regex-search) |
+| `c:/path*` | Path-aware | Contains separators → [Search Modes §5](search-modes.md#5-path-aware-patterns) |
 
 ### Scope Prefixes (Everything-compatible)
 
 | Prefix | Effect | Detail |
 |--------|--------|--------|
-| `path:` | Match against the **full path**, not just filename | [Search Modes §10](search-modes.md#10--scope-prefixes) |
+| `path:` | Match against the **full path**, not just filename | [Search Modes §10](search-modes.md#10-scope-prefixes) |
 | `dir:` | Only search **directories** | Same as `--dirs-only` |
 | `file:` | Only search **files** | Same as `--files-only` |
 
@@ -50,7 +41,7 @@ uffs <PATTERN> [OPTIONS]
 
 | Flag | Effect | Detail |
 |------|--------|--------|
-| `--begins-with <PREFIX>` | Sugar for `PREFIX*` | [Search Modes §11](search-modes.md#11--pattern-sugar-flags) |
+| `--begins-with <PREFIX>` | Sugar for `PREFIX*` | [Search Modes §11](search-modes.md#11-pattern-sugar-flags) |
 | `--ends-with <SUFFIX>` | Sugar for `*SUFFIX` | Same |
 | `--contains <NEEDLE>` | Sugar for `*NEEDLE*` | Same |
 | `--not-contains <NEEDLE>` | Exclude names containing NEEDLE | Maps to `--exclude` |
@@ -59,11 +50,11 @@ uffs <PATTERN> [OPTIONS]
 
 | Flag | Effect | Detail |
 |------|--------|--------|
-| `--case` | Case-sensitive matching | [Search Modes §6](search-modes.md#6--case-sensitivity) |
-| `--smart-case` | Auto case-sensitive if pattern has uppercase | [Search Modes §6](search-modes.md#6--case-sensitivity) |
-| `--word` | Whole-word boundaries (`\b…\b`) | [Search Modes §7](search-modes.md#7--whole-word-matching---word) |
-| `--name-only` | Match filename only, not full path | [Search Modes §8](search-modes.md#8--name-only-matching---name-only) |
-| `--in-path <GLOB>` | Filter by directory path (not filename) | [Search Modes §12](search-modes.md#12--path-directory-filter) |
+| `--case` | Case-sensitive matching | [Search Modes §6](search-modes.md#6-case-sensitivity) |
+| `--smart-case` | Auto case-sensitive if pattern has uppercase | [Search Modes §6](search-modes.md#6-case-sensitivity) |
+| `--word` | Whole-word boundaries (`\b…\b`) | [Search Modes §7](search-modes.md#7-whole-word-matching---word) |
+| `--name-only` | Match filename only, not full path | [Search Modes §8](search-modes.md#8-name-only-matching---name-only) |
+| `--in-path <GLOB>` | Filter by directory path (not filename) | [Search Modes §12](search-modes.md#12-path-directory-filter) |
 
 ### Drive Selection
 
@@ -81,9 +72,7 @@ uffs <PATTERN> [OPTIONS]
 | `--data-dir <DIR>` | Auto-discover MFT files in `drive_*` subdirectories |
 | `--no-cache` | Bypass cache; re-read MFT fresh |
 
----
-
-## 2  Filters
+## 2. Filters
 
 All filters are detailed in the [Filters guide](filters.md).  Summary:
 
@@ -96,7 +85,7 @@ All filters are detailed in the [Filters guide](filters.md).  Summary:
 | `--min-size <SIZE>` | Size | Minimum logical size (e.g. `100MB`, `1GB`) |
 | `--max-size <SIZE>` | Size | Maximum logical size |
 | `--exact-size <SIZE>` | Size | Exactly this size (shorthand for min=max) |
-| `--min-size-on-disk <SIZE>` | Size | Minimum allocated size ([concept](concepts.md#1--size-vs-size-on-disk)) |
+| `--min-size-on-disk <SIZE>` | Size | Minimum allocated size ([concept](concepts.md#1-size-vs-size-on-disk)) |
 | `--max-size-on-disk <SIZE>` | Size | Maximum allocated size |
 | `--exact-size-on-disk <SIZE>` | Size | Exactly this allocated size |
 | `--newer <SPEC>` | Date | Modified within / after |
@@ -113,11 +102,11 @@ All filters are detailed in the [Filters guide](filters.md).  Summary:
 | `--min-descendants <N>` | Tree | Min child count (dirs) |
 | `--max-descendants <N>` | Tree | Max child count (dirs) |
 | `--exact-descendants <N>` | Tree | Exactly N children |
-| `--min-treesize <SIZE>` | Tree | Min subtree logical size ([concept](concepts.md#2--tree-size--tree-allocated)) |
+| `--min-treesize <SIZE>` | Tree | Min subtree logical size ([concept](concepts.md#2-tree-size-and-tree-allocated)) |
 | `--max-treesize <SIZE>` | Tree | Max subtree logical size |
 | `--min-tree-allocated <SIZE>` | Tree | Min subtree allocated size |
 | `--max-tree-allocated <SIZE>` | Tree | Max subtree allocated size |
-| `--min-bulkiness <N>` | Derived | Min waste ratio ([concept](concepts.md#3--bulkiness-waste-ratio)) |
+| `--min-bulkiness <N>` | Derived | Min waste ratio ([concept](concepts.md#3-bulkiness-waste-ratio)) |
 | `--max-bulkiness <N>` | Derived | Max waste ratio |
 | `--min-name-length <N>` | Derived | Min filename character count |
 | `--max-name-length <N>` | Derived | Max filename character count |
@@ -125,16 +114,14 @@ All filters are detailed in the [Filters guide](filters.md).  Summary:
 | `--max-path-length <N>` | Derived | Max full-path character count |
 | `--in-path <GLOB>` | Path | Directory path must match glob |
 | `--exclude <GLOB>` | Exclude | Exclude matching filenames |
-| `--malformed` | Forensic | Only ill-formed-UTF-16 names ([guide](filters.md#14a--malformed-name-filters-forensic)) |
+| `--malformed` | Forensic | Only ill-formed-UTF-16 names ([guide](filters.md#14a-malformed-name-filters-forensic)) |
 | `--well-formed` | Forensic | Only valid names (inverse of `--malformed`) |
 | `--malformed-path` | Forensic | Match when any path segment is ill-formed |
 | `--normalize-malformed` | Forensic | Display: render corrupt code units as `<BAD:HHHH>` not `�` |
 | `--diff <BASELINE>` | Forensic | Search the **deleted** set vs a baseline MFT capture; composes with every filter above ([Delete Visibility](../architecture/engine/12-forensics-diagnostics.md#delete-visibility-uffs-cli)) |
 | `-n, --limit <N>` | Limit | Max results (0 = unlimited) |
 
----
-
-## 3  Sorting
+## 3. Sorting
 
 All 36+ sortable columns are detailed in the [Sorting guide](sorting.md).
 Summary:
@@ -150,9 +137,7 @@ Summary:
 `descendants`, `type`, `hidden`, `compressed`, `directory_flag`.
 See [Sorting §2](sorting.md) for the full list.
 
----
-
-## 4  Output Control
+## 4. Output Control
 
 All output options are detailed in the [Output Formats guide](output-formats.md).
 Summary:
@@ -168,9 +153,7 @@ Summary:
 | `--pos <STR>` | `1` | Representation for true/active boolean attributes |
 | `--neg <STR>` | `0` | Representation for false/inactive boolean attributes |
 
----
-
-## 5  Inline Aggregation Flags
+## 5. Inline Aggregation Flags
 
 These flags run server-side analytics alongside (or instead of) search
 results.  For the `uffs --agg` command, see §6 below.
@@ -193,9 +176,7 @@ results.  For the `uffs --agg` command, see §6 below.
 
 > **Full aggregation guide:** [Aggregation](aggregation.md)
 
----
-
-## 6  Commands
+## 6. Commands
 
 > Building/loading an index is **daemon-managed** — there is no standalone
 > `uffs index` command. Point the daemon at a live drive or a raw MFT with
@@ -231,7 +212,7 @@ uffs --agg count            # Simple total count
 
 > **Full guide:** [Aggregation](aggregation.md)
 
-### `uffs --snapshot` — capture a baseline MFT
+### `uffs --snapshot`: capture a baseline MFT
 
 Save the drive's current MFT to a file so a later `uffs --diff` can report
 what was deleted since. Reads the live NTFS MFT: **Windows + Administrator**.
@@ -241,7 +222,7 @@ uffs --snapshot --drive C --out C_baseline.bin   # zstd-compressed (default)
 uffs --snapshot --drive C --out C_base.bin --no-compress
 ```
 
-### `uffs --deleted` — forensic tombstone read
+### `uffs --deleted`: forensic tombstone read
 
 Surface recently-deleted files straight from not-in-use MFT records — **no
 baseline needed** — reconstructing each path from the surviving parent chain.
@@ -301,9 +282,7 @@ uffs --status -v                    # Long: expand every section
 uffs --status --json                # Machine-readable superset of all sections
 ```
 
----
-
-## 7  Advanced / Diagnostic Flags
+## 7. Advanced / Diagnostic Flags
 
 These flags are for power users, profiling, and parity testing:
 
@@ -321,13 +300,11 @@ These flags are for power users, profiling, and parity testing:
 
 > **Full diagnostics guide:** [Advanced Diagnostics](advanced-diagnostics.md)
 
----
-
-## 8  Examples
+## 8. Examples
 
 For a comprehensive recipe gallery organized by workflow (quick find,
 cleanup, developer/admin, attribute search, output piping), see
-**[Getting Started §5 — Recipes](getting-started.md#5--recipes)**.
+**[Getting Started §5 — Recipes](getting-started.md#5-recipes)**.
 
 Quick taste:
 
@@ -336,3 +313,11 @@ uffs '*.pdf' --newer 7d --sort size --limit 20
 uffs '*' --dirs-only --max-descendants 0
 uffs '>.*\.log$' --newer 24h
 ```
+
+## See also
+
+- [Getting Started](getting-started.md): your first search and everyday recipes
+- [Search Modes](search-modes.md): glob, literal and regex patterns
+- [Filters](filters.md): narrow results by size, date, type, attributes and more
+- [Sorting](sorting.md): sort columns and multi-tier sorts
+- [Output Formats](output-formats.md): CSV, JSON and table output, and choosing columns

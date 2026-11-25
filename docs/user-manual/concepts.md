@@ -1,15 +1,10 @@
-# Concepts — Understanding UFFS Fields
+# Concepts
 
 UFFS exposes several file metrics that go beyond the simple "name and
 size" you see in Windows Explorer.  This page explains what each metric
 means, why it exists, and when to use it.
 
-> **See also:** [Filters](filters.md) · [Sorting](sorting.md) ·
-> [CLI Overview](cli-overview.md) · [Glossary](glossary.md)
-
----
-
-## 1  Size vs Size on Disk
+## 1. Size vs Size on Disk
 
 Every file has two sizes:
 
@@ -52,9 +47,7 @@ Three common situations where Size ≠ Size on Disk:
 - **"How much disk space does this file consume?"** → Size on Disk.
 - **"Find files wasting disk space"** → compare them (see Bulkiness below).
 
----
-
-## 2  Tree Size & Tree Allocated
+## 2. Tree Size and Tree Allocated
 
 These are **directory-only** metrics.  They aggregate the sizes of every
 file in the directory's entire subtree (all descendants, recursively).
@@ -89,9 +82,7 @@ In this example, the `Projects/` directory has:
 - **"Where is disk space actually allocated?"** →
   `--dirs-only --sort tree-allocated`
 
----
-
-## 3  Bulkiness (Waste Ratio)
+## 3. Bulkiness (Waste Ratio)
 
 Bulkiness measures how much disk space a file or directory uses
 **relative to its logical size**.  It is expressed as a percentage:
@@ -132,9 +123,7 @@ For **directories**, bulkiness uses the tree metrics:
 - **"Which folders have the worst packing efficiency?"** →
   `--dirs-only --min-bulkiness 200 --sort bulkiness`
 
----
-
-## 4  Descendants (Child Count)
+## 4. Descendants (Child Count)
 
 Descendants counts the **direct children** of a directory — both files
 and subdirectories at the immediate level (not recursive).
@@ -156,9 +145,7 @@ and subdirectories at the immediate level (not recursive).
 - **"Find bloated directories"** →
   `--dirs-only --min-descendants 1000 --sort descendants`
 
----
-
-## 5  File Type (Semantic Category)
+## 5. File Type (Semantic Category)
 
 UFFS maps file extensions to **24 human-readable categories** so you can
 filter and sort by *what a file is*, not just its extension.
@@ -191,9 +178,7 @@ The full list of all 24 categories and their extensions is in
 - **"Find all images"** → `--type picture`
 - **"Sort by file type, then by size"** → `--sort type,size`
 
----
-
-## 6  NTFS Attributes (File Flags)
+## 6. NTFS Attributes (File Flags)
 
 Every file and directory on an NTFS volume carries a set of **boolean
 flags** that describe its properties.  These are set by Windows and
@@ -225,9 +210,7 @@ applications — they are metadata *about* the file, not the file's content.
 - **"Find symlinks and junctions"** → `--attr reparse`
 - **"Sort by hidden status"** → `--sort hidden:desc` (hidden first)
 
----
-
-## 7  Timestamps
+## 7. Timestamps
 
 NTFS stores three timestamps per file, all recorded to 100-nanosecond
 precision:
@@ -255,9 +238,7 @@ precision:
 - **"Find newly downloaded/installed files"** → `--newer-created 7d`
 - **"Find files not touched in years"** → `--older 730d`
 
----
-
-## 8  Name Length & Path Length
+## 8. Name Length and Path Length
 
 | Metric | What it counts |
 |--------|---------------|
@@ -279,9 +260,7 @@ scripts, and backup tools break on paths longer than 260.
 - **"Find short 8.3-style filenames"** →
   `--max-name-length 12`
 
----
-
-## 9  Month-of-Year
+## 9. Month-of-Year
 
 The month filter lets you select files by the **calendar month** of their
 last modification, regardless of year.  This is useful for seasonal or
@@ -298,9 +277,7 @@ uffs '*' --month Q4
 > The month is extracted from the Modified timestamp.  A file modified on
 > 2023-01-15 and another modified on 2026-01-03 both match `--month jan`.
 
----
-
-## 10  Alternate Data Streams (ADS)
+## 10. Alternate Data Streams (ADS)
 
 NTFS allows files to have multiple named data streams.  The default
 (unnamed) stream is what you see as the file's content.  Named streams
@@ -328,9 +305,7 @@ uffs '*' --full
 uffs '*' --full --hide-ads
 ```
 
----
-
-## 11  The MFT — How UFFS Reads Your Files
+## 11. The MFT: How UFFS Reads Your Files
 
 The Master File Table is a flat database at the start of every NTFS
 volume.  Each 1 KB record contains a file's metadata — name, parent
@@ -355,8 +330,6 @@ The MFT contains everything UFFS needs except two things:
 
 > **Deep dive:** [Cache & Data Sources](cache-and-data.md)
 
----
-
 ## Quick Comparison Table
 
 | Metric | Applies to | What it answers |
@@ -372,4 +345,9 @@ The MFT contains everything UFFS needs except two things:
 | Name Length | Both | "How long is the filename?" |
 | Path Length | Both | "How long is the full path?" |
 
-> **Full terminology reference:** [Glossary](glossary.md)
+## See also
+
+- [Filters](filters.md): narrow results by size, date, type, attributes and more
+- [Sorting](sorting.md): sort columns and multi-tier sorts
+- [CLI Overview](cli-overview.md): every flag and command at a glance
+- [Glossary](glossary.md): the terms the chapters use

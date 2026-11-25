@@ -22,13 +22,7 @@ Pre-built binaries for all platforms are also available directly from
 [GitHub Releases](https://github.com/skyllc-ai/UltraFastFileSearch/releases) (§2),
 and you can always build from source (§5). Most users do not need to.
 
-> **See also:** [Getting Started](getting-started.md) ·
-> [CLI Overview](cli-overview.md) · [Daemon](daemon.md) ·
-> [Cache & Data Sources](cache-and-data.md)
-
----
-
-## 1  WinGet (Windows — Recommended)
+## 1. WinGet (Windows: Recommended)
 
 If you have the [Windows Package Manager](https://learn.microsoft.com/windows/package-manager/)
 (bundled with Windows 11 and modern Windows 10), install in one command:
@@ -54,11 +48,9 @@ uffs --version
 > (`uffs-broker --install`, one-time from an elevated terminal) and every later
 > search — plus daemon start/stop and non-elevated updates — runs with **no
 > UAC**. Without the broker, use an Administrator terminal. See
-> [§3 Platform Requirements](#3--platform-requirements).
+> [§3 Platform Requirements](#3-platform-requirements).
 
----
-
-## 2  Pre-Built Binaries
+## 2. Pre-Built Binaries
 
 Download the latest Windows x64 binaries from the
 [GitHub Releases page](https://github.com/skyllc-ai/UltraFastFileSearch/releases/latest).
@@ -117,9 +109,7 @@ Get-FileHash uffs-windows-x64.exe -Algorithm SHA256
 # Compare with CHECKSUMS.txt from the release
 ```
 
----
-
-## 3  Platform Requirements
+## 3. Platform Requirements
 
 | Platform | Data source | Privileges |
 |----------|------------|------------|
@@ -160,9 +150,7 @@ uffs "*.txt" --data-dir ~/uffs_data --limit 5
 See [Cache & Data Sources](cache-and-data.md) for how to set up the
 `drive_c/`, `drive_d/` directory structure.
 
----
-
-## 4  Add to PATH
+## 4. Add to PATH
 
 ### Windows (PowerShell)
 
@@ -184,15 +172,13 @@ uffs --version
 uffs "*.txt" --limit 5
 ```
 
-### macOS / Linux (build from source — see §5)
+### macOS / Linux (build from source: see §5)
 
 ```bash
 ln -s "$(pwd)/target/release/uffs" /usr/local/bin/uffs
 ```
 
----
-
-## 5  Build from Source
+## 5. Build from Source
 
 Building from source is needed for development, contributing, or
 running on macOS/Linux.
@@ -297,9 +283,7 @@ cargo xwin build --release --target x86_64-pc-windows-msvc
 See [xwin workaround](../xwin-msvc-rlib-size-root-cause-and-workarounds.md)
 for details on the `xwin-dev` profile and COFF archive size limits.
 
----
-
-## 6  Verify Installation
+## 6. Verify Installation
 
 ```bash
 # Check version
@@ -318,10 +302,11 @@ uffs "*.txt" --data-dir ~/uffs_data --limit 5
 If the search returns results, UFFS is working.  The daemon starts
 automatically on first search — see [Daemon](daemon.md) for details.
 
----
+## See also
 
-## Next Steps
-
-- [Getting Started](getting-started.md) — your first search in 5 minutes
-- [CLI Overview](cli-overview.md) — all flags and subcommands at a glance
-- [Cache & Data Sources](cache-and-data.md) — setting up offline MFT files
+- [Getting Started](getting-started.md): your first search and everyday recipes
+- [CLI Overview](cli-overview.md): every flag and command at a glance
+- [Daemon](daemon.md): the resident index server and how to manage it
+- [Cache & Data Sources](cache-and-data.md): live drives, MFT captures and the index cache
+- [Updating](updating.md): keep UFFS current with `uffs --update`
+- [Uninstalling](uninstall.md): remove UFFS and its data

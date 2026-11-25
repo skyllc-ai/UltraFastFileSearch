@@ -5,14 +5,7 @@ indices in memory and serves search queries over a local IPC socket.
 Searches that would normally take 60+ seconds to load data complete in
 **~200 ms** end-to-end because the daemon keeps everything hot.
 
-> **See also:** [Getting Started](getting-started.md) ·
-> [CLI Overview](cli-overview.md) ·
-> [Cache & Data Sources](cache-and-data.md) ·
-> [Advanced Diagnostics](advanced-diagnostics.md)
-
----
-
-## 1  Architecture
+## 1. Architecture
 
 ```
 ┌─────────┐                          ┌─────────────┐
@@ -31,9 +24,7 @@ clients share the same daemon instance.
 | Unix domain socket | macOS / Linux |
 | Named pipe | Windows |
 
----
-
-## 2  Quick Start
+## 2. Quick Start
 
 ### macOS / Linux (Offline MFT Files)
 
@@ -78,9 +69,7 @@ uffs --daemon start --drive C --drive D
 > start/stop/restart and non-elevated updates — runs with **no UAC**; otherwise
 > start it from an Administrator terminal.
 
----
-
-## 3  Auto-Start
+## 3. Auto-Start
 
 You rarely need to start the daemon manually.  When you run `uffs` (or
 any client), the auto-start mechanism handles everything:
@@ -98,9 +87,7 @@ This means your first `uffs *.txt --data-dir ~/uffs_data` on a clean
 machine does everything: spawn daemon, load MFT, build index, search,
 return results.  The next search is instant.
 
----
-
-## 4  Idle Retirement
+## 4. Idle Retirement
 
 The daemon retires automatically after being idle for **2 hours**
 (7200 seconds).  No cleanup needed — the PID file and socket are
@@ -163,7 +150,7 @@ importantly `--no-retire`.  Flags you pass explicitly always win over
 the marker.  `resident off` removes the marker along with the login
 item.
 
-### The watchdog — surviving crashes and installers
+### The watchdog: surviving crashes and installers
 
 The login item delivers residency at boot, and the auto-spawn marker
 revives a dead daemon on the next search.  Neither notices a service
@@ -233,7 +220,7 @@ mistaken for another's.  An unreadable probe means *unknown*, and
 unknown is always left alone — a supervisor that restarts things it
 cannot see manufactures the outage it exists to prevent.
 
-### Memory tiers — and why you never see `Hot`
+### Memory tiers: and why you never see `Hot`
 
 Each drive's index sits in one of four tiers, visible in
 `uffs --daemon status_drives`:
@@ -292,9 +279,7 @@ daemon's own index load, the drives still being brought back, or a
 daemon that no longer answers.  Set the variable lower if you would
 rather get that error sooner, for example `UFFS_CLIENT_TIMEOUT_SECS=120`.
 
----
-
-## 5  Management Commands
+## 5. Management Commands
 
 | Command | Description |
 |---------|-------------|
@@ -313,7 +298,7 @@ rather get that error sooner, for example `UFFS_CLIENT_TIMEOUT_SECS=120`.
 | `uffs --daemon forget` | Evict drive(s) and delete their on-disk caches |
 | `uffs --daemon changed-since <DRIVE>` | USN-journal delta probe: which files changed since a cursor (read-only) |
 
-`stop` and `kill` record *stop intent* so the [watchdog](#the-watchdog--surviving-crashes-and-installers)
+`stop` and `kill` record *stop intent* so the [watchdog](#the-watchdog-surviving-crashes-and-installers)
 does not undo them; the next explicit `start` clears it.
 
 ### `uffs --daemon status`
@@ -334,7 +319,7 @@ The health glyph is colour-coded on a terminal (green `●` running, yellow
 `◐` loading/refreshing); colour is dropped automatically when the output is
 piped or `NO_COLOR` is set.
 
-### `uffs --daemon status -v`  (long view)
+### `uffs --daemon status -v` (long view)
 
 `-v` / `--verbose` expands every section, including the performance counters
 that used to live under the separate `uffs --daemon stats` command (now folded
@@ -416,7 +401,7 @@ G      warm         2 MiB 0.00    10m ago           -                         0
 
 | Column | Meaning |
 |--------|---------|
-| `TIER` | `hot` / `warm` / `parked` / `cold` — see [Memory tiers](#memory-tiers--and-why-you-never-see-hot) |
+| `TIER` | `hot` / `warm` / `parked` / `cold` — see [Memory tiers](#memory-tiers-and-why-you-never-see-hot) |
 | `RESIDENT` | Bytes held in RAM for that drive, scaled to `MiB` / `GiB` |
 | `QPM` | Queries per minute against that drive (drives the tiering decisions) |
 | `LAST QUERY` | How long since it was last searched |
@@ -427,7 +412,7 @@ G      warm         2 MiB 0.00    10m ago           -                         0
 > The old command now prints a one-line redirect.
 
 
-### `uffs --daemon changed-since` — USN-journal delta probe
+### `uffs --daemon changed-since`: USN-journal delta probe
 
 Read-only probe for the daemon's `changed_since` RPC: ask which files
 changed on a drive since a cursor, answered from the NTFS USN journal
@@ -495,9 +480,7 @@ daemon too — so a substring scan will attribute one service's state to
 another.  The watchdog learned this the hard way, and now reads this
 document.
 
----
-
-## 6  Logging
+## 6. Logging
 
 The daemon runs detached — its stdout is `/dev/null`.  To capture logs,
 use `--log-file` and `--log-level`:
@@ -516,9 +499,7 @@ uffs --daemon start --data-dir ~/uffs_data \
 The `RUST_LOG` and `UFFS_LOG_DIR` environment variables also control
 logging — see [Advanced Diagnostics](advanced-diagnostics.md) for details.
 
----
-
-## 7  Platform Differences
+## 7. Platform Differences
 
 | Aspect | Windows | macOS / Linux |
 |--------|---------|---------------|
@@ -538,11 +519,9 @@ logging — see [Advanced Diagnostics](advanced-diagnostics.md) for details.
 PID files are stored alongside the socket.  `uffs --daemon kill` removes
 both if a graceful stop fails.
 
----
+## 8. Performance
 
-## 8  Performance
-
-### Windows — Live NTFS, 7 Drives, 25.9M Records
+### Windows: Live NTFS, 7 Drives, 25.9M Records
 
 Measured on AMD Ryzen 9 3900XT (12c/24t, 64 GB DDR4), 7 NTFS volumes
 (NVMe + SATA SSD + SATA HDD), 25,929,744 total records:
@@ -565,9 +544,7 @@ stdout formatting.
 > 📖 **Full data:** [Performance](performance.md) — per-drive
 > cold/warm/hot tables, profile internals, query pattern comparison.
 
----
-
-## 9  Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
@@ -579,9 +556,7 @@ stdout formatting.
 
 > **More troubleshooting:** [Troubleshooting](troubleshooting.md)
 
----
-
-## 10  Readiness Verification
+## 10. Readiness Verification
 
 A comprehensive test script exercises all daemon lifecycle combinations
 (10 scenarios, 68 steps):
@@ -608,3 +583,9 @@ start, hard kill recovery, graceful stop→start cycle, restart data
 preservation, double restart, stats accumulation, kill→status, and search
 auto-start.
 
+## See also
+
+- [Getting Started](getting-started.md): your first search and everyday recipes
+- [CLI Overview](cli-overview.md): every flag and command at a glance
+- [Cache & Data Sources](cache-and-data.md): live drives, MFT captures and the index cache
+- [Advanced Diagnostics](advanced-diagnostics.md): profiling, logging and environment variables

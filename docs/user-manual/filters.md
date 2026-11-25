@@ -5,12 +5,7 @@ pattern matching.  Filters are applied server-side inside the daemon — only
 matching rows are returned to the CLI, so adding filters never makes a
 search slower; it makes it faster by reducing output.
 
-> **See also:** [Concepts](concepts.md) · [CLI Overview](cli-overview.md) ·
-> [Search Modes](search-modes.md) · [Sorting](sorting.md)
-
----
-
-## 1  Scope Filters
+## 1. Scope Filters
 
 Scope filters control whether files, directories, or both appear in
 results.
@@ -36,9 +31,7 @@ uffs '*' --hide-system
 > `--files-only` and `--dirs-only` are mutually exclusive in practice —
 > combining them would return zero results.
 
----
-
-## 2  Size Filters
+## 2. Size Filters
 
 Size filters work on the file's **logical size**.  Values accept
 human-readable suffixes or plain byte counts.
@@ -88,9 +81,7 @@ uffs '*.log' --min-size 4096
 - Combine `--min-size` with `--sort size` to build a "top largest files"
   workflow.
 
----
-
-## 3  Date / Time Filters
+## 3. Date / Time Filters
 
 UFFS can filter on three NTFS timestamps: **modified**, **created**, and
 **accessed**.  Each timestamp has a **newer** (after) and **older** (before)
@@ -186,9 +177,7 @@ uffs '*.zip' --older 730d --files-only
   installed files that may have old modification dates.
 - All times are resolved relative to **now** at query execution time.
 
----
-
-## 4  NTFS Attribute Filters
+## 4. NTFS Attribute Filters
 
 The `--attr` flag filters by NTFS file-system attributes.  You can
 **require** attributes (they must be set) or **exclude** them (they must
@@ -254,9 +243,7 @@ uffs '*' --attr sparse --files-only
 - The `archive` attribute is useful for backup workflows — it marks files
   modified since the last backup.
 
----
-
-## 5  Descendant Filters
+## 5. Descendant Filters
 
 Descendant filters operate on directories, filtering by the number of
 direct children (files and subdirectories) they contain.
@@ -286,9 +273,7 @@ uffs '*' --dirs-only --max-descendants 0 --sort path
   popular cleanup workflows.
 - Combine with `--sort descendants` to rank directories by child count.
 
----
-
-## 6  Extension Filters
+## 6. Extension Filters
 
 The `--ext` flag filters files by extension.  It accepts individual
 extensions and **collection aliases** that expand to predefined groups.
@@ -342,9 +327,7 @@ uffs '*' --ext documents,mp4,heic
 - Use `--ext` instead of a complex glob like `>.*\.(jpg|png|gif)$` — it
   is both simpler and faster.
 
----
-
-## 7  Exclude Filter
+## 7. Exclude Filter
 
 The `--exclude` flag removes files matching a glob pattern **after** the
 main pattern match.
@@ -363,9 +346,7 @@ uffs '*.rs' --exclude '*test*'
 The exclude pattern is matched against the **filename only** (not the full
 path) and is always case-insensitive.
 
----
-
-## 8  Path Filter
+## 8. Path Filter
 
 The `--in-path` flag filters by the **directory portion** of the resolved
 path.  It matches a glob pattern against everything *except* the filename —
@@ -386,9 +367,7 @@ uffs '*.dat' --in-path '*temp*' --exclude '*backup*'
 The glob is matched **case-insensitively** against the directory path only
 (not the filename).  This is a post-filter — applied after path resolution.
 
----
-
-## 9  Type Filter
+## 9. Type Filter
 
 The `--type` flag filters by **semantic file category**.  UFFS maps file
 extensions to 24 human-readable categories and lets you filter, sort, and
@@ -434,9 +413,7 @@ uffs '*' --type database      # All database files
 > Files without an extension use `file`.  Extensions not in any category
 > map to `other`.
 
----
-
-## 10  Bulkiness Filter
+## 10. Bulkiness Filter
 
 Bulkiness measures the **waste ratio** between allocated disk space and
 logical file size.  A perfectly packed file has bulkiness = 100 (100%).
@@ -461,9 +438,7 @@ uffs '*' --min-size 1MB --min-bulkiness 1000
 > For directories, bulkiness uses the subtree metrics:
 > `tree_allocated × 100 / treesize`.
 
----
-
-## 11  Size on Disk Filters
+## 11. Size on Disk Filters
 
 Size on Disk (`SizeOnDisk` / allocated size) reflects the actual bytes
 consumed on the physical volume, which may differ from the logical size
@@ -483,9 +458,7 @@ uffs '*' --attr compressed --max-size-on-disk 1MB --min-size 10MB
 uffs '*' --min-size-on-disk 1GB --files-only
 ```
 
----
-
-## 12  Tree Size / Tree Allocated Filters
+## 12. Tree Size / Tree Allocated Filters
 
 Tree metrics aggregate **subtree totals** for directories.  `TreeSize` is
 the sum of logical sizes of all descendants; `TreeAllocated` is the sum of
@@ -506,9 +479,7 @@ uffs '*' --dirs-only --min-treesize 1GB --sort treesize --sort-desc
 uffs '*' --dirs-only --max-tree-allocated 100MB
 ```
 
----
-
-## 13  Name & Path Length Filters
+## 13. Name and Path Length Filters
 
 | Flag | Meaning |
 |------|---------|
@@ -531,9 +502,7 @@ uffs '*' --max-name-length 12 --files-only
 > Name length is checked in the hot-path.  Path length is a post-filter
 > (requires resolved full path).
 
----
-
-## 14  Month-of-Year Filter
+## 14. Month-of-Year Filter
 
 The `--month` flag filters by the **month** of the last-modified timestamp,
 across all years.  Useful for seasonal analysis.
@@ -558,9 +527,7 @@ uffs '*' --month jun,jul,aug
 | Quarter | `Q1` | Months 1, 2, 3 |
 | Combo | `jan,feb,Q4` | Months 1, 2, 10, 11, 12 |
 
----
-
-## 14a  Malformed-Name Filters (forensic)
+## 14a. Malformed-Name Filters (forensic)
 
 NTFS stores file names as UTF-16 with **no well-formedness guarantee** — a name
 can contain an unpaired surrogate that has no valid UTF-8 form. UFFS retains
@@ -636,9 +603,7 @@ never which rows match (use `--malformed` to filter).
 > under a crooked directory resolves at its real path (the directory is no longer
 > collapsed out of the path), so it is findable where it actually lives.
 
----
-
-## 15  Result Limit
+## 15. Result Limit
 
 The `--limit` (or `-n`) flag caps the number of results returned.
 
@@ -652,9 +617,7 @@ uffs '*.exe' --drive D --limit 1
 
 A limit of `0` (the default) means unlimited.
 
----
-
-## 16  Combining Filters — Recipes
+## 16. Combining Filters: Recipes
 
 Filters are **ANDed together** — every filter must pass for a row to
 appear.  This makes it easy to build precise queries by stacking filters.
@@ -695,8 +658,6 @@ uffs '*' --ext code --newer-created 7d --files-only
 uffs '*' --dirs-only --min-descendants 500 --sort descendants --sort-desc --limit 20
 ```
 
----
-
 ### Find Wasteful Files (High Bulkiness)
 
 ```bash
@@ -721,9 +682,7 @@ uffs '*.log' --in-path '*windows\system32*' --newer 7d
 uffs '*' --dirs-only --min-treesize 10GB --sort treesize --sort-desc --limit 20
 ```
 
----
-
-## 17  Quick Reference
+## 17. Quick Reference
 
 ```text
 SCOPE
@@ -792,3 +751,10 @@ TIME SPEC FORMATS
   last_7d / last_30d / last_90d    Named durations
   this_month / this_year / ytd     Calendar ranges
 ```
+
+## See also
+
+- [Concepts](concepts.md): what each size, count and attribute means
+- [CLI Overview](cli-overview.md): every flag and command at a glance
+- [Search Modes](search-modes.md): glob, literal and regex patterns
+- [Sorting](sorting.md): sort columns and multi-tier sorts

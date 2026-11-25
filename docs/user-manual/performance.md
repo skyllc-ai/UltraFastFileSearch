@@ -16,12 +16,6 @@ benchmark and profiling scripts.
 > deep-dive sections below are dated forensic captures and carry their
 > version tags.
 
-> **See also:** [Advanced Diagnostics](advanced-diagnostics.md) ·
-> [Daemon](daemon.md) · [Cache & Data Sources](cache-and-data.md) ·
-> [Concepts](concepts.md)
-
----
-
 ## What these numbers mean
 
 This page intentionally separates **readiness** from **interactive query latency**.
@@ -33,8 +27,6 @@ This page intentionally separates **readiness** from **interactive query latency
 Unless explicitly noted otherwise, the headline tables on this page measure **end-to-end CLI latency** for the query `*` with `--limit 100`. That means the HOT numbers are **interactive top-N timings**, not full-result export timings. Daemon-side search time is reported separately from process spawn, IPC, and stdout formatting.
 
 This separation is deliberate. Different tools and interfaces optimize different workloads. UFFS therefore treats readiness, interactive search, bulk retrieval, and scale ceiling as separate benchmark classes instead of forcing them into one number.
-
----
 
 ## Benchmark classes and fairness rules
 
@@ -48,9 +40,7 @@ When UFFS publishes cross-tool benchmarks, the rules are:
 
 A benchmark is only useful if readers can see both the fastest successful run and the point where a tool stops being operational.
 
----
-
-## 1  Test System
+## 1. Test System
 
 | Component | Specification |
 |-----------|--------------|
@@ -82,9 +72,7 @@ A benchmark is only useful if readers can see both the fastest successful run an
 >
 > **Scale-ceiling note:** The 42.5M–100.4M tiers are constructed by adding offline MFT clones to the live 7-drive corpus on the same machine. They are scale-ceiling workloads, not additional live volumes.
 
----
-
-## 2  The Three-Phase Model
+## 2. The Three-Phase Model
 
 Every UFFS search goes through a startup phase before the first query
 can be answered.  The cost depends on how "warm" the system is:
@@ -109,9 +97,7 @@ Results
 | **WARM CACHE** | Daemon loads serialized `.iocp` cache from disk — skips expensive MFT parse | Daemon restart (reboot, manual kill) with cache intact |
 | **HOT** | Daemon already running, index in memory — pure query execution | Every search after the first one |
 
----
-
-## 3  Per-Drive Results
+## 3. Per-Drive Results
 
 All timings are wall-clock, end-to-end (process spawn → exit), averaged
 over 3 rounds.  Pattern: `*` (full scan), limit: 100 rows.
@@ -193,10 +179,8 @@ yet — they are expected to scale proportionally.
 > and is tracked as Phase 5 target #2 (bounded-heap top-N) — see
 > [cross-tool benchmark analysis](../research/cross-tool-benchmark-analysis.md) §7.
 
----
 
-
-## 4  Speedup Summary
+## 4. Speedup Summary
 
 The table below shows end-to-end speedup from cold start to hot query
 for each drive.  The Cold→Hot ratio is the primary performance metric.
@@ -220,9 +204,7 @@ for each drive.  The Cold→Hot ratio is the primary performance metric.
 > The daemon eliminates this entirely: once loaded, every drive
 > responds in **6–54 ms** regardless of media type.
 
----
-
-## 5a  Cross-Tool vs Everything (v0.5.120, C+D apples-to-apples)
+## 5a. Cross-Tool vs Everything (v0.5.120, C+D apples-to-apples)
 
 On v0.5.120 UFFS wins **30/30 cells at p50** against Everything
 (1.4.1.1032) across C/D/F/G and the combined index — median ratio
@@ -262,9 +244,7 @@ numbers held roughly flat. Historical v0.5.66 table and analysis in
 > `@/Users/rnio/Private/Github/UltraFastFileSearch/docs/research/perf-phase2-measurement-plan.md`, Null-binary matrix
 > refresh).  The daemon itself responds in 0–3 ms on targeted queries.
 
----
-
-## 5  HOT Query Patterns
+## 5. HOT Query Patterns
 
 Different search patterns exercise different code paths in the query
 engine.  The benchmark tests eight representative patterns against a
@@ -314,9 +294,7 @@ hot daemon across all drives (25.9 M records, 30 rounds).
 >   `$` anchor for the v0.5.66 rewrite, see Phase 4 verified in the
 >   cross-tool doc).
 
----
-
-## 6  Profile Internals
+## 6. Profile Internals
 
 The `--profile` flag breaks down where time is spent inside the daemon.
 
@@ -373,13 +351,11 @@ The `--profile` flag breaks down where time is spent inside the daemon.
 > Cold-start time is dominated by **MFT read + parse** (the "Startup"
 > column).  Search itself is always <100 ms even on 8M records.
 
----
-
-## 7  Bulk Retrieval Throughput
+## 7. Bulk Retrieval Throughput
 
 Bulk retrieval measures how fast UFFS can export large result sets.
 
-### Full-Scan CSV Export — v0.5.120 current (all 7 drives, `*` → file, HOT, p50, n=10)
+### Full-Scan CSV Export: v0.5.120 current (all 7 drives, `*` → file, HOT, p50, n=10)
 
 Source: [`docs/benchmarks/raw/2026-06-v0.5.120_full-scan-all-drives.csv`](../benchmarks/raw/2026-06-v0.5.120_full-scan-all-drives.csv)
 (`--hide-system --hide-ads`, end-to-end through the daemon pipe):
@@ -399,7 +375,7 @@ The complete estate streams to CSV in **12.0 s** — the largest single
 drive (S:, 8.3 M rows) exports in **3.83 s**, where the v0.5.4 harness
 below measured 25.6 s for the same drive (~6× improvement).
 
-### CSV Export Tiers — v0.5.4 historical (7 drives, 25.9M records, `--out-dir`)
+### CSV Export Tiers: v0.5.4 historical (7 drives, 25.9M records, `--out-dir`)
 
 Kept for the tier-scaling shape; absolute rates are superseded by the
 v0.5.120 table above.
@@ -431,9 +407,7 @@ Format makes no material difference to throughput.  Both CSV and JSON
 achieve comparable rows/sec at each tier — the bottleneck is query
 evaluation and IPC, not serialization.
 
----
-
-## 8  Scale Ceiling
+## 8. Scale Ceiling
 
 The scale ceiling test loads progressively larger MFT collections
 (cloned offline drives + live drives) and measures interactive
@@ -485,9 +459,7 @@ added one at a time up to the real 26 M-record envelope:
 >   records, so the 100 M ceiling was set by per-record cost being
 >   higher on v0.5.4 (~640 B in the older DataFrame layout).
 
----
-
-## 9  Validation Suite Throughput
+## 9. Validation Suite Throughput
 
 UFFS ships three validation suites that double as performance
 benchmarks for the query engine under realistic workloads.  All suites
@@ -537,9 +509,7 @@ Latest figures from the v0.5.62 validation run (hot daemon, 25.9M records across
 > because the per-test CLI tax fell from ~160 ms to ~28 ms after
 > the Run 10/11 RPC-consolidation and watchdog fixes.
 
----
-
-## 10  Daemon Runtime Statistics
+## 10. Daemon Runtime Statistics
 
 After a v0.5.62 session (from [`docs/benchmarks/raw/2026-04-v0.5.62_aggregate-baseline.txt:392-410`](../benchmarks/raw/2026-04-v0.5.62_aggregate-baseline.txt)):
 
@@ -561,9 +531,7 @@ After a v0.5.62 session (from [`docs/benchmarks/raw/2026-04-v0.5.62_aggregate-ba
 > dropped from ~6 GB to **4.99 GB (−17 %)** thanks to mimalloc +
 > `mi_collect(true)` (OPT-6) and trigram pruning (OPT-7).
 
----
-
-## 11  C++ vs Rust Parity Comparison
+## 11. C++ vs Rust Parity Comparison
 
 UFFS was rewritten from C++ to Rust.  The parity test runs both
 implementations on the same drives and compares output.  The Rust
@@ -594,9 +562,7 @@ C++ baseline runs warm:
 > gap measures **180×–3 400× for targeted queries** (see the
 > [current canonical report](../benchmarks/2026-06-v0.5.120-vs-everything.md)).
 
----
-
-## 12  Running Your Own Benchmarks
+## 12. Running Your Own Benchmarks
 
 UFFS includes two profiling scripts in `scripts/windows/`:
 
@@ -641,5 +607,9 @@ uffs "*.dll" --profile
 uffs "*.dll" --benchmark --limit 5
 ```
 
-> **See also:** [Advanced Diagnostics](advanced-diagnostics.md) for
-> `--profile`, `--benchmark`, and `--verbose` flag details.
+## See also
+
+- [Advanced Diagnostics](advanced-diagnostics.md): profiling, logging and environment variables
+- [Daemon](daemon.md): the resident index server and how to manage it
+- [Cache & Data Sources](cache-and-data.md): live drives, MFT captures and the index cache
+- [Concepts](concepts.md): what each size, count and attribute means

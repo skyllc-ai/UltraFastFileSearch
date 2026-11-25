@@ -4,12 +4,7 @@ UFFS supports multiple output formats for search results.  CSV is the
 default; JSON and table formats are available for scripting and
 interactive use.
 
-> **See also:** [CLI Overview](cli-overview.md) ·
-> [Sorting](sorting.md) · [Getting Started](getting-started.md)
-
----
-
-## 1  Choosing a Format
+## 1. Choosing a Format
 
 ```bash
 uffs '*.txt' --format csv      # Default
@@ -25,9 +20,7 @@ uffs '*.txt' --format custom   # Custom separator + quoting
 | Table | `--format table` | Interactive terminal use, quick inspection |
 | Custom | `--format custom` | Custom separators, TSV, advanced scripting |
 
----
-
-## 2  CSV Output (Default)
+## 2. CSV Output (Default)
 
 ```bash
 uffs '*.rs' --limit 3
@@ -61,9 +54,7 @@ uffs '*.csv' --sep ';' --quotes "'"
 uffs '*' --attr hidden --pos yes --neg no --columns Name,Hidden,Path
 ```
 
----
-
-## 3  JSON Output (NDJSON)
+## 3. JSON Output (NDJSON)
 
 Each result is a JSON object on its own line (Newline-Delimited JSON).
 
@@ -89,9 +80,7 @@ uffs '*.rs' --format json --files-only | jq -s 'map(.Size) | add'
 uffs '*.log' --format json | jq 'select(.Size > 1000000)'
 ```
 
----
-
-## 4  Table Output
+## 4. Table Output
 
 Columns are aligned for terminal readability.
 
@@ -99,9 +88,7 @@ Columns are aligned for terminal readability.
 uffs '*.rs' --format table --limit 3
 ```
 
----
-
-## 5  Column Selection
+## 5. Column Selection
 
 By default, UFFS outputs all columns.  Use `--columns` to select a
 subset:
@@ -128,9 +115,7 @@ These columns output `1`/`0` (or the value set by `--pos`/`--neg`):
 uffs '*' --columns Name,Size,Hidden,System,Compressed,Encrypted --limit 10
 ```
 
----
-
-## 6  Output to File
+## 6. Output to File
 
 Use `--out` to write results to a file instead of stdout:
 
@@ -146,9 +131,7 @@ uffs '*.rs' --format json | jq '.Path' | sort
 uffs '*.dll' --columns Path --header false | wc -l
 ```
 
----
-
-## 7  Scripting Patterns
+## 7. Scripting Patterns
 
 ### Count files by extension
 
@@ -182,3 +165,9 @@ uffs '*' --format json --files-only | \
 
 > For server-side aggregation (faster than client-side jq pipelines),
 > see [Aggregation](aggregation.md).
+
+## See also
+
+- [CLI Overview](cli-overview.md): every flag and command at a glance
+- [Sorting](sorting.md): sort columns and multi-tier sorts
+- [Getting Started](getting-started.md): your first search and everyday recipes

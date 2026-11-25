@@ -26,9 +26,7 @@ The MCP server is a **thin bridge** — it translates MCP tool calls into
 daemon queries and returns results.  It does not hold index data itself.
 The daemon must be running (it auto-starts when needed).
 
----
-
-## 1  Two transports
+## 1. Two transports
 
 | | HTTP (recommended) | stdio |
 |---|---|---|
@@ -39,9 +37,7 @@ The daemon must be running (it auto-starts when needed).
 | **Auth** | Optional bearer token | No auth (pipe is private) |
 | **Best for** | Production, shared environments, many hosts | Quick setup, single-agent use |
 
----
-
-## 2  Quick start
+## 2. Quick start
 
 ### HTTP mode
 
@@ -99,9 +95,7 @@ No configuration is needed.  Tuning knobs (rarely needed):
 | `UFFS_MCP_WATCH_PATH` | File whose identity change triggers a swap | the worker executable |
 | `UFFS_MCP_POLL_MS` | How often the binary is checked (ms) | `5000` |
 
----
-
-## 3  Host configuration
+## 3. Host configuration
 
 ### Claude Desktop / Claude Code
 
@@ -199,9 +193,7 @@ The `uffs-mcp` binary can be used instead of `uffs --mcp run`:
 }
 ```
 
----
-
-## 4  Tools
+## 4. Tools
 
 The MCP server exposes six read-only tools.  All are annotated as
 `readOnlyHint: true` — they never modify the filesystem.
@@ -215,10 +207,10 @@ The MCP server exposes six read-only tools.  All are annotated as
 | `uffs_drives` | — | List all indexed drives with record counts |
 | `uffs_status` | — | Daemon health, uptime, memory, loading progress |
 
-### Cold-index behaviour — the warming contract
+### Cold-index behaviour: the warming contract
 
 Drives tier down when idle ([Parked after 30 min, Cold after
-24 h](daemon.md#memory-tiers--and-why-you-never-see-hot)), and the
+24 h](daemon.md#memory-tiers-and-why-you-never-see-hot)), and the
 re-warm on next touch can take 30–120 s on HDD-heavy systems.  A query
 tool never blocks for that.  When a query would touch a drive that is
 not `Warm`/`Hot`, the tool:
@@ -299,9 +291,7 @@ Full metadata for a single path:
 Returns: size, allocated size, created/modified/accessed timestamps, NTFS
 flags, MFT record number, parent directory path.
 
----
-
-## 5  Resources
+## 5. Resources
 
 Resources are **read-only data** that agents can access even when tool
 invocation is unavailable.  This is critical — some MCP clients expose
@@ -325,9 +315,7 @@ invocation is unavailable.  This is critical — some MCP clients expose
 
 The `{path}` segment is percent-encoded (`:` → `%3A`, `\` → `%5C`).
 
----
-
-## 6  Prompts
+## 6. Prompts
 
 Prompts are **guided multi-step workflows** that an agent can request
 and then execute step-by-step.
@@ -345,9 +333,7 @@ and then execute step-by-step.
 Agents request a prompt via `prompts/get`, receive structured instructions,
 then execute the steps using the tools above.
 
----
-
-## 7  Server management
+## 7. Server management
 
 ### Commands
 
@@ -392,9 +378,7 @@ Sessions:          12 total, 3 active
 Avg tool latency:  2.4ms
 ```
 
----
-
-## 8  HTTP endpoints
+## 8. HTTP endpoints
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -436,9 +420,7 @@ $ curl http://127.0.0.1:8080/status
 }
 ```
 
----
-
-## 9  Agent instructions
+## 9. Agent instructions
 
 When an agent connects, the MCP server sends **agent instructions** as part
 of the `initialize` response.  These instructions teach the agent:
@@ -452,9 +434,7 @@ of the `initialize` response.  These instructions teach the agent:
 This means an agent can start using UFFS effectively without reading any
 external documentation — the instructions are embedded in the protocol.
 
----
-
-## 10  Cookbook
+## 10. Cookbook
 
 The `uffs://cookbook` resource is the **single most useful resource** for
 agents learning to use UFFS.  It contains ~30 ready-to-use examples
@@ -480,9 +460,7 @@ Each example includes:
 
 Plus 12 power-user tips for combining parameters effectively.
 
----
-
-## 11  Idle timeout and auto-exit
+## 11. Idle timeout and auto-exit
 
 ### stdio mode
 
@@ -505,9 +483,7 @@ deadline.  A busy agent will never trigger it.
 
 The HTTP gateway runs indefinitely.  Use `uffs --mcp stop` to shut it down.
 
----
-
-## 12  Logging and diagnostics
+## 12. Logging and diagnostics
 
 **stdout is the protocol channel** — all diagnostic output goes to stderr
 or a log file.
@@ -531,9 +507,7 @@ Default log file location:
 - Linux: `~/.local/share/uffs/uffs_mcp.log`
 - Windows: `%LOCALAPPDATA%\uffs\uffs_mcp.log`
 
----
-
-## 13  Relationship to the daemon
+## 13. Relationship to the daemon
 
 The MCP server is **not** the daemon.  They are separate processes:
 
@@ -548,3 +522,11 @@ The MCP server is **not** the daemon.  They are separate processes:
 When the MCP server connects, it auto-starts the daemon if needed.
 Stopping the MCP server does **not** stop the daemon — other clients
 (CLI, TUI, other MCP sessions) may still be using it.
+
+## See also
+
+- [Daemon](daemon.md): the resident index server and how to manage it
+- [Aggregation](aggregation.md): summaries instead of rows
+- [Search Modes](search-modes.md): glob, literal and regex patterns
+- [Filters](filters.md): narrow results by size, date, type, attributes and more
+- [Troubleshooting](troubleshooting.md): common errors and their fixes

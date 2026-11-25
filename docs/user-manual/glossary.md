@@ -7,13 +7,13 @@ Key terms used throughout the UFFS documentation.
 | Term | Definition |
 |------|-----------|
 | **ADS** | Alternate Data Stream — NTFS feature allowing multiple data streams per file. Hidden from Explorer by default. Use `--full` to index them. |
-| **Allocated size** | The actual disk space consumed by a file, rounded up to the nearest cluster boundary. Also called "size on disk". See [Concepts §1](concepts.md#1--size-vs-size-on-disk). |
-| **Bulkiness** | The ratio of allocated size to logical size, expressed as a percentage. A measure of allocation waste. 100 = perfectly efficient. See [Concepts §3](concepts.md#3--bulkiness-waste-ratio). |
+| **Allocated size** | The actual disk space consumed by a file, rounded up to the nearest cluster boundary. Also called "size on disk". See [Concepts §1](concepts.md#1-size-vs-size-on-disk). |
+| **Bulkiness** | The ratio of allocated size to logical size, expressed as a percentage. A measure of allocation waste. 100 = perfectly efficient. See [Concepts §3](concepts.md#3-bulkiness-waste-ratio). |
 | **Cluster** | The smallest unit of disk allocation in NTFS. Typically 4 KB (4096 bytes). Files smaller than one cluster still consume one full cluster. |
 | **Compact index** | UFFS's in-memory representation of the MFT — a struct-of-arrays layout optimised for search and aggregation. |
 | **Daemon** | The UFFS background process that holds the MFT index in memory and serves search queries over IPC. See [Daemon](daemon.md). |
 | **DataFrame** | A Polars columnar data structure. UFFS uses DataFrames internally for query execution. |
-| **Descendants** | The total number of files and subdirectories inside a directory (recursive count). See [Concepts §4](concepts.md#4--descendants-child-count). |
+| **Descendants** | The total number of files and subdirectories inside a directory (recursive count). See [Concepts §4](concepts.md#4-descendants-child-count). |
 | **Extension record** | An MFT record that continues the attributes of another record. Used when a file has many hard links or ADS entries. Indexed in `--full` mode. |
 | **FRS** | File Reference Segment — the MFT record number uniquely identifying a file or directory on a drive. Also called "file reference number". |
 | **Hard link** | An NTFS feature allowing multiple directory entries to point to the same file data. The file has one FRS but multiple names and parent directories. |
@@ -29,5 +29,5 @@ Key terms used throughout the UFFS documentation.
 | **Path resolution** | The process of reconstructing full file paths from MFT data. The MFT stores only filenames and parent FRS numbers, not full paths. UFFS's `FastPathResolver` walks the parent chain. |
 | **Reparse point** | An NTFS feature for symlinks, junctions, and volume mount points. Detected via the reparse attribute flag. |
 | **SoA** | Struct of Arrays — a data layout where each field is stored in a separate contiguous array. UFFS uses SoA for the compact index, enabling SIMD-friendly scans. |
-| **Treesize** | The recursive logical size of a directory subtree — the sum of sizes of all files in the directory and its descendants. See [Concepts §2](concepts.md#2--tree-size--tree-allocated). |
+| **Treesize** | The recursive logical size of a directory subtree — the sum of sizes of all files in the directory and its descendants. See [Concepts §2](concepts.md#2-tree-size-and-tree-allocated). |
 | **Tree allocated** | Same as treesize but for allocated (on-disk) sizes. |

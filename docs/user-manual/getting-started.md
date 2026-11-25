@@ -4,13 +4,7 @@ This page walks you from zero to productive in five minutes.  By the
 end you will have searched your filesystem, filtered results, and
 understood what the output means.
 
-> **See also:** [Installation](installation.md) ·
-> [CLI Overview](cli-overview.md) · [Daemon](daemon.md) ·
-> [Concepts](concepts.md)
-
----
-
-## 1  Your First Search
+## 1. Your First Search
 
 ### Windows (live NTFS drives)
 
@@ -35,9 +29,7 @@ for how to set this up.
 > is loading the MFT into memory.  Every search after that completes in
 > ~200 ms end-to-end (~150 ms daemon-side for 25.9M records).
 
----
-
-## 2  Understanding the Output
+## 2. Understanding the Output
 
 UFFS prints CSV by default.  Each row is one file or directory:
 
@@ -57,9 +49,7 @@ readme.txt,567,2026-03-28 14:22:01,C:\Projects\readme.txt
 You can change which columns appear, switch to JSON or table format,
 and redirect output to a file.  See [Output Formats](output-formats.md).
 
----
-
-## 3  Narrowing Results
+## 3. Narrowing Results
 
 Bare searches return a lot of results.  Add filters to focus:
 
@@ -89,9 +79,7 @@ makes searches *faster*, not slower, because less data is returned.
 > **Full filter reference:** [Filters](filters.md) — 40+ filters across
 > size, date, extension, type, attributes, path, and tree metrics.
 
----
-
-## 4  The Daemon
+## 4. The Daemon
 
 You may have noticed: the first search took several seconds, but the
 second one was instant.  That is the daemon.
@@ -116,6 +104,23 @@ Check its status:
 uffs --daemon status
 ```
 
+## 5. Recipes
+
+These recipes are organised by the workflows people use file search
+tools for most often.
+
+### Quick Find: "I know roughly what it is called"
+
+The #1 reason people use file search.
+
+```bash
+uffs invoice                                    # Paths containing "invoice"
+uffs '*.pdf'                                    # All PDFs across every drive
+uffs 'dir:node_modules'                         # Directories named node_modules
+uffs --contains report                          # Names containing "report"
+uffs 'c:/Users/*.docx'                          # Word docs on C: under Users
+uffs --begins-with IMG --ext pictures           # Photos starting with IMG
+```
 
 ### Filter by Type / Date / Size
 
@@ -132,7 +137,7 @@ uffs '*' --month jan,feb --ext documents        # Docs from January & February
 uffs '*' --ext config --in-path '*projects*'    # Config files in project trees
 ```
 
-### Triage & Cleanup
+### Triage and Cleanup
 
 Storage management — the hidden killer feature.
 
@@ -157,7 +162,7 @@ uffs '*' --files-only --min-path-length 250 --sort pathlength # MAX_PATH risk
 uffs '*' --files-only --min-name-length 100 --sort namelength # Absurdly long names
 ```
 
-### Power Search — Hidden / System / Attribute Files
+### Power Search: Hidden / System / Attribute Files
 
 ```bash
 uffs '*' --attr hidden --files-only             # Hidden files
@@ -185,34 +190,18 @@ uffs '*.dll' --columns Name,Size,Path           # Selective columns
 uffs '*.txt' --out results.csv                  # Write to file
 ```
 
----
-
-## Next Steps
+## Where to Go Next
 
 | You want to… | Read |
 |--------------|------|
-| Learn all pattern types (glob, regex, literal) | [Search Modes](search-modes.md) |
+| Learn every pattern type (glob, regex, literal) | [Search Modes](search-modes.md) |
 | See every filter in detail | [Filters](filters.md) |
-| Sort by any of 36+ columns | [Sorting](sorting.md) |
-| Get analytics instead of file lists | [Aggregation](aggregation.md) |
-| Understand Size vs SizeOnDisk, Bulkiness | [Concepts](concepts.md) |
+| Sort by any column | [Sorting](sorting.md) |
+| Choose columns, JSON or a table | [Output Formats](output-formats.md) |
+| Get a summary of a whole drive instead of a file list | [Aggregation](aggregation.md) |
+| Understand why sizes differ from Explorer | [Concepts](concepts.md#1-size-vs-size-on-disk) |
 | Manage the daemon | [Daemon](daemon.md) |
-| Connect AI agents via MCP | [MCP Server](mcp.md) |
-
-## 5  Recipes
-
-These recipes are organised by the workflows people use file search
-tools for most often.
-
-### Quick Find — "I know roughly what it is called"
-
-The #1 reason people use file search.
-
-```bash
-uffs invoice                                    # Paths containing "invoice"
-uffs '*.pdf'                                    # All PDFs across every drive
-uffs 'dir:node_modules'                         # Directories named node_modules
-uffs --contains report                          # Names containing "report"
-uffs 'c:/Users/*.docx'                          # Word docs on C: under Users
-uffs --begins-with IMG --ext pictures           # Photos starting with IMG
-```
+| Search offline captures on macOS or Linux | [Cache & Data Sources](cache-and-data.md) |
+| Connect AI agents | [MCP Server](mcp.md) |
+| See measured performance | [Performance](performance.md) |
+| Fix "the daemon will not start" | [Troubleshooting](troubleshooting.md) |

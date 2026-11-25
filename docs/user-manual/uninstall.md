@@ -1,4 +1,4 @@
-# Uninstalling UFFS (`uffs --uninstall`)
+# Uninstalling
 
 `uffs --uninstall` removes UFFS and **all of its data** from the machine in one
 guided, reversible-until-you-confirm flow: it analyzes what is installed, shows
@@ -12,8 +12,6 @@ uffs --uninstall --dry-run  # show the analysis + plan and change NOTHING
 
 > Nothing is removed without your explicit `y` at the prompt (or `--yes`).
 > `--dry-run` is always safe and never needs elevation.
-
----
 
 ## What it does, step by step
 
@@ -32,8 +30,6 @@ uffs --uninstall --dry-run  # show the analysis + plan and change NOTHING
 5. **Removes** in a safe order: stop the daemon / MCP / broker service, delete
    binaries, purge data / cache / config, clean PATH, then **verify** that the
    targeted locations are gone.
-
----
 
 ## Elevation: do you need `sudo` / Administrator?
 
@@ -55,16 +51,12 @@ Re-run with elevated privileges (sudo on Linux/macOS, an elevated shell on Windo
   uffs --uninstall
 ```
 
----
-
 ## Channel-aware: WinGet is delegated, never hand-deleted
 
 If UFFS was installed via **WinGet**, that root is handed to
 `winget uninstall SkyLLC.UFFS` rather than deleted by hand, so WinGet's own
 state stays consistent. Manual (GitHub-release) and dev-build installs are
 removed directly.
-
----
 
 ## Flags
 
@@ -78,8 +70,6 @@ removed directly.
 | `--scope <user\|machine\|all>` | Restrict to a single scope (default `all`). |
 | `--json` | Emit the full analysis + plan as JSON (for tooling / installers). |
 | `--help`, `-h` | Show usage. |
-
----
 
 ## What gets removed
 
@@ -100,8 +90,6 @@ removed directly.
 
 The running `uffs.exe` (and `uffs-update.exe`) cannot delete themselves in place
 on Windows, so they are scheduled to delete the moment this process exits.
-
----
 
 ## Safety
 
@@ -124,3 +112,9 @@ To remove UFFS entirely:
 uffs --uninstall --dry-run   # review first
 uffs --uninstall             # then confirm
 ```
+
+## See also
+
+- [Installation](installation.md): install UFFS and put it on your PATH
+- [Updating](updating.md): keep UFFS current with `uffs --update`
+- [Troubleshooting](troubleshooting.md): common errors and their fixes

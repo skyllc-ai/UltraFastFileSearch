@@ -2,12 +2,7 @@
 
 Common issues and solutions when using UFFS.
 
-> **See also:** [Installation](installation.md) · [Daemon](daemon.md) ·
-> [Advanced Diagnostics](advanced-diagnostics.md)
-
----
-
-## 1  "Connection refused" or "Daemon not running"
+## 1. "Connection refused" or "Daemon not running"
 
 **Cause:** The daemon is not running, or a stale PID file exists from
 a crashed daemon.
@@ -26,9 +21,7 @@ uffs --daemon kill
 uffs '*.txt'
 ```
 
----
-
-## 2  "Permission denied" (Windows)
+## 2. "Permission denied" (Windows)
 
 **Cause:** Reading the NTFS MFT requires Administrator privileges.
 
@@ -45,9 +38,7 @@ gsudo uffs '*.dll'
 Without elevation, UFFS can still search offline MFT captures via
 `--mft-file` or `--data-dir`.
 
----
-
-## 3  First Search Is Slow
+## 3. First Search Is Slow
 
 **Not a bug.** The first search loads the MFT into memory and builds
 the in-memory index (~7 s from cache, or ~66 s cold for a large system).
@@ -64,9 +55,7 @@ uffs --daemon status
 uffs --daemon status -v
 ```
 
----
-
-## 4  No Results Returned
+## 4. No Results Returned
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
@@ -76,9 +65,7 @@ uffs --daemon status -v
 | Missing `$` files | System files hidden | Use `--hide-system false` or search `$*` |
 | Missing directories | `--files-only` active | Remove `--files-only` or use `--dirs-only` |
 
----
-
-## 5  Stale Results
+## 5. Stale Results
 
 **Cause:** The daemon's in-memory index was loaded from a cached
 `.iocp` file that is older than the current MFT state.
@@ -96,9 +83,7 @@ uffs --daemon restart
 The daemon does not watch the filesystem for changes.  If files have
 been created or deleted since the daemon started, restart it.
 
----
-
-## 6  Build Failures
+## 6. Build Failures
 
 ### "error: requires nightly compiler"
 
@@ -119,9 +104,7 @@ source (~4 minutes).  Subsequent builds are incremental (~25 seconds).
 The `uffs-polars` facade crate exists specifically to cache Polars
 compilation.  Do not import `polars` directly in other crates.
 
----
-
-## 7  macOS / Linux: "No MFT data found"
+## 7. macOS / Linux: "No MFT data found"
 
 macOS and Linux cannot read NTFS drives directly.  You need offline
 MFT captures.
@@ -136,9 +119,7 @@ ls ~/uffs_data/drive_c/
 
 > **Full guide:** [Cache & Data Sources](cache-and-data.md)
 
----
-
-## 8  High Memory Usage
+## 8. High Memory Usage
 
 The daemon holds the entire MFT index in memory.  A machine with 7
 NTFS drives and 25 million files uses roughly 4–6 GB of RAM.
@@ -148,9 +129,7 @@ NTFS drives and 25 million files uses roughly 4–6 GB of RAM.
 - Use `--drives C,D` to load only the drives you need.
 - The daemon retires after 2 hours idle (releases memory).
 
----
-
-## 9  The Daemon Restarts After I Stop It
+## 9. The Daemon Restarts After I Stop It
 
 If you made UFFS [resident](daemon.md#permanent-residency-start-at-login-never-retire),
 a supervisor is keeping it alive on purpose.  A **deliberate** stop is
@@ -185,9 +164,7 @@ uffs --daemon resident off
 uffs --daemon stop
 ```
 
----
-
-## 10  Getting Help
+## 10. Getting Help
 
 ```bash
 # Show all available flags
@@ -209,3 +186,9 @@ uffs --version
 uffs --daemon status -v
 uffs --status --json
 ```
+
+## See also
+
+- [Installation](installation.md): install UFFS and put it on your PATH
+- [Daemon](daemon.md): the resident index server and how to manage it
+- [Advanced Diagnostics](advanced-diagnostics.md): profiling, logging and environment variables

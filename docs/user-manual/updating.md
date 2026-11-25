@@ -1,4 +1,4 @@
-# Updating UFFS
+# Updating
 
 UFFS updates itself. One command keeps your whole install current:
 
@@ -19,8 +19,6 @@ already current, it does nothing and touches no services.
 > them. `uffs --update` stops those services first, then swaps. If you do want
 > `winget upgrade`, stop UFFS first: elevated `uffs --daemon stop` +
 > `uffs-broker --stop`.
-
----
 
 ## What `uffs --update` guarantees
 
@@ -48,8 +46,6 @@ Updates are **journaled**: every file transition is an atomic rename with a
 `.bak` kept until the new image passes a smoke test, so a crash at any point
 leaves a recoverable state and never a half-written binary.
 
----
-
 ## Commands
 
 `uffs --update [<action>] [--options]` — with **no action** it updates
@@ -68,8 +64,6 @@ end-to-end (the everyday command). The actions expose the phases:
 
 Add `-v` / `--verbose` to any of them for the full per-binary + per-process
 breakdown.
-
----
 
 ## Pinning or switching to a specific version
 
@@ -92,9 +86,7 @@ Notes:
   available again — that's expected; bare `uffs --update` pulls you back to
   latest.
 
----
-
-## Health check & self-heal
+## Health check and self-heal
 
 ```bash
 uffs --update doctor        # diagnose
@@ -111,9 +103,7 @@ there — printing a hint when piped, asking on an interactive terminal, or (wit
 
 Add `--offline` to skip every network check (and the update redirect).
 
----
-
-## Notes & edge cases
+## Notes and edge cases
 
 - **MCP server:** the stdio MCP server (`uffsmcp`) is launched on demand by your
   LLM client (Claude Desktop / Cursor / Windsurf), so the updater stops it to
@@ -132,7 +122,10 @@ Add `--offline` to skip every network check (and the update redirect).
   [Installation](installation.md) for verifying a download with `CHECKSUMS.txt`
   and SLSA provenance.
 
----
+## See also
 
-> See also: [Installation](installation.md) · [CLI Overview](cli-overview.md) ·
-> [Daemon](daemon.md) · [Troubleshooting](troubleshooting.md)
+- [Installation](installation.md): install UFFS and put it on your PATH
+- [Uninstalling](uninstall.md): remove UFFS and its data
+- [CLI Overview](cli-overview.md): every flag and command at a glance
+- [Daemon](daemon.md): the resident index server and how to manage it
+- [Troubleshooting](troubleshooting.md): common errors and their fixes

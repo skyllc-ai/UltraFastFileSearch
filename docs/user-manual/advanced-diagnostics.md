@@ -4,12 +4,7 @@ UFFS includes built-in profiling, benchmarking, and diagnostic flags for
 performance analysis and debugging.  These are aimed at developers,
 system administrators, and CI pipelines.
 
-> **See also:** [Performance](performance.md) · [Daemon](daemon.md) ·
-> [Concepts](concepts.md) · [CLI Overview](cli-overview.md)
-
----
-
-## 1  Profiling
+## 1. Profiling
 
 ### `--profile`
 
@@ -39,9 +34,7 @@ uffs '*.dll' --benchmark
 Useful for comparing filter strategies, sort performance, or
 MFT read modes.
 
----
-
-## 2  MFT Read Modes
+## 2. MFT Read Modes
 
 | Flag | Description |
 |------|-------------|
@@ -62,9 +55,7 @@ The `--query-mode` flag forces a specific query execution path:
 uffs '*.dll' --query-mode dataframe --profile
 ```
 
----
-
-## 3  Verbose Output
+## 3. Verbose Output
 
 ```bash
 uffs '*.dll' -v                    # Short form
@@ -79,9 +70,7 @@ Verbose mode prints diagnostic information to stderr:
 - IPC connection details
 - Record counts per drive
 
----
-
-## 4  Environment Variables
+## 4. Environment Variables
 
 | Variable | Description |
 |----------|-------------|
@@ -102,9 +91,7 @@ RUST_LOG=uffs_core::path_resolver=trace uffs '*.dll'
 RUST_LOG=uffs_mft=info,uffs_core=debug uffs '*.dll'
 ```
 
----
-
-## 5  Parity Testing
+## 5. Parity Testing
 
 The `--parity-compat` flag outputs results in a format compatible
 with the original C++ implementation.  Used for correctness testing
@@ -120,9 +107,7 @@ This flag:
 - Uses Windows timestamp format
 - Aligns boolean attribute output with the C++ convention
 
----
-
-## 6  Timezone Control
+## 6. Timezone Control
 
 UFFS timestamps are stored as NTFS 100ns ticks (UTC).  The display
 timezone is detected from the system locale.
@@ -134,9 +119,7 @@ uffs '*.dll' --tz-offset 0        # UTC
 uffs '*.dll' --tz-offset 9        # Japan
 ```
 
----
-
-## 7  Drive Selection
+## 7. Drive Selection
 
 ```bash
 # Search specific drives only
@@ -150,3 +133,10 @@ uffs '*.dll' -d C
 ```
 
 Drive selection applies to both search and aggregation commands.
+
+## See also
+
+- [Performance](performance.md): measured numbers and how to benchmark your machine
+- [Daemon](daemon.md): the resident index server and how to manage it
+- [Concepts](concepts.md): what each size, count and attribute means
+- [CLI Overview](cli-overview.md): every flag and command at a glance
