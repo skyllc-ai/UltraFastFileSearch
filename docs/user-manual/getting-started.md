@@ -67,10 +67,10 @@ uffs "*.txt" --min-size 1MB
 uffs "*.txt" --files-only --newer 7d --min-size 1MB
 
 # Sort by size, largest first
-uffs "*.txt" --sort size
+uffs "*.txt" --sort -size
 
 # Limit to top 20
-uffs "*.txt" --sort size --limit 20
+uffs "*.txt" --sort -size --limit 20
 ```
 
 Filters are applied server-side in the daemon — adding more filters
@@ -128,7 +128,7 @@ uffs --begins-with IMG --ext pictures           # Photos starting with IMG
 
 ```bash
 uffs '*' --ext pictures --min-size 1MB          # Images over 1 MB
-uffs '*' --ext executables --sort size          # Executables ranked by size
+uffs '*' --ext executables --sort -size         # Executables ranked by size
 uffs '*' --type code --newer 7d                 # Source code modified this week
 uffs '*' --type video --min-size 100MB          # Large videos
 uffs '*.pdf' --newer 7d --files-only            # Recent PDFs
@@ -143,23 +143,23 @@ Storage management — the hidden killer feature.
 
 ```bash
 # ── Storage hogs ──────────────────────────────────────────
-uffs '*' --files-only --sort size --limit 20    # Top 20 largest files
+uffs '*' --files-only --sort -size --limit 20   # Top 20 largest files
 uffs '*' --files-only --min-size 1GB            # Files over 1 GB
-uffs '*' --dirs-only --sort treesize --limit 20 # Biggest directory subtrees
-uffs '*' --files-only --min-bulkiness 500 --sort bulkiness # Wasteful allocations
+uffs '*' --dirs-only --sort -treesize --limit 20 # Biggest directory subtrees
+uffs '*' --files-only --min-bulkiness 500 --sort -bulkiness # Wasteful allocations
 
 # ── Stale content ─────────────────────────────────────────
 uffs '*' --ext archives --older 730d            # Archives over 2 years old
 uffs '*' --files-only --older 365d --min-size 100MB # Old large files
-uffs '*.tmp' --older 30d --sort size            # Old temp files
+uffs '*.tmp' --older 30d --sort -size           # Old temp files
 
 # ── Empty / broken structures ─────────────────────────────
 uffs '*' --dirs-only --max-descendants 0        # Empty directories
 uffs '*' --files-only --max-size 0              # Zero-byte files
 
 # ── Path & name problems ─────────────────────────────────
-uffs '*' --files-only --min-path-length 250 --sort pathlength # MAX_PATH risk
-uffs '*' --files-only --min-name-length 100 --sort namelength # Absurdly long names
+uffs '*' --files-only --min-path-length 250 --sort -pathlength # MAX_PATH risk
+uffs '*' --files-only --min-name-length 100 --sort -namelength # Absurdly long names
 ```
 
 ### Power Search: Hidden / System / Attribute Files
@@ -167,8 +167,8 @@ uffs '*' --files-only --min-name-length 100 --sort namelength # Absurdly long na
 ```bash
 uffs '*' --attr hidden --files-only             # Hidden files
 uffs '*' --attr hidden,encrypted --files-only   # Hidden + encrypted
-uffs '*' --attr compressed --sort size          # NTFS-compressed files by size
-uffs '*' --attr system --sort sizeondisk        # System files by disk usage
+uffs '*' --attr compressed --sort -size         # NTFS-compressed files by size
+uffs '*' --attr system --sort -sizeondisk       # System files by disk usage
 uffs '*' --sort hidden:desc,name                # Group hidden files first
 ```
 
@@ -184,7 +184,7 @@ uffs '*.rs' --in-path '*projects*'              # Rust files in project dirs
 uffs 'path:*node_modules*package.json'          # package.json in node_modules
 
 # ── Multi-drive & output ─────────────────────────────────
-uffs '*.exe' --drives C,D,E --sort size --limit 10
+uffs '*.exe' --drives C,D,E --sort -size --limit 10
 uffs '*.rs' --format json --limit 5             # NDJSON output
 uffs '*.dll' --columns Name,Size,Path           # Selective columns
 uffs '*.txt' --out results.csv                  # Write to file

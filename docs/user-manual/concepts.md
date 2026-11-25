@@ -76,11 +76,11 @@ In this example, the `Projects/` directory has:
 ### When to use
 
 - **"Which folders use the most disk space?"** →
-  `--dirs-only --sort treesize`
+  `--dirs-only --sort -treesize`
 - **"Find folders over 10 GB"** →
   `--dirs-only --min-treesize 10GB`
 - **"Where is disk space actually allocated?"** →
-  `--dirs-only --sort tree-allocated`
+  `--dirs-only --sort -tree_allocated`
 
 ## 3. Bulkiness (Waste Ratio)
 
@@ -117,11 +117,11 @@ For **directories**, bulkiness uses the tree metrics:
 ### When to use
 
 - **"Find files wasting the most space"** →
-  `--min-bulkiness 500 --files-only --sort bulkiness`
+  `--min-bulkiness 500 --files-only --sort -bulkiness`
 - **"Find well-compressed files"** →
   `--max-bulkiness 50 --attr compressed`
 - **"Which folders have the worst packing efficiency?"** →
-  `--dirs-only --min-bulkiness 200 --sort bulkiness`
+  `--dirs-only --min-bulkiness 200 --sort -bulkiness`
 
 ## 4. Descendants (Child Count)
 
@@ -143,7 +143,7 @@ and subdirectories at the immediate level (not recursive).
 - **"Find empty directories for cleanup"** →
   `--dirs-only --max-descendants 0`
 - **"Find bloated directories"** →
-  `--dirs-only --min-descendants 1000 --sort descendants`
+  `--dirs-only --min-descendants 1000 --sort -descendants`
 
 ## 5. File Type (Semantic Category)
 

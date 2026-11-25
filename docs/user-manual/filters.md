@@ -78,7 +78,7 @@ uffs '*.log' --min-size 4096
 
 - Size filters are most useful with `--files-only` — directories have
   a size of 0 in the MFT.
-- Combine `--min-size` with `--sort size` to build a "top largest files"
+- Combine `--min-size` with `--sort -size` to build a "top largest files"
   workflow.
 
 ## 3. Date / Time Filters
@@ -271,7 +271,7 @@ uffs '*' --dirs-only --max-descendants 0 --sort path
 
 - Empty-directory detection (`--max-descendants 0`) is one of the most
   popular cleanup workflows.
-- Combine with `--sort descendants` to rank directories by child count.
+- Combine with `--sort -descendants` to rank directories by the size of their subtree.
 
 ## 6. Extension Filters
 

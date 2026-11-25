@@ -128,7 +128,7 @@ Summary:
 
 | Flag | Example | Effect |
 |------|---------|--------|
-| `--sort <SPEC>` | `--sort size` | Sort by column (smart default direction) |
+| `--sort <SPEC>` | `--sort -size` | Sort by column: ascending, or descending with a leading `-` or `:desc` |
 | `--sort <SPEC>` | `--sort size:asc,name` | Multi-tier with explicit direction |
 | `--sort-desc` | | Flip primary sort direction |
 
@@ -309,7 +309,7 @@ cleanup, developer/admin, attribute search, output piping), see
 Quick taste:
 
 ```bash
-uffs '*.pdf' --newer 7d --sort size --limit 20
+uffs '*.pdf' --newer 7d --sort -size --limit 20
 uffs '*' --dirs-only --max-descendants 0
 uffs '>.*\.log$' --newer 24h
 ```

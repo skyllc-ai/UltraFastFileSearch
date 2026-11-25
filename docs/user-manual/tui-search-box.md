@@ -236,7 +236,7 @@ uffs.exe "*.rs" --files-only
 uffs.exe README --case --name-only
 
 # Largest logs first
-uffs.exe "*.log" --sort size --limit 50
+uffs.exe "*.log" --sort -size --limit 50
 ```
 
 Each non-comment, non-blank line is a `uffs` (or `uffs.exe`) command line.
