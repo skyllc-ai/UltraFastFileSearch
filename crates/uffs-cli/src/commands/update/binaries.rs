@@ -36,14 +36,19 @@ use super::model::BinaryInfo;
 /// `acquire` would try to download a non-existent `uffs-broker-<plat>` asset
 /// (e.g. a stale broker stub left in `~/bin`). It is therefore included only
 /// when compiled for Windows.
+///
+/// `uffs-watchdog` (the supervisor `resident on` arms) is Windows-only for the
+/// same reason: launchd / systemd supervise the daemon elsewhere, and the
+/// release ships it only in the Windows zips.
 #[cfg(windows)]
-pub(crate) const KNOWN_BINARIES: [&str; 6] = [
-    "uffs",        // CLI
-    "uffsd",       // daemon
-    "uffsmcp",     // MCP server
-    "uffs-broker", // elevated handle broker (Windows service)
-    "uffs-update", // the self-update helper itself
-    "uffs-mft",    // MFT diagnostics binary (optional)
+pub(crate) const KNOWN_BINARIES: [&str; 7] = [
+    "uffs",          // CLI
+    "uffsd",         // daemon
+    "uffsmcp",       // MCP server
+    "uffs-broker",   // elevated handle broker (Windows service)
+    "uffs-update",   // the self-update helper itself
+    "uffs-mft",      // MFT diagnostics binary (optional)
+    "uffs-watchdog", // resident-services supervisor (Windows)
 ];
 
 /// Non-Windows: the same set minus the Windows-only broker.
@@ -187,6 +192,21 @@ mod tests {
     #[test]
     fn known_set_includes_broker_on_windows() {
         assert!(KNOWN_BINARIES.contains(&"uffs-broker"));
+    }
+
+    /// The watchdog `resident on` arms ships in every Windows zip, so the
+    /// updater acquires and replaces it and uninstall removes it.
+    #[cfg(windows)]
+    #[test]
+    fn known_set_includes_the_watchdog_on_windows() {
+        assert!(KNOWN_BINARIES.contains(&"uffs-watchdog"));
+    }
+
+    /// Off Windows launchd / systemd supervise; no watchdog asset exists.
+    #[cfg(not(windows))]
+    #[test]
+    fn known_set_excludes_the_watchdog_off_windows() {
+        assert!(!KNOWN_BINARIES.contains(&"uffs-watchdog"));
     }
 
     #[cfg(not(windows))]

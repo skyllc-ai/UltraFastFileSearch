@@ -30,15 +30,16 @@ const STOP_TIMEOUT: Duration = Duration::from_secs(20);
 /// Poll interval while waiting.
 const POLL: Duration = Duration::from_millis(200);
 
-/// Stop every running core component in dependency order (consumers
-/// before providers: MCP → daemon → broker), recording each in
-/// `journal.services_stopped`.
+/// Stop every running core component in dependency order (the supervisor
+/// first, then consumers before providers: watchdog → MCP → daemon →
+/// broker), recording each in `journal.services_stopped`.  The watchdog goes
+/// first or it would restart the daemon this quiesce just stopped.
 ///
 /// # Errors
 ///
 /// Fails if a component will not stop within [`STOP_TIMEOUT`].
 pub(crate) fn quiesce(journal: &mut Journal, snapshot: &Snapshot) -> Result<()> {
-    for component in ["mcp", "daemon", "broker"] {
+    for component in ["watchdog", "mcp", "daemon", "broker"] {
         for running in snapshot
             .running
             .iter()
@@ -61,10 +62,8 @@ fn stop_component(component: &str, running: &SnapRunning) -> Result<()> {
     match component {
         "daemon" => stop_daemon(running),
         "broker" => stop_broker(),
-        "mcp" => {
-            stop_mcp(running);
-            Ok(())
-        }
+        "mcp" => stop_mcp(running),
+        "watchdog" => stop_watchdog(running),
         other => bail!("unknown component to stop: {other}"),
     }
 }
@@ -115,7 +114,12 @@ pub(crate) fn daemon_pid_file() -> PathBuf {
 /// Graceful daemon stop, then wait for the PID file to disappear.
 fn stop_daemon(running: &SnapRunning) -> Result<()> {
     let uffs = uffs_sibling(running);
-    let _ignore = Command::new(&uffs).args(["--daemon", "stop"]).status();
+    // A non-zero exit is not fatal here (the PID-file wait below is the
+    // verdict); a `uffs` that cannot even be run is.
+    Command::new(&uffs)
+        .args(["--daemon", "stop"])
+        .status()
+        .with_context(|| format!("running `{} --daemon stop`", uffs.display()))?;
     if wait_until(STOP_TIMEOUT, || !daemon_pid_file().exists()) {
         Ok(())
     } else {
@@ -130,10 +134,49 @@ fn stop_broker() -> Result<()> {
     uffs_winsvc::stop(SERVICE_NAME).context("stopping the broker service")
 }
 
-/// Best-effort MCP gateway stop (a client just reconnects later).
-fn stop_mcp(running: &SnapRunning) {
+/// MCP gateway stop (a client just reconnects later). A non-zero exit is
+/// tolerated (nothing to stop); a `uffs` that cannot be run is an error,
+/// since the gateway would then keep `uffsmcp` locked for the swap.
+///
+/// # Errors
+///
+/// When `uffs --mcp stop` cannot be run.
+fn stop_mcp(running: &SnapRunning) -> Result<()> {
     let uffs = uffs_sibling(running);
-    let _ignore = Command::new(&uffs).args(["--mcp", "stop"]).status();
+    Command::new(&uffs)
+        .args(["--mcp", "stop"])
+        .status()
+        .with_context(|| format!("running `{} --mcp stop`", uffs.display()))?;
+    Ok(())
+}
+
+/// Stop the watchdog by its pid and wait for it to exit, so its image
+/// unlocks and it cannot revive the services stopped after it.  It holds no
+/// state, and restore relaunches it from its captured command line.
+///
+/// # Errors
+///
+/// When the stop command cannot be run, or the process outlives
+/// [`STOP_TIMEOUT`].
+fn stop_watchdog(running: &SnapRunning) -> Result<()> {
+    let pid = running.pid.to_string();
+    let mut command = if cfg!(windows) {
+        let mut taskkill = Command::new("taskkill");
+        taskkill.args(["/PID", &pid, "/F"]);
+        taskkill
+    } else {
+        let mut kill = Command::new("kill");
+        kill.arg(&pid);
+        kill
+    };
+    command
+        .status()
+        .with_context(|| format!("stopping the watchdog (pid {pid})"))?;
+    if wait_until(STOP_TIMEOUT, || !crate::proc::is_alive(running.pid)) {
+        Ok(())
+    } else {
+        bail!("the watchdog (pid {pid}) did not stop within {STOP_TIMEOUT:?}")
+    }
 }
 
 /// Poll `done` every [`POLL`] until it returns `true` or `timeout` elapses.

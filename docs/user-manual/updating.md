@@ -118,6 +118,10 @@ Add `--offline` to skip every network check (and the update redirect).
   sessions (the ones your AI host launches) keep running: their supervisor
   picks up the new `uffsmcp` on its own (see
   [MCP Server](mcp.md#zero-downtime-upgrades-stdio-supervisor)).
+- **Watchdog (Windows residency):** the updater stops a running
+  `uffs-watchdog` before anything else, so it cannot restart the daemon
+  mid-update, replaces it with the other programs, and starts it again
+  last.
 - **Windows broker:** if `uffs --update doctor` warns the broker pipe isn't
   serving, install it from an elevated PowerShell with `uffs-broker --install`.
   The broker is a `LocalSystem` service, so stopping and replacing **it**

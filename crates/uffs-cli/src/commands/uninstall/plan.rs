@@ -466,9 +466,16 @@ fn paths_equal_ignore_case(left: &Path, right: &Path) -> bool {
 }
 
 /// Binary stems whose images are locked while the resident parts run (the
-/// daemon, the broker service, the MCP servers). Deleted in the final plan
-/// group, after the shutdown items; every other stem is a plain tool binary.
-const RUNTIME_STEMS: &[&str] = &["uffsd", "uffs-broker", "uffsmcp", "uffs-mcp-http"];
+/// daemon, the broker service, the MCP servers, the watchdog). Deleted in the
+/// final plan group, after the shutdown items; every other stem is a plain
+/// tool binary.
+const RUNTIME_STEMS: &[&str] = &[
+    "uffsd",
+    "uffs-broker",
+    "uffsmcp",
+    "uffs-mcp-http",
+    "uffs-watchdog",
+];
 
 /// Which slice of a root's binaries a [`binary_item`] call covers.
 #[derive(Clone, Copy, PartialEq, Eq)]

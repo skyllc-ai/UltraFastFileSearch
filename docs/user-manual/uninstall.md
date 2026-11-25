@@ -15,8 +15,9 @@ uffs --uninstall -v         # the same, with the full tables
 > `--dry-run` is always safe and never needs elevation.
 
 If you made UFFS [resident](daemon.md#permanent-residency-start-at-login-never-retire)
-(start at login, watchdog), turn that off **first**: the uninstall does not
-remove the login item or the watchdog.
+(start at login, watchdog), turn that off **first**: the uninstall stops a
+running watchdog and removes its program, but it does not remove the login
+item.
 
 ```bash
 uffs --daemon resident off
@@ -124,8 +125,8 @@ on Windows, so they are scheduled to delete the moment this process exits.
   `~/.local/state/uffs/logs` (Linux, or `$XDG_STATE_HOME/uffs/logs`). Delete
   them by hand if you want them gone. (On Windows the logs live in the data
   dir and go with it.)
-- **Residency:** the login item and the watchdog. Run
-  `uffs --daemon resident off` before uninstalling.
+- **Residency:** the login item. Run `uffs --daemon resident off` before
+  uninstalling.
 
 ## Safety
 

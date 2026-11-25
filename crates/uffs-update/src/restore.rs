@@ -2,7 +2,8 @@
 // Copyright (c) 2025-2026 SKY, LLC.
 
 //! Restore (design §10): relaunch services from the captured snapshot
-//! recipe, **providers before consumers** (broker → daemon → MCP).
+//! recipe, **providers before consumers** (broker → daemon → MCP), and the
+//! watchdog last, once the services it supervises are back.
 //!
 //! This is also the INV-1 backstop: the apply rollback path and Phase H
 //! call it to make sure nothing the run stopped is left down. So it is
@@ -26,7 +27,7 @@ const PIPE_READY_TIMEOUT_MS: u32 = 10_000;
 /// the components that failed to restart (empty = all good).
 pub(crate) fn restore(snapshot: &Snapshot) -> Vec<String> {
     let mut failed = Vec::new();
-    for component in ["broker", "daemon", "mcp"] {
+    for component in ["broker", "daemon", "mcp", "watchdog"] {
         for running in snapshot
             .running
             .iter()
@@ -54,6 +55,9 @@ fn start_component(component: &str, running: &SnapRunning) -> bool {
         // binary (`uffs-mcp-http`), never captured here — detection scans only
         // for `uffsmcp`.
         "mcp" => true,
+        // The watchdog has no ready signal of its own: a spawned process is
+        // up.
+        "watchdog" => start_from_command_line(running, || true),
         _ => false,
     }
 }

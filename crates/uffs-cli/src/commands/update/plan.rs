@@ -259,6 +259,8 @@ fn root_stop_needs_elevation(
             && match process.component {
                 Component::Broker => !elevated,
                 Component::Daemon | Component::Mcp => daemon_stop_needs_elev,
+                // A user-level process, stopped like any other of the user's.
+                Component::Watchdog => false,
             }
     })
 }

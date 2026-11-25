@@ -455,13 +455,20 @@ pub(crate) fn detect() -> DetectionReport {
     if let Some(dir) = current_exe_dir() {
         upsert_root(&mut roots, dir, Anchor::Cli);
     }
+    // A.1 anchors #1b + #3 — the watchdog, then the MCP gateway(s), BEFORE the
+    // daemon: stops follow this order, and the watchdog would revive a daemon
+    // stopped before it.
+    for (stem, component, anchor) in [
+        ("uffs-watchdog", Component::Watchdog, Anchor::Cli),
+        ("uffsmcp", Component::Mcp, Anchor::Mcp),
+    ] {
+        for pid in procinfo::find_pids_by_name(stem) {
+            capture_native(&mut roots, &mut running, component, anchor, pid);
+        }
+    }
     // A.1 anchor #2 — the running daemon. Prefer its persisted launch
     // state (reliable command line); fall back to native introspection.
     capture_daemon(&mut roots, &mut running);
-    // A.1 anchor #3 — running MCP gateway(s).
-    for pid in procinfo::find_pids_by_name("uffsmcp") {
-        capture_native(&mut roots, &mut running, Component::Mcp, Anchor::Mcp, pid);
-    }
     // A.1 anchor #4 — the broker service (Windows-only).
     capture_broker(&mut roots, &mut running);
     // A.1b — a dormant WinGet install has no live anchor (nothing running from

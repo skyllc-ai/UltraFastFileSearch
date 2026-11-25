@@ -44,3 +44,10 @@
 # adds it (the same PR that finally seeds uffs-broker).
 - RelativeFilePath: uffs-windows-x64/uffs-update.exe
   PortableCommandAlias: uffs-update
+
+# uffs-watchdog: the user-level supervisor `uffs --daemon resident on` arms
+# (it is looked for next to uffs.exe). Without it a winget install's
+# residency has no supervisor. Bundled into every Windows zip tier by
+# release.yml; seed on the first winget PR from the release that adds it.
+- RelativeFilePath: uffs-windows-x64/uffs-watchdog.exe
+  PortableCommandAlias: uffs-watchdog

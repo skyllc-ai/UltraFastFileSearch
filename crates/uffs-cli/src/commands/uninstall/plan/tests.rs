@@ -175,13 +175,19 @@ fn runtime_binaries_split_into_the_post_shutdown_group() {
     // the first group; uffsd/uffs-broker (image locked while running) land
     // in "Runtime binaries (after shutdown)", after the shutdown group.
     let mut mixed = root(Channel::Unmanaged, Scope::User, "/opt/uffs");
-    mixed.binaries = ["uffs", "uffs-analyze-diff", "uffsd", "uffs-broker"]
-        .into_iter()
-        .map(|name| BinaryInfo {
-            name: name.to_owned(),
-            version: None,
-        })
-        .collect();
+    mixed.binaries = [
+        "uffs",
+        "uffs-analyze-diff",
+        "uffsd",
+        "uffs-broker",
+        "uffs-watchdog",
+    ]
+    .into_iter()
+    .map(|name| BinaryInfo {
+        name: name.to_owned(),
+        version: None,
+    })
+    .collect();
     let report = DetectionReport {
         roots: vec![mixed],
         running: Vec::new(),
@@ -211,7 +217,8 @@ fn runtime_binaries_split_into_the_post_shutdown_group() {
     assert_eq!(stems_of("Binaries"), vec!["uffs", "uffs-analyze-diff"]);
     assert_eq!(stems_of("Runtime binaries (after shutdown)"), vec![
         "uffsd",
-        "uffs-broker"
+        "uffs-broker",
+        "uffs-watchdog"
     ]);
     let titles: Vec<&str> = plan.groups.iter().map(|group| group.title).collect();
     let tools = titles
@@ -284,6 +291,45 @@ fn running_process_becomes_a_stop_item() {
         target,
         PlanTarget::StopProcess { .. }
     )));
+}
+
+/// A running watchdog is stopped, and before the daemon it supervises (it
+/// would restart a daemon stopped first).  Detection lists it first, and the
+/// shutdown group keeps that order.
+#[test]
+fn watchdog_stops_before_the_daemon() {
+    let process = |component: Component, pid: u32| RunningProcess {
+        component,
+        pid,
+        image_path: None,
+        command_line: None,
+        version: None,
+    };
+    let report = DetectionReport {
+        roots: Vec::new(),
+        running: vec![
+            process(Component::Watchdog, 7),
+            process(Component::Daemon, 8),
+        ],
+    };
+    let plan = built(
+        &report,
+        &inventory(BrokerServiceState::Absent, 1024),
+        &UninstallArgs::default(),
+    );
+    let stops: Vec<&str> = plan
+        .groups
+        .iter()
+        .flat_map(|group| &group.items)
+        .filter_map(|item| {
+            if let PlanTarget::StopProcess { component, .. } = &item.target {
+                Some(component.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(stops, ["watchdog", "daemon"]);
 }
 
 #[test]

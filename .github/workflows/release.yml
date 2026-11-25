@@ -612,7 +612,8 @@ jobs:
                      target/${{ matrix.target }}/release/uffsmcp.exe \
                      target/${{ matrix.target }}/release/uffs-mft.exe \
                      target/${{ matrix.target }}/release/uffs-broker.exe \
-                     target/${{ matrix.target }}/release/uffs-update.exe; do
+                     target/${{ matrix.target }}/release/uffs-update.exe \
+                     target/${{ matrix.target }}/release/uffs-watchdog.exe; do
             if [[ -f "$bin" ]]; then
               ls -lh "$bin"
             fi
@@ -669,9 +670,11 @@ jobs:
           # shipped; they live in uffs-diag and stay workspace-only.
           # uffs-update (the self-update helper) ships on every platform so
           # `uffs --update` has its sibling; uffs-broker is a Windows-only
-          # service, so its raw binary ships on Windows only.
+          # service and uffs-watchdog the Windows-only supervisor that
+          # `uffs --daemon resident on` arms, so their raw binaries ship on
+          # Windows only.
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            for binary in uffs.exe uffsd.exe uffsmcp.exe uffs-mft.exe uffs-broker.exe uffs-update.exe; do
+            for binary in uffs.exe uffsd.exe uffsmcp.exe uffs-mft.exe uffs-broker.exe uffs-update.exe uffs-watchdog.exe; do
               if [[ -f "target/${{ matrix.target }}/release/$binary" ]]; then
                 cp "target/${{ matrix.target }}/release/$binary" release-artifacts/
               fi
@@ -778,6 +781,15 @@ jobs:
                 cp "${BINDIR}/${b}${EXT}" "$stage/"
               fi
             done
+
+            # Watchdog — every Windows tier.  `uffs --daemon resident on`
+            # arms it from beside `uffs.exe`; without it residency on
+            # Windows has no supervisor (the Run key fires once at login).
+            # launchd / systemd supervise the daemon on macOS / Linux, so it
+            # stays out of those bundles.
+            if [[ "$OS" == "windows-latest" && -f "${BINDIR}/uffs-watchdog${EXT}" ]]; then
+              cp "${BINDIR}/uffs-watchdog${EXT}" "$stage/"
+            fi
 
             # Broker service — Windows normal/full tiers only.  The CLI's
             # elevation help advertises `uffs-broker --install` as the
@@ -1122,7 +1134,8 @@ jobs:
             `uffs-windows-x64-full.zip`.
           - Raw binaries: `uffs-windows-x64.exe`, `uffsd-windows-x64.exe`,
             `uffsmcp-windows-x64.exe`, `uffs-mft-windows-x64.exe`,
-            `uffs-broker-windows-x64.exe`, `uffs-update-windows-x64.exe`.
+            `uffs-broker-windows-x64.exe`, `uffs-update-windows-x64.exe`,
+            `uffs-watchdog-windows-x64.exe`.
 
           ### 🍏 macOS Apple Silicon — offline MFT analysis
           - **`uffs-macos-arm64.zip`** — recommended (normal tier): raw

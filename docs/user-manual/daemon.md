@@ -181,13 +181,11 @@ that vanishes **mid-session while nobody is searching**.  On macOS and
 Linux launchd and systemd close that gap; on Windows the `Run` key
 fires once at login and never again.  So on Windows `resident on` also
 arms **`uffs-watchdog`**, a small user-level supervisor.  The watchdog
-is Windows-only.
-
-> **Release packages do not include `uffs-watchdog` yet.**  When the
-> program is not next to `uffs`, `resident on` prints
-> `(watchdog binary not found next to uffs — skipping supervision)` and
-> residency works without it: the login item and the auto-spawn marker
-> still apply.
+is Windows-only; every Windows release zip (and the WinGet package)
+carries it next to `uffs.exe`.  Should it be missing, `resident on` prints
+`(watchdog binary not found next to uffs — skipping supervision)` and
+residency works without it: the login item and the auto-spawn marker
+still apply.
 
 | | |
 |---|---|

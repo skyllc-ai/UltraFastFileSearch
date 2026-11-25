@@ -135,6 +135,10 @@ pub(crate) enum Component {
     Broker,
     /// The MCP server (`uffsmcp`), when run as the HTTP gateway.
     Mcp,
+    /// The resident-services supervisor (`uffs-watchdog`, Windows).  Stopped
+    /// before the services it supervises, or it would revive them mid-update
+    /// or mid-uninstall.
+    Watchdog,
 }
 
 impl Component {
@@ -144,6 +148,7 @@ impl Component {
             Self::Daemon => "daemon",
             Self::Broker => "broker",
             Self::Mcp => "mcp",
+            Self::Watchdog => "watchdog",
         }
     }
 }

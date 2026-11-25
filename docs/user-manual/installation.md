@@ -73,7 +73,7 @@ Each release includes:
   folder. A smaller `uffs-<platform>-min.zip` and a larger
   `uffs-<platform>-full.zip` (with extra diagnostic tools) are also published.
 - **Single programs:** `uffs`, `uffsd`, `uffsmcp`, `uffs-mft`, `uffs-update`
-  (and `uffs-broker` on Windows), each named for its platform, for example
+  (and `uffs-broker` and `uffs-watchdog` on Windows), each named for its platform, for example
   `uffs-windows-x64.exe`, `uffsd-macos-arm64` or `uffsmcp-linux-x64`.
 - `CHECKSUMS.txt` and `SHA256SUMS`: SHA-256 hashes of every file.
 - SBOM files (software bills of materials).
@@ -90,6 +90,7 @@ together, which the zip does for you.
 | `uffs-mft` | Low-level MFT tool |
 | `uffs-update` | The helper `uffs --update` uses |
 | `uffs-broker` | Windows only: the Access Broker service |
+| `uffs-watchdog` | Windows only: the supervisor `uffs --daemon resident on` starts |
 
 ### Quick Setup (Windows)
 
@@ -283,8 +284,9 @@ The programs land in `target/release/`:
 | `uffs-mft` | Low-level MFT tool |
 | `uffs-update` | The update helper |
 | `uffs-broker` | Windows only: the Access Broker service |
+| `uffs-watchdog` | Windows only: the residency supervisor |
 
-A few more programs (such as the watchdog and developer tools) are built too.
+A few more programs (developer and diagnostic tools) are built too.
 
 ### Using just (recommended)
 

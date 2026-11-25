@@ -79,12 +79,13 @@ const RELEASE_BINARIES: &[(&str, &str)] = &[
     ("uffs-mft", "uffs-mft"),
     ("uffs-update", "uffs-update"),
     ("uffs-broker", "uffs-broker"),
+    ("uffs-watchdog", "uffs-watchdog"),
 ];
 
 /// Binaries that only make sense on Windows — staged for the Windows target
 /// only, never the macOS/Linux ones.
 fn is_windows_only(binary: &str) -> bool {
-    binary == "uffs-broker"
+    binary == "uffs-broker" || binary == "uffs-watchdog"
 }
 
 /// All workspace binaries — release + diagnostic tools.
@@ -98,6 +99,7 @@ const ALL_BINARIES: &[(&str, &str)] = &[
     ("uffs-mft", "uffs-mft"),
     ("uffs-update", "uffs-update"),
     ("uffs-broker", "uffs-broker"), // Windows-only (see is_windows_only)
+    ("uffs-watchdog", "uffs-watchdog"), // Windows-only (see is_windows_only)
     // Diagnostic binaries (all hyphenated per issue #213 / F1.13).
     ("uffs-analyze-mft-parents", "uffs-diag"),
     ("uffs-dump-mft-records", "uffs-diag"),
