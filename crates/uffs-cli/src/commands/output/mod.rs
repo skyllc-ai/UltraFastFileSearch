@@ -443,9 +443,6 @@ static ALL_COLUMNS: &[&str] = &[
     "path_length",
 ];
 
-/// Default column set when none is specified.
-static DEFAULT_COLS: &[&str] = &["name", "size", "modified", "path"];
-
 /// Resolve a user column name to its canonical name.
 fn resolve_col_name(input: &str) -> Option<&'static str> {
     let lowered = input.to_ascii_lowercase();
@@ -474,10 +471,12 @@ fn display_name(canonical: &str) -> &str {
 }
 
 /// Resolve column specification string to a list of canonical names.
+///
+/// No `--columns` means every standard column, the same set the daemon's
+/// CSV writer emits when no columns are named (`uffs_format`'s
+/// `BASELINE_COLUMN_ORDER`), so a CSV has one shape whichever side wrote it.
 fn resolve_columns(columns: &str) -> Vec<&'static str> {
-    if columns.is_empty() {
-        DEFAULT_COLS.to_vec()
-    } else if columns.eq_ignore_ascii_case("all") {
+    if columns.is_empty() || columns.eq_ignore_ascii_case("all") {
         ALL_COLUMNS.to_vec()
     } else {
         columns

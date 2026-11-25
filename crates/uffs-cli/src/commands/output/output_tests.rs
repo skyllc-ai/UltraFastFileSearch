@@ -692,3 +692,23 @@ fn columnar_byte_parity_nonzero_filetime() {
     )];
     assert_columnar_bytes_match(&rows, "name,modified", 0);
 }
+
+/// Without `--columns` the CLI's CSV writer emits every standard column, in
+/// the order the daemon's CSV writer uses (`uffs_format`'s
+/// `BASELINE_COLUMN_ORDER`), so a CSV has one shape whichever side wrote it.
+#[test]
+fn default_columns_are_the_daemon_baseline() {
+    let expected: Vec<&'static str> = uffs_format::BASELINE_COLUMN_ORDER
+        .iter()
+        .map(|column| {
+            super::resolve_col_name(column.canonical_name()).unwrap_or_else(|| {
+                panic!(
+                    "baseline column {} has no CLI name",
+                    column.canonical_name()
+                )
+            })
+        })
+        .collect();
+    assert_eq!(super::resolve_columns(""), expected);
+    assert_eq!(super::resolve_columns("all"), expected);
+}

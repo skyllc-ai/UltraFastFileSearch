@@ -333,7 +333,8 @@ impl IndexManager {
                 // ── Exclude pattern → hot-path exclude glob ────────────
                 FieldId::Name if predicate.op == SearchPredicateOp::NotMatch => {
                     if let SearchPredicateValue::String(pattern) = &predicate.value {
-                        filters.exclude_lower = Some(pattern.to_ascii_lowercase());
+                        filters.exclude_lower =
+                            Some(uffs_core::search::filters::fold_exclude_pattern(pattern));
                     }
                 }
                 // ── Name/path length → hot-path length filters ──────────

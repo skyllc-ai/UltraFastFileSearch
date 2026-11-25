@@ -31,9 +31,9 @@ uffs <PATTERN> [OPTIONS]
 | `C:` or `C:\` | Drive | Everything on that drive → [Search Modes §13](search-modes.md#13-drive-scoping) |
 
 The pattern is matched against the **file name**, not the full path,
-unless it contains a `\` or `/`.  A pattern cannot start with `-` (it
-would be read as a flag); for names that begin with a dash, use
-`--begins-with`, e.g. `uffs --begins-with --draft`.
+unless it contains a `\` or `/`.  A pattern that starts with `-` would be
+read as a flag; put `--` before it (`uffs -- --draft*`): every token after
+`--` is the pattern.  Options go before the `--`.
 
 ### Scope Prefixes (Everything-compatible)
 
@@ -50,7 +50,7 @@ would be read as a flag); for names that begin with a dash, use
 | `--begins-with <PREFIX>` | Sugar for `PREFIX*` | [Search Modes §11](search-modes.md#11-pattern-sugar-flags) |
 | `--ends-with <SUFFIX>` | Sugar for `*SUFFIX` | Same |
 | `--contains <NEEDLE>` | Sugar for `*NEEDLE*` | Same |
-| `--not-contains <NEEDLE>` | Exclude names containing NEEDLE | Like `--exclude '*NEEDLE*'`; use one or the other, not both |
+| `--not-contains <NEEDLE>` | Exclude names containing NEEDLE | Like `--exclude '*NEEDLE*'`; with `--exclude`, either one drops a name |
 
 If you give more than one way to build the pattern, the first one wins in
 this order: the pattern itself, `--begins-with`, `--ends-with`,
@@ -62,7 +62,7 @@ this order: the pattern itself, `--begins-with`, `--ends-with`,
 |------|--------|--------|
 | `--case` | Case-sensitive matching | [Search Modes §6](search-modes.md#6-case-sensitivity) |
 | `--smart-case` | Auto case-sensitive if pattern has uppercase | [Search Modes §6](search-modes.md#6-case-sensitivity) |
-| `--word` | Accepted, but currently has no effect | [Search Modes §7](search-modes.md#7-whole-word-matching---word) |
+| `--word` | The whole file name must match the pattern, not just contain it | [Search Modes §7](search-modes.md#7-whole-word-matching---word) |
 | `--name-only` | Names are already matched by default; this flag makes a pattern with `\` or `/` an error | [Search Modes §8](search-modes.md#8-name-only-matching---name-only) |
 | `--in-path <GLOB>` | Keep only entries whose directory path matches | [Search Modes §12](search-modes.md#12-path-directory-filter) |
 | `--not-in-path <GLOBS>` | Drop entries whose directory path matches any of these (comma-separated) | [Filters §8](filters.md#8-path-filter) |
@@ -165,11 +165,10 @@ Summary:
 | `--pos <STR>` | `1` | Representation for true/active boolean attributes |
 | `--neg <STR>` | `0` | Representation for false/inactive boolean attributes |
 
-CSV is the format for scripts and files: it is used when the output is
-piped or redirected, and always with `--out`.  `--format table` gives an
-aligned table for reading in a terminal.  Name the columns you want with
-`--columns`, for example `--columns name,size,modified,path`; the default
-set depends on how the output is produced (see
+Without `--format`, results shown in a terminal are an aligned table, and
+output that is piped, redirected or written with `--out` is CSV.  CSV
+carries every standard column unless you name the ones you want with
+`--columns`, for example `--columns name,size,modified,path` (see
 [Output Formats §5](output-formats.md#5-column-selection)).
 
 ## 5. Inline Aggregation Flags

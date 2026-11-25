@@ -315,6 +315,54 @@ pub(super) fn extract_extensions_from_regex(pattern: &str) -> Option<Vec<String>
 // means (including the previously-broken `C:`, `C:\`, and
 // `C:\path\…` forms).
 
+/// The token that ends option parsing: every argument after it is an
+/// operand (the search pattern), even one that begins with `-`.
+pub const END_OF_OPTIONS: &str = "--";
+
+/// Split a search argument vector at the first [`END_OF_OPTIONS`] token.
+///
+/// Returns the options before it and the operands after it (the `--` itself
+/// belongs to neither). Without a `--` every token is in the first slice.
+/// Every reader of a search argument vector — this parser and the CLI's own
+/// pre-scans for `--out`, `--format` and the daemon-spawn flags — reads
+/// options from the first slice only, so a pattern such as `--out` after
+/// `--` is never mistaken for a flag.
+#[must_use]
+pub fn split_end_of_options(args: &[String]) -> (&[String], &[String]) {
+    args.iter()
+        .position(|arg| arg == END_OF_OPTIONS)
+        .map_or((args, &[]), |pos| {
+            let (options, rest) = args.split_at(pos);
+            (options, rest.get(1..).unwrap_or_default())
+        })
+}
+
+/// The separator between alternatives in a name pattern: `*.tmp|*.bak`
+/// matches a name that matches either glob (the name-pattern grammar of
+/// `uffs_core::search::tree::name_matches`, which `--exclude` uses).
+const NAME_PATTERN_ALTERNATIVE: &str = "|";
+
+/// The alternatives an `--exclude` is built from: the user's own pattern and
+/// the `*needle*` glob a `--not-contains` adds. A name is excluded when it
+/// matches **any** of them, so they are joined with the pattern grammar's
+/// [`NAME_PATTERN_ALTERNATIVE`], never another separator.
+#[derive(Default)]
+pub(super) struct ExcludeAlternatives(Vec<String>);
+
+impl ExcludeAlternatives {
+    /// Add one alternative when present.
+    pub(super) fn with(mut self, alternative: Option<String>) -> Self {
+        self.0.extend(alternative);
+        self
+    }
+
+    /// The single pattern the wire carries, or `None` when nothing is
+    /// excluded.
+    pub(super) fn into_pattern(self) -> Option<String> {
+        (!self.0.is_empty()).then(|| self.0.join(NAME_PATTERN_ALTERNATIVE))
+    }
+}
+
 #[cfg(test)]
 mod cli_args_error_tests {
     //! Phase 5d regression tests for [`CliArgsError`] and the typed

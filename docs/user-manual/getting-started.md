@@ -32,10 +32,10 @@ for how to set this up.
 
 ## 2. Understanding the Output
 
-Each row is one file or directory.  CSV is the format for scripts and
-files (it is used when the output is piped or redirected, and with
-`--out`); `--format table` gives an aligned table for reading in a
-terminal.  Name the columns you want with `--columns`:
+Each row is one file or directory.  In a terminal the results are an
+aligned table; piped, redirected or written with `--out` they are CSV,
+with every standard column unless you name the ones you want with
+`--columns`:
 
 ```bash
 uffs "*.txt" --columns name,size,modified,path

@@ -19,13 +19,16 @@ UFFS auto-detects the mode from the pattern you type — no flag needed.
 Only a pattern that contains `\` or `/` looks at directory names; every
 other pattern is matched against the **file name** alone.
 
-A pattern cannot begin with `-`: it would be read as a flag.  To find
-names that start with `-` or `--`, use `--begins-with` (its value may
-start with a dash), or put a wildcard first:
+A pattern that begins with `-` would be read as a flag.  Put `--` before
+it: every token after `--` is the pattern, and options go before the `--`.
+`--begins-with` (its value may start with a dash) and a leading wildcard
+work too:
 
 ```bash
-uffs --begins-with --draft     # Names starting with "--draft"
-uffs '*--draft*'               # Names containing "--draft"
+uffs -- --draft*                     # Names starting with "--draft"
+uffs --files-only -- -x              # Files containing "-x"
+uffs --begins-with --draft           # Same as the first line
+uffs '*--draft*'                     # Names containing "--draft"
 ```
 
 ## 2. Glob Patterns (Default)
@@ -214,18 +217,23 @@ uffs Readme --smart-case
 
 ## 7. Whole-Word Matching (`--word`)
 
-The command line accepts `--word`, but it **currently has no effect**:
-the search runs exactly as it would without it.
-
-Where whole-word matching is available (the MCP server's search tool),
-it means the **whole file name** must equal the pattern (or match the glob
-as a whole) instead of merely containing it.  On the command line you get
-the same result with an exact glob, or by anchoring a regex:
+`--word` makes the **whole file name** match the pattern instead of
+merely containing it: a plain word must equal the name, and a glob must
+match the name from its first character to its last.  Case follows
+`--case` / `--smart-case` as usual.
 
 ```bash
-# Names that are exactly "test.txt" (any case)
-uffs '>^test\.txt$'
+# Names that are exactly "test.txt" (any case), not "my-test.txt.bak"
+uffs test.txt --word
+
+# Without --word, "test" also finds "testing.log" and "latest.doc"
+uffs test --word        # only entries named exactly "test"
 ```
+
+A glob already matches the whole name (`*.txt` finds names ending in
+`.txt`), so `--word` changes the result of plain words, not of globs.
+Regex patterns (`>`) ignore it; anchor them yourself (`>^test$`).  The
+MCP server's `whole_word` argument is the same switch.
 
 ## 8. Name-Only Matching (`--name-only`)
 
@@ -325,8 +333,7 @@ uffs '*.log' --not-contains debug
 > Only one pattern is used.  If you give several, the first in this order
 > wins and the others are ignored: the pattern itself, `--begins-with`,
 > `--ends-with`, `--contains`.  `--not-contains` combines with any of
-> them, but use it **instead of** `--exclude`, not together with it: the
-> two currently do not combine correctly.
+> them, and with `--exclude`: a name is dropped when it matches either.
 
 ## 12. Path Directory Filter
 
@@ -418,7 +425,7 @@ PATTERN SYNTAX
   c:/projects/*        Path-aware glob — entries inside directories named "projects" on C:
   *                    Match-all — every file and directory
   C:                   Match-all on one drive
-  --begins-with --x    Names starting with a dash (a pattern cannot start with -)
+  -- --x*              Names starting with "--x" (after --, every token is the pattern)
 
 SCOPE PREFIXES (Everything-compatible)
   path:report          Names containing "report", plus everything inside those directories
@@ -428,7 +435,7 @@ SCOPE PREFIXES (Everything-compatible)
 MODIFIERS
   --case               Case-sensitive matching
   --smart-case         Auto case-sensitive if pattern has uppercase
-  --word               Accepted, currently has no effect
+  --word               The whole name must match (a word equals the name)
   --name-only          Reject patterns that contain \ or /
 
 PATTERN SUGAR

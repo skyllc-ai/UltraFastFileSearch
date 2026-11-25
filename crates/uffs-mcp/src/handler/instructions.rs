@@ -69,7 +69,8 @@ KEY PARAMETERS for uffs_search:
 • limit: max results (default 50, cap 500)
 • projection: columns to return — name, ext, type, size, modified, path, drive, \
   created, accessed, allocated, treesize, descendants, tree_allocated
-• whole_word: true for word-boundary matching
+• whole_word: true → the WHOLE file name must match the pattern \
+  ('Cargo.toml' finds only names that are exactly that, any case)
 • attr: NTFS attributes — 'hidden', 'system', 'compressed', 'encrypted', etc.
 • min_descendants / max_descendants: filter dirs by child count
 

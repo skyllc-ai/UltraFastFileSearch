@@ -19,6 +19,54 @@
 //!   be unit-tested without piping the test harness to NUL.
 //! * `resolve_to_absolute` — shared path-resolution primitive used by
 //!   `resolve_out_path`.
+//! * `with_default_format` — name the default `--format` explicitly, so the
+//!   daemon renders what the CLI prints.
+//!
+//! Every transform reads and writes the **options** only: the tokens before
+//! an `--` (`uffs -- --out` searches for `--out`; it does not write a file).
+//! Operands after `--` pass through untouched.
+
+use uffs_client::protocol::cli_args::{END_OF_OPTIONS, split_end_of_options};
+
+/// The options of a search argument vector (the tokens before `--`).
+pub(crate) fn options(args: &[String]) -> &[String] {
+    split_end_of_options(args).0
+}
+
+/// Insert `tokens` at the end of the options of `args`, before an `--` if
+/// there is one, so they are read as options and not as the pattern.
+fn insert_options(args: &mut Vec<String>, tokens: &[&str]) {
+    let at = args
+        .iter()
+        .position(|arg| arg == END_OF_OPTIONS)
+        .unwrap_or(args.len());
+    args.splice(at..at, tokens.iter().map(|token| (*token).to_owned()));
+}
+
+/// Name the default `--format` explicitly when the user gave none.
+///
+/// The CLI decides the default (`table` on an interactive terminal, `csv`
+/// when piped, redirected or written with `--out`, see
+/// [`super::dispatch::default_format`]) and sends it to the daemon, so the
+/// daemon's renderer and the CLI's printer always work from the same format.
+/// Without it the daemon assumed CSV and pre-rendered a CSV blob, which the
+/// CLI printed verbatim even on a terminal.
+pub(crate) fn with_default_format(mut args: Vec<String>, terminal: bool) -> Vec<String> {
+    let opts = options(&args);
+    let named = opts.iter().any(|arg| {
+        let flag = arg.split('=').next().unwrap_or(arg.as_str());
+        flag == "--format" || flag == "-f"
+    });
+    if named {
+        return args;
+    }
+    let to_console = !opts
+        .iter()
+        .any(|arg| arg == "--out" || arg.starts_with("--out="));
+    let format = super::dispatch::default_format(to_console && terminal);
+    insert_options(&mut args, &["--format", format]);
+    args
+}
 
 /// Extract daemon-spawn-relevant flags from raw CLI args.
 ///
@@ -26,7 +74,7 @@
 /// `--drive`, and log env vars. Everything else is irrelevant for spawn.
 pub(crate) fn extract_spawn_args(args: &[String]) -> Vec<std::ffi::OsString> {
     let mut spawn: Vec<std::ffi::OsString> = Vec::new();
-    let mut iter = args.iter().peekable();
+    let mut iter = options(args).iter().peekable();
     while let Some(arg) = iter.next() {
         let flag = arg.split('=').next().unwrap_or(arg.as_str());
         match flag {
@@ -71,7 +119,8 @@ pub(crate) fn extract_spawn_args(args: &[String]) -> Vec<std::ffi::OsString> {
 /// passed through as-is.
 pub(crate) fn resolve_out_path(args: &[String]) -> Vec<String> {
     let mut result: Vec<String> = Vec::with_capacity(args.len());
-    let mut iter = args.iter();
+    let (opts, operands) = split_end_of_options(args);
+    let mut iter = opts.iter();
     while let Some(arg) = iter.next() {
         if let Some(val) = arg.strip_prefix("--out=") {
             // `--out=path` form — resolve inline value.
@@ -86,6 +135,10 @@ pub(crate) fn resolve_out_path(args: &[String]) -> Vec<String> {
         } else {
             result.push(arg.clone());
         }
+    }
+    if opts.len() < args.len() {
+        result.push(END_OF_OPTIONS.to_owned());
+        result.extend_from_slice(operands);
     }
     result
 }
@@ -125,14 +178,14 @@ pub(crate) fn maybe_inject_no_output(mut args: Vec<String>, stdout_is_null: bool
             "--agg" | "--facet" | "--stats" | "--histogram" | "--count"
         )
     };
-    let disqualified = args.iter().any(|raw| {
+    let disqualified = options(&args).iter().any(|raw| {
         let flag = raw.split('=').next().unwrap_or(raw.as_str());
         flag == "--no-output" || flag == "--rows" || flag == "--out" || is_aggregate_flag(flag)
     });
     if disqualified {
         return args;
     }
-    args.push("--no-output".to_owned());
+    insert_options(&mut args, &["--no-output"]);
     args
 }
 
@@ -151,7 +204,51 @@ fn resolve_to_absolute(path_str: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{maybe_inject_no_output, resolve_to_absolute};
+    use super::{
+        maybe_inject_no_output, resolve_out_path, resolve_to_absolute, with_default_format,
+    };
+
+    /// Owned argument vector from string slices.
+    fn owned(args: &[&str]) -> Vec<String> {
+        args.iter().copied().map(String::from).collect()
+    }
+
+    /// Without `--format`, the default is named for the daemon: `table` on
+    /// a terminal, `csv` when piped or written with `--out`; an explicit
+    /// format is left alone, and the default goes before an `--`.
+    #[test]
+    fn with_default_format_names_the_default() {
+        assert_eq!(with_default_format(owned(&["*.rs"]), true), [
+            "*.rs", "--format", "table"
+        ]);
+        assert_eq!(with_default_format(owned(&["*.rs"]), false), [
+            "*.rs", "--format", "csv"
+        ]);
+        assert_eq!(
+            with_default_format(owned(&["*.rs", "--out", "x.csv"]), true),
+            ["*.rs", "--out", "x.csv", "--format", "csv"]
+        );
+        assert_eq!(with_default_format(owned(&["*.rs", "-f", "json"]), true), [
+            "*.rs", "-f", "json"
+        ]);
+        assert_eq!(with_default_format(owned(&["--", "--format"]), false), [
+            "--format", "csv", "--", "--format"
+        ]);
+    }
+
+    /// Operands after `--` are never rewritten or read as flags.
+    #[test]
+    fn transforms_leave_operands_after_double_dash_alone() {
+        let out = resolve_out_path(&owned(&["--", "--out", "rel.csv"]));
+        assert_eq!(out, ["--", "--out", "rel.csv"]);
+        let injected = maybe_inject_no_output(owned(&["--", "--rows"]), true);
+        assert_eq!(injected, ["--no-output", "--", "--rows"]);
+        let spawn = super::extract_spawn_args(&owned(&["--", "--no-cache"]));
+        assert!(
+            !spawn.iter().any(|arg| arg == "--no-cache"),
+            "an operand is not a spawn flag: {spawn:?}"
+        );
+    }
 
     // ── maybe_inject_no_output (Phase 3.1 NUL fast path) ─────────
 

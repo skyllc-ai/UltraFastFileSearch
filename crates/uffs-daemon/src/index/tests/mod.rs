@@ -54,6 +54,7 @@ mod idle_demote_tracing;
 mod lifecycle_hooks;
 mod manager;
 mod registry;
+mod search_semantics;
 mod shard_ttl_events;
 mod tiering_ops;
 mod warm_plan;

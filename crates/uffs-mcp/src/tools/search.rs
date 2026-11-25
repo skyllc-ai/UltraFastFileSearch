@@ -51,7 +51,8 @@ pub(crate) struct SearchArgs {
     /// Case-sensitive matching (default: false).
     #[serde(default)]
     pub case_sensitive: bool,
-    /// Whole-word matching (default: false).
+    /// The whole file name must match the pattern, not just contain it
+    /// (default: false).
     #[serde(default)]
     pub whole_word: bool,
     /// Match pattern against the full path instead of the file name.

@@ -25,8 +25,8 @@ mod time_parsing;
 use alloc::sync::Arc;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-pub use apply::apply_search_filters;
 pub(crate) use apply::*;
+pub use apply::{apply_search_filters, fold_exclude_pattern};
 pub use attr_parsing::*;
 pub(crate) use ext_match::extract_extension_after_dot;
 pub(super) use ext_match::{extension_matches_filter, lowercase_into};
@@ -97,7 +97,7 @@ pub struct SearchFilters {
     /// loop — enables O(1) `u16` comparison per record instead of per-record
     /// string parsing.
     pub resolved_ext_ids: Vec<u16>,
-    /// Exclude pattern (glob, lowered).
+    /// Exclude pattern (glob, `$UpCase`-folded by [`fold_exclude_pattern`]).
     pub exclude_lower: Option<String>,
     /// Directory-path pattern (glob, lowered). Matches against `path_dir()`
     /// only.
@@ -344,11 +344,7 @@ impl SearchFilters {
                 "normalized extension filter strings"
             );
         }
-        let fold_table = uffs_text::case_fold::CaseFold::default_table();
-        let exclude_lower = params.exclude.map(|excl| {
-            let mut buf = Vec::with_capacity(excl.len());
-            fold_table.fold_into(excl, &mut buf).to_owned()
-        });
+        let exclude_lower = params.exclude.map(fold_exclude_pattern);
         let path_contains_lower = params.path_contains.map(|pat| {
             // path_dir() is lowered via `to_ascii_lowercase()`, so the
             // pattern must also be plain ASCII-lowered — NOT $UpCase folded

@@ -388,9 +388,10 @@ uffs '*' --files-only --exclude '*.tmp|*.bak'
 
 The exclude pattern is matched against the **filename only** (not the full
 path) and is always case-insensitive.  Like a search pattern, a plain word
-without wildcards matches anywhere in the name.  Use `--exclude` or
-`--not-contains`, not both: together they currently do not work as
-expected.
+without wildcards matches anywhere in the name.  `--not-contains NEEDLE`
+adds `*NEEDLE*` as one more alternative, so `--exclude '*.tmp'
+--not-contains draft` drops names that end in `.tmp` **or** contain
+`draft`.
 
 ## 8. Path Filter
 

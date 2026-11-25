@@ -275,3 +275,17 @@ fn apply_derived_filters(row: &DisplayRow, filters: &SearchFilters) -> bool {
     }
     true
 }
+
+/// Fold an exclude glob the way each name is folded before it is matched.
+///
+/// Both use `$UpCase`, the NTFS case table, so they always meet in one case.
+/// Every writer of [`super::SearchFilters::exclude_lower`] goes through
+/// here: an ASCII-lowercased pattern never matched an upper-folded name, so
+/// `--exclude` dropped nothing that had a letter in it.
+#[must_use]
+pub fn fold_exclude_pattern(pattern: &str) -> String {
+    let mut buf = Vec::with_capacity(pattern.len());
+    uffs_text::case_fold::CaseFold::default_table()
+        .fold_into(pattern, &mut buf)
+        .to_owned()
+}

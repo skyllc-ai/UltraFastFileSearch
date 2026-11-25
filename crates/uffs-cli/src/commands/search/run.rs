@@ -14,7 +14,10 @@ use anyhow::{Context as _, Result};
 use uffs_client::error::ClientError;
 use uffs_client::protocol::response::SearchPayload;
 
-use super::args::{extract_spawn_args, inject_no_output_for_null_stdout, resolve_out_path};
+use super::args::{
+    extract_spawn_args, inject_no_output_for_null_stdout, options, resolve_out_path,
+    with_default_format,
+};
 use super::dispatch::{write_aggregations, write_rows, write_rows_into};
 use super::unfinished;
 use crate::client_profile::{ClientProfile, OutputCost, PayloadSummary, print_client_profile};
@@ -86,7 +89,10 @@ pub(crate) fn run_search(args: &[String]) -> Result<()> {
     // + IPC row transfer entirely.  Saves ~20-30 ms on medium result
     // sets that would otherwise push 3.5 MB through the pipe just to
     // discard the bytes client-side.
-    let args_owned: Vec<String> = inject_no_output_for_null_stdout(resolve_out_path(args));
+    //
+    // The default `--format` is named here too, so the daemon renders the
+    // format the CLI prints (a table on a terminal, CSV otherwise).
+    let args_owned = daemon_args(args);
     let raw_response = match search_retry::search_cli_with_warm_retry(&mut client, &args_owned) {
         Ok(response) => response,
         Err(ClientError::Timeout) => anyhow::bail!(unfinished::timeout_message(
@@ -113,14 +119,14 @@ pub(crate) fn run_search(args: &[String]) -> Result<()> {
         serde_json::from_value(raw_response)
             .with_context(|| "Failed to deserialize search response from daemon")?;
 
-    let profiling = args
+    let profiling = options(args)
         .iter()
         .any(|arg| arg == "--profile" || arg == "--benchmark");
 
     // OPT-4: When --out is specified, the daemon writes the file directly
     // and returns `SearchPayload::Empty`.  Don't overwrite the file.
     // Handles both `--out foo.csv` (separate arg) and `--out=foo.csv` (= form).
-    let has_out = args
+    let has_out = options(args)
         .iter()
         .any(|arg| arg == "--out" || arg.starts_with("--out="));
     let daemon_wrote_file = has_out && response.payload.is_empty();
@@ -136,9 +142,9 @@ pub(crate) fn run_search(args: &[String]) -> Result<()> {
         OutputMode::Stdout => {
             let t_out = std::time::Instant::now();
             if !daemon_wrote_file {
-                write_search_payload(response.payload, args, &mut OutputTarget::Stdout)?;
+                write_search_payload(response.payload, &args_owned, &mut OutputTarget::Stdout)?;
             }
-            write_aggregation_values(&response.aggregations, args)?;
+            write_aggregation_values(&response.aggregations, &args_owned)?;
             Some(OutputCost {
                 ms: t_out.elapsed().as_millis(),
                 bytes: payload_bytes,
@@ -149,7 +155,11 @@ pub(crate) fn run_search(args: &[String]) -> Result<()> {
             let t_out = std::time::Instant::now();
             let mut sink = CountingSink::default();
             if !daemon_wrote_file {
-                write_search_payload(response.payload, args, &mut OutputTarget::Sink(&mut sink))?;
+                write_search_payload(
+                    response.payload,
+                    &args_owned,
+                    &mut OutputTarget::Sink(&mut sink),
+                )?;
             }
             if !response.aggregations.is_empty() {
                 // Aggregations render as pretty JSON into the sink — the
@@ -181,6 +191,16 @@ pub(crate) fn run_search(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// The argument vector the daemon receives: `--out` made absolute (the
+/// daemon runs in another directory), the default `--format` named, and
+/// `--no-output` added when stdout is the null device.
+fn daemon_args(args: &[String]) -> Vec<String> {
+    inject_no_output_for_null_stdout(with_default_format(
+        resolve_out_path(args),
+        super::dispatch::stdout_is_terminal(),
+    ))
+}
+
 /// Where a search's rows go on the client.
 ///
 /// * `Stdout` — the normal path, and `--benchmark -v`.
@@ -208,7 +228,7 @@ enum OutputMode {
 impl OutputMode {
     /// Decide the output mode from the raw search args.
     fn from_args(args: &[String]) -> Self {
-        let has = |flag: &str| args.iter().any(|arg| arg == flag);
+        let has = |flag: &str| options(args).iter().any(|arg| arg == flag);
         if has("--no-output") {
             Self::Skip
         } else if has("--benchmark") && !has("-v") && !has("--verbose") {

@@ -264,7 +264,7 @@ Key parameters:
 | `sort` | `"-size"`, `"modified"`, `"-treesize"` | Sort field (prefix `-` for descending) |
 | `limit` | `50` | Max results (default 50, hard cap 100; larger values are clamped with a warning) |
 | `projection` | `["name", "size", "path"]` | Columns to return |
-| `whole_word` | `true` | Word-boundary matching |
+| `whole_word` | `true` | The whole file name must match the pattern (the CLI's `--word`) |
 | `attr` | `"hidden"`, `"compressed"` | NTFS attribute filter |
 
 ### `uffs_aggregate`

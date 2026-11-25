@@ -17,10 +17,11 @@ use super::super::output::{render_native_results_into, write_native_results};
 //
 // Used by the passthrough `search_cli` path where no `SearchConfig` exists.
 
-/// Extract a flag value from raw CLI args.
+/// Extract a flag value from raw CLI args (options only: a token after `--`
+/// is the pattern, never a flag).
 fn arg_val<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
     let eq_prefix = format!("{flag}=");
-    let mut iter = args.iter();
+    let mut iter = super::args::options(args).iter();
     while let Some(arg) = iter.next() {
         if let Some(rest) = arg.strip_prefix(eq_prefix.as_str()) {
             return Some(rest);
@@ -39,12 +40,17 @@ fn arg_val<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
 /// via `--out` (a machine is reading) — the convention of modern CLIs
 /// (ripgrep, fd, bat): pretty for eyes, structured for pipes, and no
 /// existing script breaks because pipes keep the CSV default.
-fn default_format(out_is_console: bool) -> &'static str {
-    if out_is_console && uffs_client::stdout_kind::StdoutKind::detect().is_terminal() {
-        "table"
-    } else {
-        "csv"
-    }
+///
+/// `to_terminal` is true when the output goes to the console (no `--out`)
+/// and stdout is an interactive terminal; the search path decides it once
+/// and names the result for the daemon (`args::with_default_format`).
+pub(crate) const fn default_format(to_terminal: bool) -> &'static str {
+    if to_terminal { "table" } else { "csv" }
+}
+
+/// Whether stdout is an interactive terminal.
+pub(crate) fn stdout_is_terminal() -> bool {
+    uffs_client::stdout_kind::StdoutKind::detect().is_terminal()
 }
 
 /// Output settings resolved from the raw CLI args — the one place
@@ -82,10 +88,11 @@ impl<'a> OutputSettings<'a> {
         let out = arg_val(args, "--out").unwrap_or("console");
         let format = arg_val(args, "--format")
             .or_else(|| arg_val(args, "-f"))
-            .unwrap_or_else(|| default_format(out == "console"));
+            .unwrap_or_else(|| default_format(out == "console" && stdout_is_terminal()));
         // --parity-compat implies --columns parity (matches legacy OutputConfig
         // behaviour).
-        let parity_compat = args.iter().any(|arg| arg == "--parity-compat");
+        let (opts, operands) = uffs_client::protocol::cli_args::split_end_of_options(args);
+        let parity_compat = opts.iter().any(|arg| arg == "--parity-compat");
         let columns = if parity_compat {
             "parity"
         } else {
@@ -131,7 +138,10 @@ impl<'a> OutputSettings<'a> {
             }
         }
 
-        let pattern = args.first().map_or("*", String::as_str);
+        let pattern = operands
+            .first()
+            .or_else(|| opts.first())
+            .map_or("*", String::as_str);
 
         Self {
             out,
@@ -216,7 +226,7 @@ pub(crate) fn write_aggregations(
 ) -> Result<()> {
     let format = arg_val(args, "--format")
         .or_else(|| arg_val(args, "-f"))
-        .unwrap_or_else(|| default_format(true));
+        .unwrap_or_else(|| default_format(stdout_is_terminal()));
     match format {
         "json" => {
             let json = serde_json::to_string_pretty(aggregations)?;

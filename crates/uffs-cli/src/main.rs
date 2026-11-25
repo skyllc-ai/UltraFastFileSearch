@@ -84,8 +84,10 @@ fn run() -> Result<()> {
 
     // Bare `--` separator → force a search of everything after it (the escape
     // hatch for a pattern that literally begins with `--`).
+    // `uffs -- <PATTERN>`: the `--` stays in the vector so the search
+    // parser reads every token after it as the pattern, even `--foo`.
     if first == "--" {
-        return run_search(raw_args.get(2..).unwrap_or_default());
+        return run_search(raw_args.get(1..).unwrap_or_default());
     }
 
     // The first token decides the mode: a known `--command` runs that

@@ -13,10 +13,11 @@
 // public API of `from_cli_args` has a stable, canonically-named typed
 // error.  Phase 5d migration: see the type's doc-comment in
 // `cli_args_helpers.rs` for the full rationale.
-pub use super::cli_args_helpers::CliArgsError as Error;
+pub use super::cli_args_helpers::{CliArgsError as Error, END_OF_OPTIONS, split_end_of_options};
 use super::cli_args_helpers::{
-    CliArgsError, drives_csv, extract_extensions_from_regex, flag_val, is_pure_ext_glob, non_empty,
-    parse_bool, parse_i32, parse_size, parse_u16, parse_u32, parse_u64,
+    CliArgsError, ExcludeAlternatives, drives_csv, extract_extensions_from_regex, flag_val,
+    is_pure_ext_glob, non_empty, parse_bool, parse_i32, parse_size, parse_u16, parse_u32,
+    parse_u64,
 };
 use super::{SearchFilterMode, SearchParams, SearchResponseMode};
 
@@ -41,12 +42,13 @@ impl SearchParams {
     )]
     pub fn from_cli_args(args: &[String]) -> Result<Self, CliArgsError> {
         let mut raw = RawCliArgs::default();
-        let mut iter = args.iter().cloned().peekable();
+        let (options, operands) = split_end_of_options(args);
+        let mut iter = options.iter().cloned().peekable();
 
         while let Some(arg) = iter.next() {
             let flag = arg.split('=').next().unwrap_or(&arg);
             match flag {
-                "--verbose" | "-v" | "--no-bitmap" | "--debug-tree" => {}
+                "--verbose" | "-v" => {}
                 "--files-only" => raw.files_only = true,
                 "--dirs-only" => raw.dirs_only = true,
                 "--hide-system" => raw.hide_system = true,
@@ -155,7 +157,6 @@ impl SearchParams {
                 }
                 "--pos" => raw.pos = flag_val(&arg, "--pos", &mut iter)?,
                 "--neg" => raw.neg = flag_val(&arg, "--neg", &mut iter)?,
-                "--query-mode" => raw.query_mode = flag_val(&arg, "--query-mode", &mut iter)?,
                 "--limit" | "-n" => raw.limit = parse_u32(flag, &flag_val(&arg, flag, &mut iter)?)?,
                 "--tz-offset" => {
                     raw.tz_offset = Some(parse_i32(
@@ -269,23 +270,20 @@ impl SearchParams {
                         &flag_val(&arg, "--max-bulkiness", &mut iter)?,
                     )?);
                 }
-                "--chaos-seed" | "--reserved-allocated" => {
-                    let _ignored: String = flag_val(&arg, flag, &mut iter)?;
-                }
                 other => {
                     if other.starts_with('-') {
                         return Err(CliArgsError::UnknownFlag {
                             flag: other.to_owned(),
                         });
                     }
-                    if raw.pattern.is_some() {
-                        return Err(CliArgsError::UnexpectedArgument {
-                            arg: other.to_owned(),
-                        });
-                    }
-                    raw.pattern = Some(arg);
+                    raw.set_pattern(arg)?;
                 }
             }
+        }
+        // After `--` every token is an operand, even one that starts with
+        // `-`: `uffs -- -draft*` searches for names beginning `-draft`.
+        for operand in operands {
+            raw.set_pattern(operand.clone())?;
         }
 
         raw.into_search_params()
@@ -384,7 +382,6 @@ struct RawCliArgs {
     header: Option<bool>,
     pos: String,
     neg: String,
-    query_mode: String,
     tz_offset: Option<i32>,
     agg: Vec<String>,
     facet: Vec<String>,
@@ -397,6 +394,19 @@ struct RawCliArgs {
 }
 
 impl RawCliArgs {
+    /// Record the search pattern (the one operand a search takes).
+    ///
+    /// # Errors
+    ///
+    /// [`CliArgsError::UnexpectedArgument`] when a pattern was already given.
+    fn set_pattern(&mut self, operand: String) -> Result<(), CliArgsError> {
+        if self.pattern.is_some() {
+            return Err(CliArgsError::UnexpectedArgument { arg: operand });
+        }
+        self.pattern = Some(operand);
+        Ok(())
+    }
+
     /// Convert raw CLI values into a fully-populated [`SearchParams`],
     /// performing all sugar expansion.
     #[expect(clippy::too_many_lines, reason = "sugar expansion for 60+ flags")]
@@ -410,13 +420,11 @@ impl RawCliArgs {
             .or_else(|| self.contains.take().map(|needle| format!("*{needle}*")))
             .unwrap_or_else(|| "*".to_owned());
 
-        // ── --not-contains → merge into --exclude ──────────────────
-        let exclude = match (self.exclude.take(), self.not_contains.take()) {
-            (Some(ex), Some(nc)) => Some(format!("{ex},*{nc}*")),
-            (Some(ex), None) => Some(ex),
-            (None, Some(nc)) => Some(format!("*{nc}*")),
-            (None, None) => None,
-        };
+        // ── --not-contains → one more --exclude alternative ────────
+        let exclude = ExcludeAlternatives::default()
+            .with(self.exclude.take())
+            .with(self.not_contains.take().map(|needle| format!("*{needle}*")))
+            .into_pattern();
 
         // ── Scope prefixes: path:/dir:/file:/<letter>: ─────────────
         //
@@ -665,7 +673,7 @@ impl RawCliArgs {
             // Core
             pattern,
             case_sensitive,
-            whole_word: false,
+            whole_word: self.word,
             match_path,
             // Sort
             sort: self.sort,
@@ -784,3 +792,7 @@ impl RawCliArgs {
         Ok(params)
     }
 }
+
+#[cfg(test)]
+#[path = "cli_args_tests.rs"]
+mod tests;

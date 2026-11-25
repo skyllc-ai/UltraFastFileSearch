@@ -45,8 +45,9 @@ pub(crate) fn cookbook_json() -> String {
              'created' for age analysis, 'treesize'/'descendants' for directory analysis.",
             "limit defaults to 50. Set higher (up to 500) when you need comprehensive \
              results, lower (5-10) for quick checks.",
-            "whole_word=true prevents substring matches: 'test' matches 'test.txt' and \
-             'my_test.rs' but NOT 'testing.log' or 'latest.doc'.",
+            "whole_word=true makes the WHOLE file name match the pattern: 'test.txt' \
+             matches only names that are exactly 'test.txt' (any case), not \
+             'test.txt.bak' or 'my_test.txt'. Globs already match the whole name.",
             "drives: ['C'] scopes to a single drive. Omit for all drives.",
             // ── Aggregation tips ────────────────────────────────────
             "ALWAYS start with uffs_aggregate preset='overview' — one call gives you \
@@ -138,11 +139,11 @@ fn cookbook_quick_find() -> Value {
                     'Q1_invoice_draft.docx', etc."
             },
             {
-                "title": "Whole-word search — 'test' but not 'testing'",
+                "title": "Exact-name search — 'Makefile' but not 'Makefile.bak'",
                 "tool": "uffs_search",
-                "arguments": { "pattern": "test", "whole_word": true, "limit": 50 },
-                "explanation": "whole_word=true adds word-boundary matching. \
-                    Finds 'test.txt', 'my_test.rs' but NOT 'testing.log'."
+                "arguments": { "pattern": "Makefile", "whole_word": true, "limit": 50 },
+                "explanation": "whole_word=true makes the whole file name match: \
+                    finds 'Makefile' (any case) but NOT 'Makefile.bak' or 'GNUmakefile'."
             },
             {
                 "title": "Regex — find date-stamped CSV files",

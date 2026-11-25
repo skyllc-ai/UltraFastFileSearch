@@ -1,9 +1,9 @@
 # Output Formats
 
 UFFS can write search results as CSV, as JSON (one object per line), or
-as an aligned table.  CSV is the format for scripts and files: it is used
-when the output is piped or redirected, and always with `--out`.  For
-reading results in a terminal, `--format table` gives an aligned table.
+as an aligned table.  Without `--format`, a search shown in a terminal is
+an aligned **table**, and output that is piped, redirected or written
+with `--out` is **CSV**: pretty for eyes, structured for scripts.
 
 ## 1. Choosing a Format
 
@@ -146,10 +146,9 @@ uffs '*.pdf' --columns name,size,path
 uffs '*.pdf' --columns all
 ```
 
-Without `--columns`, the set depends on how the output is produced: a
-file written with `--out` gets every standard column (the `all` set),
-while CSV on the console may get either that set or just `name`, `size`,
-`modified` and `path`.  In scripts, always name the columns you need.
+Without `--columns`, CSV carries every standard column (the `all` set
+below), wherever it goes.  In scripts, name the columns you need so a
+future column does not shift yours.
 
 **`all`** is: `path`, `name`, `path_only`, `size`, `size_on_disk`,
 `created`, `modified`, `accessed`, `descendants`, the attribute flags
