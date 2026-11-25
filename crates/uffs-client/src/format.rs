@@ -343,7 +343,7 @@ pub struct AggregatePresetName {
 
 /// Every aggregate preset, in the order help text lists them.
 ///
-/// The one list the client side reads: [`is_aggregate_preset`] validates
+/// The one list the client side reads: `is_aggregate_preset` validates
 /// against it and `uffs --agg --help` prints it, so the two cannot drift.
 /// The daemon expands presets with `uffs_core::aggregate::AggregatePreset`;
 /// a test in `uffs-daemon` holds that parser to this list.
