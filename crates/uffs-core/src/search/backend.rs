@@ -14,9 +14,10 @@ use std::time::Instant;
 use rayon::prelude::*;
 
 use super::dispatch::{
-    apply_dispatch_safety_nets, discard_if_cancelled, dispatch_match_all, dispatch_regex,
+    RowOrder, apply_dispatch_safety_nets, discard_if_cancelled, dispatch_match_all, dispatch_regex,
     dispatch_trigram_or_tree, pick_mode_label,
 };
+use super::search_error::{SearchError, compile_search_regex};
 use crate::compact::DriveCompactIndex;
 use crate::search::field::FieldId;
 
@@ -259,11 +260,16 @@ impl MultiDriveBackend {
     ///
     /// When `drives_filter` is non-empty, only drives whose letter is in
     /// the slice are searched.
+    ///
+    /// # Errors
+    ///
+    /// [`SearchError::InvalidRegex`] when a `>regex` pattern does not
+    /// compile; nothing is searched.
     #[expect(
         clippy::too_many_lines,
         reason = "search dispatch with three modes and a drive filter"
     )]
-    pub fn search(&mut self, req: SearchRequest<'_>) -> SearchResult {
+    pub fn search(&mut self, req: SearchRequest<'_>) -> Result<SearchResult, SearchError> {
         // `pattern` is bound `mut` so the ext-glob safety net below can
         // rewrite `*.<ext>` → `"*"` in-place without introducing a
         // shadow binding (see the `shadow_reuse` workspace lint).
@@ -284,12 +290,12 @@ impl MultiDriveBackend {
 
         if pattern.is_empty() {
             self.last_results.clear();
-            return SearchResult {
+            return Ok(SearchResult {
                 rows: Vec::new(),
                 duration: start.elapsed(),
                 records_scanned: 0,
                 phase_timings: None,
-            };
+            });
         }
 
         // Apply both dispatch-time pattern rewrites (drive-prefix +
@@ -312,6 +318,9 @@ impl MultiDriveBackend {
             } else {
                 &drive_from_prefix
             };
+        // Compiled before any drive is touched, so a bad regex leaves the
+        // backend exactly as it was.
+        let regex = compile_search_regex(pattern, case_sensitive)?;
 
         // When a drive filter is active, temporarily swap out non-matching
         // drives so the rest of the search logic (which uses `self.drives`)
@@ -328,7 +337,7 @@ impl MultiDriveBackend {
         };
 
         let is_match_all = pattern == "*";
-        let is_regex = pattern.starts_with('>') && pattern.len() > 1;
+        let is_regex = regex.is_some();
         let limit = result_limit.map_or(UNLIMITED, |val| val as usize);
 
         // Fold needle using $UpCase from the first drive (all drives share
@@ -365,51 +374,19 @@ impl MultiDriveBackend {
             if search_filters.needs_display_row_filter() {
                 super::filters::apply_search_filters(&mut rows, search_filters);
             }
-        } else if is_regex {
-            let regex_pattern = needle.strip_prefix('>').unwrap_or(&needle);
-            match regex::RegexBuilder::new(regex_pattern)
-                .case_insensitive(!case_sensitive)
-                .build()
-            {
-                Ok(compiled_re) => {
-                    // Immutable reborrow so the parallel per-drive closure is
-                    // `Sync` (a captured `&mut` is not). The record-level
-                    // filters are applied inside each scan, before its limit.
-                    let sf: &super::filters::SearchFilters = search_filters;
-                    let drive_results: Vec<Vec<DisplayRow>> = self
-                        .drives
-                        .par_iter()
-                        .map(|drive| {
-                            super::query::search_compact_drive_regex(drive, &compiled_re, limit, sf)
-                        })
-                        .collect();
-                    for drive_rows in drive_results {
-                        rows.extend(drive_rows);
-                    }
-                    super::filters::apply_filter(&mut rows, filter_mode);
-                    super::filters::apply_search_filters(&mut rows, search_filters);
-                    sort_rows(
-                        &mut rows,
-                        self.sort_column,
-                        self.sort_desc,
-                        &self.extra_sort_tiers,
-                    );
-                    rows.truncate(limit);
-                }
-                Err(_err) => {
-                    // Restore stashed drives before returning.
-                    if let Some(rest) = stashed_drives {
-                        self.drives.extend(rest);
-                    }
-                    self.last_results.clear();
-                    return SearchResult {
-                        rows: Vec::new(),
-                        duration: start.elapsed(),
-                        records_scanned: 0,
-                        phase_timings: None,
-                    };
-                }
-            }
+        } else if let Some(compiled_re) = &regex {
+            rows = dispatch_regex(
+                &self.drives.iter().collect::<Vec<_>>(),
+                compiled_re,
+                filter_mode,
+                search_filters,
+                &RowOrder {
+                    column: self.sort_column,
+                    desc: self.sort_desc,
+                    extra_tiers: &self.extra_sort_tiers,
+                    limit,
+                },
+            );
         } else if is_prefix {
             // Trigram-accelerated prefix scan (`win*`). `is_prefix` already
             // proved `is_prefix_pattern` holds, so the strip is infallible.
@@ -510,12 +487,12 @@ impl MultiDriveBackend {
         // re-sort (CLI / daemon) can ignore last_results entirely.
         // Future optimisation: make SearchResult borrow from last_results.
         self.last_results = rows;
-        SearchResult {
+        Ok(SearchResult {
             rows: self.last_results.clone(),
             duration: start.elapsed(),
             records_scanned: scanned,
             phase_timings,
-        }
+        })
     }
 
     /// Re-sort the last results by a different column.
@@ -559,6 +536,11 @@ impl MultiDriveBackend {
 ///
 /// This is the daemon-facing entry point.  The TUI continues to use
 /// [`MultiDriveBackend::search()`] which wraps its own per-query state.
+///
+/// # Errors
+///
+/// [`SearchError::InvalidRegex`] when a `>regex` pattern does not compile;
+/// nothing is searched.
 #[expect(
     clippy::too_many_lines,
     reason = "search dispatch with three modes and a drive filter — mirrors MultiDriveBackend::search"
@@ -569,7 +551,7 @@ pub fn search_index(
     sort_column: FieldId,
     sort_desc: bool,
     extra_sort_tiers: &[SortSpec],
-) -> SearchResult {
+) -> Result<SearchResult, SearchError> {
     // `pattern` is bound `mut` so the ext-glob safety net below can
     // rewrite `*.<ext>` → `"*"` in-place without introducing a shadow
     // binding (see the `shadow_reuse` workspace lint).
@@ -587,12 +569,12 @@ pub fn search_index(
     let start = Instant::now();
 
     if pattern.is_empty() {
-        return SearchResult {
+        return Ok(SearchResult {
             rows: Vec::new(),
             duration: start.elapsed(),
             records_scanned: 0,
             phase_timings: None,
-        };
+        });
     }
 
     // Apply both dispatch-time pattern rewrites (drive-prefix +
@@ -615,6 +597,7 @@ pub fn search_index(
         } else {
             &drive_from_prefix
         };
+    let regex = compile_search_regex(pattern, case_sensitive)?;
 
     // Filter drives without mutation — just skip non-matching ones.
     let mut active_drives: Vec<&DriveCompactIndex> = index
@@ -636,7 +619,7 @@ pub fn search_index(
     apply_bloom_pre_check(&mut active_drives, &search_filters.extensions);
 
     let is_match_all = pattern == "*";
-    let is_regex = pattern.starts_with('>') && pattern.len() > 1;
+    let is_regex = regex.is_some();
     let limit = result_limit.map_or(UNLIMITED, |val| val as usize);
 
     // Fold needle using $UpCase from the first drive.
@@ -672,26 +655,22 @@ pub fn search_index(
             filter_mode,
             search_filters,
         )
-    } else if is_regex {
-        let Some(regex_rows) = dispatch_regex(
-            &active_drives,
-            &needle,
-            case_sensitive,
-            limit,
-            filter_mode,
-            search_filters,
-            sort_column,
-            sort_desc,
-            extra_sort_tiers,
-        ) else {
-            return SearchResult {
-                rows: Vec::new(),
-                duration: start.elapsed(),
-                records_scanned: 0,
-                phase_timings: None,
-            };
-        };
-        (regex_rows, None)
+    } else if let Some(compiled_re) = &regex {
+        (
+            dispatch_regex(
+                &active_drives,
+                compiled_re,
+                filter_mode,
+                search_filters,
+                &RowOrder {
+                    column: sort_column,
+                    desc: sort_desc,
+                    extra_tiers: extra_sort_tiers,
+                    limit,
+                },
+            ),
+            None,
+        )
     } else {
         (
             dispatch_trigram_or_tree(
@@ -727,12 +706,12 @@ pub fn search_index(
         "search_index_total"
     );
 
-    SearchResult {
+    Ok(SearchResult {
         rows: final_rows,
         duration: start.elapsed(),
         records_scanned: scanned,
         phase_timings,
-    }
+    })
 }
 
 // ── Dispatch helpers ───────────────────────────────────────────────────

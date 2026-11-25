@@ -208,10 +208,12 @@ fn multi_drive_search_applies_filters() {
         hide_system: true,
         ..Default::default()
     };
-    let result = backend.search(SearchRequest {
-        result_limit: Some(100),
-        ..SearchRequest::new("*", &mut filters)
-    });
+    let result = backend
+        .search(SearchRequest {
+            result_limit: Some(100),
+            ..SearchRequest::new("*", &mut filters)
+        })
+        .expect("search runs");
     assert!(
         !result.rows.iter().any(|row| row.name() == "$MFT"),
         "hide_system must filter $MFT"
@@ -224,11 +226,13 @@ fn multi_drive_search_files_only() {
     let mut backend = MultiDriveBackend::new();
     backend.drives.push(drive);
     let mut filters = SearchFilters::default();
-    let result = backend.search(SearchRequest {
-        result_limit: Some(100),
-        filter_mode: FilterMode::FilesOnly,
-        ..SearchRequest::new("*", &mut filters)
-    });
+    let result = backend
+        .search(SearchRequest {
+            result_limit: Some(100),
+            filter_mode: FilterMode::FilesOnly,
+            ..SearchRequest::new("*", &mut filters)
+        })
+        .expect("search runs");
     assert!(
         !result.rows.iter().any(|row| row.is_directory),
         "FilesOnly must not return dirs"
@@ -241,11 +245,13 @@ fn multi_drive_search_dirs_only() {
     let mut backend = MultiDriveBackend::new();
     backend.drives.push(drive);
     let mut filters = SearchFilters::default();
-    let result = backend.search(SearchRequest {
-        result_limit: Some(100),
-        filter_mode: FilterMode::DirsOnly,
-        ..SearchRequest::new("*", &mut filters)
-    });
+    let result = backend
+        .search(SearchRequest {
+            result_limit: Some(100),
+            filter_mode: FilterMode::DirsOnly,
+            ..SearchRequest::new("*", &mut filters)
+        })
+        .expect("search runs");
     assert!(
         result.rows.iter().all(|row| row.is_directory),
         "DirsOnly must only return dirs"
@@ -265,11 +271,13 @@ fn multi_drive_search_sort_by_size_desc() {
         hide_system: true,
         ..Default::default()
     };
-    let result = backend.search(SearchRequest {
-        result_limit: Some(100),
-        filter_mode: FilterMode::FilesOnly,
-        ..SearchRequest::new("*", &mut filters)
-    });
+    let result = backend
+        .search(SearchRequest {
+            result_limit: Some(100),
+            filter_mode: FilterMode::FilesOnly,
+            ..SearchRequest::new("*", &mut filters)
+        })
+        .expect("search runs");
     for pair in result.rows.windows(2) {
         let left = pair.first().expect("window has first");
         let right = pair.get(1).expect("window has second");
@@ -311,7 +319,9 @@ fn match_all_none_limit_is_unlimited() {
     let mut backend = MultiDriveBackend::new();
     backend.drives.push(drive);
     let mut filters = SearchFilters::default();
-    let all = backend.search(SearchRequest::new("*", &mut filters));
+    let all = backend
+        .search(SearchRequest::new("*", &mut filters))
+        .expect("search runs");
     assert!(
         all.rows.len() >= 1_500,
         "None must be unlimited, got {}",
@@ -325,10 +335,12 @@ fn match_all_explicit_limit_caps_results() {
     let mut backend = MultiDriveBackend::new();
     backend.drives.push(drive);
     let mut filters = SearchFilters::default();
-    let cap = backend.search(SearchRequest {
-        result_limit: Some(500),
-        ..SearchRequest::new("*", &mut filters)
-    });
+    let cap = backend
+        .search(SearchRequest {
+            result_limit: Some(500),
+            ..SearchRequest::new("*", &mut filters)
+        })
+        .expect("search runs");
     assert!(
         cap.rows.len() <= 500,
         "Some(500) must cap, got {}",
@@ -342,11 +354,15 @@ fn unlimited_returns_more_than_capped() {
     let mut backend = MultiDriveBackend::new();
     backend.drives.push(drive);
     let mut filters = SearchFilters::default();
-    let all = backend.search(SearchRequest::new("*", &mut filters));
-    let cap = backend.search(SearchRequest {
-        result_limit: Some(500),
-        ..SearchRequest::new("*", &mut filters)
-    });
+    let all = backend
+        .search(SearchRequest::new("*", &mut filters))
+        .expect("search runs");
+    let cap = backend
+        .search(SearchRequest {
+            result_limit: Some(500),
+            ..SearchRequest::new("*", &mut filters)
+        })
+        .expect("search runs");
     assert!(all.rows.len() > cap.rows.len(), "unlimited > capped");
 }
 
@@ -1076,7 +1092,8 @@ fn search_index_star_sort_directory_desc() {
         FieldId::DirectoryFlag,
         true, // descending
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(result.rows.len(), 5, "expected 5 rows from search_index");
     for (i, row) in result.rows.iter().enumerate() {
         assert!(
@@ -1116,7 +1133,8 @@ fn search_index_star_sort_directory_asc() {
         FieldId::DirectoryFlag,
         false, // ascending
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(result.rows.len(), 5, "expected 5 rows from search_index");
     for (i, row) in result.rows.iter().enumerate() {
         assert!(
@@ -1195,7 +1213,8 @@ fn search_index_star_sort_hidden_desc() {
         FieldId::Hidden,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(result.rows.len(), 5);
     for (i, row) in result.rows.iter().enumerate() {
         assert!(

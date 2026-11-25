@@ -282,7 +282,11 @@ impl IndexManager {
             tokio::time::timeout(core::time::Duration::from_secs(budget_secs), search_handle).await;
 
         let result = match search_outcome {
-            Ok(Ok(res)) => res,
+            Ok(Ok(Ok(res))) => res,
+            Ok(Ok(Err(err))) => {
+                tracing::debug!(pattern = %effective_params.pattern, error = %err, "search refused");
+                return Err(SearchFailure::InvalidPattern(err));
+            }
             Ok(Err(_join_err)) => {
                 tracing::error!(
                     pattern = %effective_params.pattern,

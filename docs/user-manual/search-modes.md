@@ -141,10 +141,10 @@ uffs '>.*\.log$'
 - A drive letter or a path inside the regex is not understood as a scope:
   use `--drive` and `--in-path` instead.
 - Use `--case` if you need case-sensitive regex matching.
-- Write character classes out (`[0-9]`, `[a-z0-9_]`, `[ ]`) instead of the
-  escapes `\d`, `\w`, `\s` and `\b`: in the default case-insensitive mode
-  these escapes currently do not match what they should.  With `--case`
-  they work as usual.
+- The usual escapes work in both modes: `\d`, `\w`, `\s`, `\b`
+  (`uffs '>^report\d+\.txt$'` finds `report7.txt` and `REPORT2024.TXT`).
+- A regex that does not compile is an error, not an empty result: the
+  command fails with `invalid regex` and the engine's explanation.
 - Regex is usually the **slowest** mode: every name is tested.  One shape
   is fast: an extension list anchored at the end, such as
   `>.*\.(jpg|png|heic)$` or `>\.rs$`, is run as an extension lookup (the

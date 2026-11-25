@@ -316,42 +316,49 @@ pub(super) fn dispatch_match_all(
     (rows, phase_timings)
 }
 
-/// Dispatch the regex branch (`>pattern`): compile the regex, fan out
-/// a rayon scan across drives, then filter + sort + truncate.  Returns
-/// `None` when the regex fails to compile (caller maps this to an empty
-/// result so callers can distinguish "no matches" from "bad pattern").
-#[expect(clippy::too_many_arguments, reason = "single call site, flat args")]
+/// How the rows of one search are ordered and cut: the sort key, its
+/// direction, the further sort tiers, and the row limit.
+pub(super) struct RowOrder<'a> {
+    /// Primary sort column.
+    pub(super) column: FieldId,
+    /// Primary sort descending.
+    pub(super) desc: bool,
+    /// Further sort tiers after the primary one.
+    pub(super) extra_tiers: &'a [SortSpec],
+    /// Maximum number of rows kept.
+    pub(super) limit: usize,
+}
+
+/// Dispatch the regex branch (`>pattern`): fan the compiled regex (see
+/// [`super::search_error::compile_search_regex`]) out across drives, then
+/// filter + sort + truncate.
 pub(super) fn dispatch_regex(
     active_drives: &[&DriveCompactIndex],
-    needle: &str,
-    case_sensitive: bool,
-    limit: usize,
+    compiled_re: &regex::Regex,
     filter_mode: FilterMode,
     search_filters: &SearchFilters,
-    sort_column: FieldId,
-    sort_desc: bool,
-    extra_sort_tiers: &[SortSpec],
-) -> Option<Vec<DisplayRow>> {
-    let regex_pattern = needle.strip_prefix('>').unwrap_or(needle);
-    let compiled_re = regex::RegexBuilder::new(regex_pattern)
-        .case_insensitive(!case_sensitive)
-        .build()
-        .ok()?;
+    order: &RowOrder<'_>,
+) -> Vec<DisplayRow> {
     let drive_results: Vec<Vec<DisplayRow>> = active_drives
         .par_iter()
         .map(|drive| {
             if search_filters.is_cancelled() {
                 return Vec::new();
             }
-            super::query::search_compact_drive_regex(drive, &compiled_re, limit, search_filters)
+            super::query::search_compact_drive_regex(
+                drive,
+                compiled_re,
+                order.limit,
+                search_filters,
+            )
         })
         .collect();
     let mut rows: Vec<DisplayRow> = drive_results.into_iter().flatten().collect();
     super::filters::apply_filter(&mut rows, filter_mode);
     super::filters::apply_search_filters(&mut rows, search_filters);
-    sort_rows(&mut rows, sort_column, sort_desc, extra_sort_tiers);
-    rows.truncate(limit);
-    Some(rows)
+    sort_rows(&mut rows, order.column, order.desc, order.extra_tiers);
+    rows.truncate(order.limit);
+    rows
 }
 
 /// Dispatch the default branch: tree-walk for path patterns, trigram-

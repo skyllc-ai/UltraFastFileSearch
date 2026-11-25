@@ -413,7 +413,9 @@ fn build_two_drive_backend() -> MultiDriveBackend {
 fn multi_drive_merges_results_from_both_drives() {
     let mut backend = build_two_drive_backend();
     let mut filters = super::super::filters::SearchFilters::default();
-    let result = backend.search(SearchRequest::new("*", &mut filters));
+    let result = backend
+        .search(SearchRequest::new("*", &mut filters))
+        .expect("search runs");
     let drives: std::collections::HashSet<uffs_mft::platform::DriveLetter> =
         result.rows.iter().map(|row| row.drive).collect();
     assert!(
@@ -432,10 +434,12 @@ fn multi_drive_sort_across_drives() {
     backend.sort_column = SortColumn::Size;
     backend.sort_desc = true;
     let mut filters = super::super::filters::SearchFilters::default();
-    let result = backend.search(SearchRequest {
-        filter_mode: FilterMode::FilesOnly,
-        ..SearchRequest::new("*", &mut filters)
-    });
+    let result = backend
+        .search(SearchRequest {
+            filter_mode: FilterMode::FilesOnly,
+            ..SearchRequest::new("*", &mut filters)
+        })
+        .expect("search runs");
     // data.csv (800) on D should come before report.txt (400) on C
     let first = result.rows.first().expect("first");
     assert_eq!(
@@ -450,10 +454,12 @@ fn multi_drive_sort_across_drives() {
 fn multi_drive_limit_caps_total() {
     let mut backend = build_two_drive_backend();
     let mut filters = super::super::filters::SearchFilters::default();
-    let result = backend.search(SearchRequest {
-        result_limit: Some(2),
-        ..SearchRequest::new("*", &mut filters)
-    });
+    let result = backend
+        .search(SearchRequest {
+            result_limit: Some(2),
+            ..SearchRequest::new("*", &mut filters)
+        })
+        .expect("search runs");
     assert!(
         result.rows.len() <= 2,
         "limit must cap across drives, got {}",
@@ -566,7 +572,9 @@ fn display_rows_to_dataframe_path_only_extracts_directory() {
 fn search_empty_pattern_returns_empty() {
     let mut backend = build_two_drive_backend();
     let mut filters = super::super::filters::SearchFilters::default();
-    let result = backend.search(SearchRequest::new("", &mut filters));
+    let result = backend
+        .search(SearchRequest::new("", &mut filters))
+        .expect("search runs");
     assert!(
         result.rows.is_empty(),
         "empty pattern must return no results"
@@ -717,7 +725,8 @@ fn search_index_returns_results_from_both_drives() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     let drives: std::collections::HashSet<uffs_mft::platform::DriveLetter> =
         result.rows.iter().map(|row| row.drive).collect();
     assert!(
@@ -743,7 +752,8 @@ fn search_index_drives_filter_excludes_non_matching() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert!(
         result
             .rows
@@ -774,7 +784,8 @@ fn search_index_promotes_ext_glob_and_returns_matching_results() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     // After the safety net mutates filters, the ext should be populated.
     assert_eq!(
         filters.extensions,
@@ -804,7 +815,8 @@ fn search_index_ext_glob_parity_with_explicit_extensions() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
 
     let mut filters_explicit = super::super::filters::SearchFilters {
         extensions: vec!["txt".to_owned()],
@@ -816,7 +828,8 @@ fn search_index_ext_glob_parity_with_explicit_extensions() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
 
     assert_eq!(
         r_glob.rows.len(),
@@ -839,12 +852,20 @@ fn search_index_ext_glob_parity_with_explicit_extensions() {
 fn search_index_multi_segment_ext_not_promoted() {
     let index = build_two_drive_index();
     let mut filters = super::super::filters::SearchFilters::default();
-    let _result = search_index(
+    let result = search_index(
         &index,
         SearchRequest::new("*.tar.gz", &mut filters),
         FieldId::Modified,
         true,
         &[],
+    )
+    .expect("search runs");
+    assert!(
+        result
+            .rows
+            .iter()
+            .all(|row| row.name().to_ascii_lowercase().ends_with(".tar.gz")),
+        "the glob still decides the rows"
     );
     assert!(
         filters.extensions.is_empty(),
@@ -858,7 +879,7 @@ fn search_index_multi_segment_ext_not_promoted() {
 fn search_index_case_sensitive_ext_glob_not_promoted() {
     let index = build_two_drive_index();
     let mut filters = super::super::filters::SearchFilters::default();
-    let _result = search_index(
+    let result = search_index(
         &index,
         SearchRequest {
             case_sensitive: true,
@@ -867,6 +888,14 @@ fn search_index_case_sensitive_ext_glob_not_promoted() {
         FieldId::Modified,
         true,
         &[],
+    )
+    .expect("search runs");
+    assert!(
+        result.rows.iter().all(|row| row
+            .name()
+            .rsplit_once('.')
+            .is_some_and(|(_, ext)| ext == "TXT")),
+        "a case-sensitive glob keeps only upper-case .TXT names"
     );
     assert!(
         filters.extensions.is_empty(),
@@ -883,12 +912,17 @@ fn search_index_explicit_extensions_not_clobbered() {
         extensions: vec!["csv".to_owned()],
         ..super::super::filters::SearchFilters::default()
     };
-    let _result = search_index(
+    let result = search_index(
         &index,
         SearchRequest::new("*.txt", &mut filters),
         FieldId::Modified,
         true,
         &[],
+    )
+    .expect("search runs");
+    assert!(
+        result.rows.is_empty(),
+        "a .txt pattern and a csv-only extension filter cannot both hold"
     );
     // Safety net must leave existing extensions alone.
     assert_eq!(
@@ -963,7 +997,9 @@ fn search_substring_with_extension_filter_survives_limit() {
         extensions: vec!["pdf".to_owned()],
         ..super::super::filters::SearchFilters::default()
     };
-    let unlimited = backend_unlimited.search(SearchRequest::new("pcl5", &mut filters_unlimited));
+    let unlimited = backend_unlimited
+        .search(SearchRequest::new("pcl5", &mut filters_unlimited))
+        .expect("search runs");
     assert!(
         unlimited
             .rows
@@ -985,10 +1021,12 @@ fn search_substring_with_extension_filter_survives_limit() {
         extensions: vec!["pdf".to_owned()],
         ..super::super::filters::SearchFilters::default()
     };
-    let limited = backend.search(SearchRequest {
-        result_limit: Some(5),
-        ..SearchRequest::new("pcl5", &mut filters_limited)
-    });
+    let limited = backend
+        .search(SearchRequest {
+            result_limit: Some(5),
+            ..SearchRequest::new("pcl5", &mut filters_limited)
+        })
+        .expect("search runs");
     assert!(
         limited
             .rows
@@ -1110,7 +1148,8 @@ fn search_index_ext_fast_path_honors_hide_system_and_hide_ads() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
 
     assert_eq!(
         filters.extensions,
@@ -1148,7 +1187,8 @@ fn search_index_ext_fast_path_returns_all_when_hide_flags_off() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
 
     let names: std::collections::HashSet<String> = result
         .rows
@@ -1188,7 +1228,8 @@ fn search_index_ext_fast_path_hide_system_keeps_ordinary_dollar_files() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
 
     let names: std::collections::HashSet<String> = result
         .rows
@@ -1258,7 +1299,8 @@ fn search_index_hide_system_excludes_true_metafiles_only() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     let names: std::collections::HashSet<String> = result
         .rows
         .iter()
@@ -1289,7 +1331,8 @@ fn search_index_ext_fast_path_hide_ads_only_excludes_colon_names() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
 
     let names: std::collections::HashSet<String> = result
         .rows
@@ -1401,7 +1444,8 @@ fn search_index_ext_rare_zero_results_when_drive_lacks_extension() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
 
     assert_eq!(
         filters.extensions,
@@ -1436,7 +1480,8 @@ fn search_index_ext_rare_dotless_dir_does_not_leak_into_other_extension() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
 
     let names: std::collections::HashSet<String> = result
         .rows
@@ -1479,7 +1524,8 @@ fn search_index_promotes_drive_prefix_with_ext_glob() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(
         filters.extensions,
         vec!["txt".to_owned()],
@@ -1517,7 +1563,8 @@ fn search_index_drive_prefix_narrows_away_other_drives() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(
         filters.extensions,
         vec!["txt".to_owned()],
@@ -1547,7 +1594,8 @@ fn search_index_drive_prefix_case_insensitive_letter() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(
         result.rows.len(),
         1,
@@ -1578,7 +1626,8 @@ fn search_index_drive_prefix_explicit_filter_not_clobbered() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert!(
         filters.extensions.is_empty(),
         "ext promotion must NOT fire (pattern still contains `C:` prefix because drives_filter was non-empty)"
@@ -1623,7 +1672,8 @@ fn search_index_path_only_sort_honors_extension_filter() {
         FieldId::PathOnly,
         false, // ASC
         &[],
-    );
+    )
+    .expect("search runs");
     // Extension filter is case-folded at the daemon, but the fixture
     // writes lowercase names so a case-sensitive `ends_with` is fine
     // here — we explicitly want to detect the bug-case where records
@@ -1676,7 +1726,8 @@ fn search_index_path_only_sort_returns_path_only_asc_order() {
         FieldId::PathOnly,
         false, // ASC
         &[],
-    );
+    )
+    .expect("search runs");
     // Verify every adjacent pair is in path_only-ASC order.
     //
     // Mirrors the api-validation T67f test's per-row `_path_only`
@@ -1726,7 +1777,8 @@ fn search_index_path_only_sort_name_asc_within_same_folder() {
         FieldId::PathOnly,
         false, // ASC
         &[],
-    );
+    )
+    .expect("search runs");
     let file_names: Vec<String> = result
         .rows
         .iter()
@@ -1779,7 +1831,8 @@ fn search_index_path_only_ext_fast_path_preserves_name_asc_tiebreaker() {
         FieldId::PathOnly,
         false, // ASC
         &[],
-    );
+    )
+    .expect("search runs");
     let file_names: Vec<String> = result
         .rows
         .iter()
@@ -1815,7 +1868,8 @@ fn search_index_path_only_sort_honors_filter_mode_files_only() {
         FieldId::PathOnly,
         false,
         &[],
-    );
+    )
+    .expect("search runs");
     assert!(
         result.rows.iter().all(|row| !row.is_directory),
         "path-sort tree walk with FilesOnly must exclude directories; \
@@ -1933,7 +1987,8 @@ fn search_index_path_only_sort_asc_nested_tree() {
         FieldId::PathOnly,
         false, // ASC
         &[],
-    );
+    )
+    .expect("search runs");
     let names: Vec<String> = result
         .rows
         .iter()
@@ -1973,7 +2028,8 @@ fn search_index_path_only_sort_desc_nested_tree() {
         FieldId::PathOnly,
         true, // DESC
         &[],
-    );
+    )
+    .expect("search runs");
     let names: Vec<String> = result
         .rows
         .iter()
@@ -2020,7 +2076,8 @@ fn search_index_path_only_sort_respects_limit() {
         FieldId::PathOnly,
         false, // ASC
         &[],
-    );
+    )
+    .expect("search runs");
     let names: Vec<String> = result
         .rows
         .iter()
@@ -2048,7 +2105,8 @@ fn search_index_drive_root_glob_scopes_drive_and_promotes_ext() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(
         filters.extensions,
         vec!["txt".to_owned()],
@@ -2088,6 +2146,7 @@ fn search_index_concurrent_calls_do_not_interfere() {
                 true,
                 &[],
             )
+            .expect("search runs")
         },
         || {
             let mut filters = super::super::filters::SearchFilters::default();
@@ -2098,6 +2157,7 @@ fn search_index_concurrent_calls_do_not_interfere() {
                 false,
                 &[],
             )
+            .expect("search runs")
         },
     );
     assert!(!r1.rows.is_empty(), "concurrent search 1 must return rows");
@@ -2694,7 +2754,8 @@ fn search_index_bloom_skips_c_when_filter_is_csv_only() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(
         result.records_scanned, drive_d_records,
         "csv-only filter must bloom-skip C; only D scanned"
@@ -2718,7 +2779,8 @@ fn search_index_bloom_skips_d_when_filter_is_txt_only() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(
         result.records_scanned, drive_c_records,
         "txt-only filter must bloom-skip D; only C scanned"
@@ -2742,7 +2804,8 @@ fn search_index_bloom_keeps_all_drives_when_any_ext_hits() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(
         result.records_scanned, total_records,
         "any-hit filter must keep every drive in the active subset"
@@ -2765,7 +2828,8 @@ fn search_index_no_bloom_skip_when_extensions_empty() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(
         result.records_scanned, total_records,
         "empty-ext filter must keep every drive (no bloom-skip)"
@@ -2788,7 +2852,8 @@ fn search_index_bloom_skips_all_drives_when_no_ext_matches_any() {
         FieldId::Modified,
         true,
         &[],
-    );
+    )
+    .expect("search runs");
     assert_eq!(
         result.records_scanned, 0,
         "novel-ext filter must bloom-skip every drive — zero records scanned"
@@ -2830,6 +2895,7 @@ fn cancelled_search_returns_no_rows_on_every_dispatch_path() {
             true,
             &[],
         )
+        .expect("search runs")
         .rows;
         assert!(
             !live_rows.is_empty(),
@@ -2847,7 +2913,8 @@ fn cancelled_search_returns_no_rows_on_every_dispatch_path() {
             sort,
             true,
             &[],
-        );
+        )
+        .expect("search runs");
         assert!(
             result.rows.is_empty(),
             "`{pattern}` (sort {sort:?}) must return no rows once cancelled; got {}",

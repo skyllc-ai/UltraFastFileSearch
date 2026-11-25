@@ -40,6 +40,9 @@ pub(crate) enum SearchFailure {
     /// concurrency cap (`UFFS_SEARCH_MAX_CONCURRENCY`) is saturated.
     /// Nothing was scanned.
     Saturated,
+    /// The pattern cannot be searched for (an invalid `>regex`); nothing
+    /// was scanned.  The caller's mistake, reported as invalid params.
+    InvalidPattern(uffs_core::search::SearchError),
 }
 
 impl SearchFailure {
@@ -49,6 +52,7 @@ impl SearchFailure {
             Self::TimedOut { .. } => uffs_client::protocol::ERR_SEARCH_TIMEOUT,
             Self::Panicked { .. } => uffs_client::protocol::ERR_INTERNAL,
             Self::Saturated => uffs_client::protocol::ERR_SEARCH_BUSY,
+            Self::InvalidPattern(_) => uffs_client::protocol::ERR_INVALID_PARAMS,
         }
     }
 }
@@ -75,6 +79,7 @@ impl fmt::Display for SearchFailure {
                 "daemon search slots are saturated (UFFS_SEARCH_MAX_CONCURRENCY); nothing was \
                  scanned, retry shortly"
             ),
+            Self::InvalidPattern(err) => write!(f, "{err}"),
         }
     }
 }

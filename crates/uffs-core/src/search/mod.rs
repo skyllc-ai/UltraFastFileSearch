@@ -16,5 +16,8 @@ mod display_row;
 pub mod field;
 pub mod filters;
 pub mod query;
+mod search_error;
 mod sorting;
 pub mod tree;
+
+pub use search_error::SearchError;
