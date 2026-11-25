@@ -9,7 +9,7 @@
 ship as `v0.6.0`.  This file is the canonical capture of the dual-platform
 operator-surface validation pass that closes Definition-of-Done item §6.2
 "All Mac gates green / Windows gates passed for the phases that need it"
-in [`memory-tiering-implementation-plan.md`](../refactor/memory-tiering-implementation-plan.md).
+in `memory-tiering-implementation-plan.md`.
 
 **Companion docs:**
 

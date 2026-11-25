@@ -27,7 +27,7 @@ charts/
 
 ## Design system
 
-Charts follow the **UFFS brand kit** ([`docs/dev/architecture/brand-kit/STYLE_GUIDE.md`](../../dev/architecture/brand-kit/STYLE_GUIDE.md)) — rust orange on charcoal, deliberately *not* the cool blue of every other file-search tool:
+Charts follow the **UFFS brand kit** (`docs/dev/architecture/brand-kit/STYLE_GUIDE.md`) — rust orange on charcoal, deliberately *not* the cool blue of every other file-search tool:
 
 - **Charcoal card background** `#0F0D0B` with a subtle `#1E1B18` 1 px border — explicit colors, no `currentColor` / theme-inheritance games; the chart looks identical on dark HN, light Twitter, any IDE preview.
 - **Light-on-charcoal typography**: Cream `#F2EDE8` titles and body labels, Sand `#9A8D82` subtitles, axes, and footers.

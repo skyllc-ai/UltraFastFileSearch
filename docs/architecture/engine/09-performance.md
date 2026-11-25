@@ -23,7 +23,7 @@ C/D/F/G + combined scope):
 **UFFS beats Everything 30/30 at p50**, median ratio **0.36×
 (UFFS ~2.8× faster)** — every cell published in the v0.5.66 snapshot
 improved, median −33%.  Full table and analysis in
-[`docs/benchmarks/2026-06-v0.5.120-vs-everything.md`](../../benchmarks/2026-06-v0.5.120-vs-everything.md) §Head-to-head; the prior v0.5.66 series lives in the [archived April report](../../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md) §Head-to-head 1, with the engineering-detail source at [`docs/research/cross-tool-benchmark-analysis.md`](../../research/cross-tool-benchmark-analysis.md) §Current State (internal).
+[`docs/benchmarks/2026-06-v0.5.120-vs-everything.md`](../../benchmarks/2026-06-v0.5.120-vs-everything.md) §Head-to-head; the prior v0.5.66 series lives in the [archived April report](../../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md) §Head-to-head 1, with the engineering-detail source at `docs/research/cross-tool-benchmark-analysis.md` §Current State (internal).
 
 ### Full-scan export — v0.5.120, all 7 drives (`*` → CSV file, HOT, p50, n=10)
 

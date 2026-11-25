@@ -15,7 +15,7 @@ guarantees*, *how* a new feature is introduced, and *which*
 cross-version dependency duplications the workspace accepts and why.
 
 For the per-crate strategy that produced the current posture, see
-[`../../dev/architecture/code_clean/phase_8_feature_flags_dependency_hygiene_implementation_plan.md`](../../dev/architecture/code_clean/phase_8_feature_flags_dependency_hygiene_implementation_plan.md)
+`../../dev/architecture/code_clean/phase_8_feature_flags_dependency_hygiene_implementation_plan.md`
 *(local-only — internal plan)*.
 
 ---

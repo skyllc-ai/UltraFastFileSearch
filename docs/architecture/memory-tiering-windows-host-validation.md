@@ -706,7 +706,7 @@ recipes share their snapshot / output-dir / validation-report shape.
 
 **Duration:** 24 h wall-clock (set up and walk away).
 **Plan reference:**
-[`docs/refactor/memory-tiering-implementation-plan.md`](../refactor/memory-tiering-implementation-plan.md)
+`docs/refactor/memory-tiering-implementation-plan.md`
 §3 Phase 7 Windows gate.
 
 Validates that the per-shard USN-journal loop
@@ -1221,7 +1221,7 @@ instead of two).  Operators running a future capture pass have a
 known-good baseline to compare against.
 
 Cross-reference: implementation-plan
-[`docs/refactor/memory-tiering-implementation-plan.md`](../refactor/memory-tiering-implementation-plan.md)
+`docs/refactor/memory-tiering-implementation-plan.md`
 §3 Phase 5 "Phase 5 Windows-host validation findings (2026-05-02
 capture pass, v0.5.86)" carries the per-gate analysis and the
 end-to-end contract claims (LRU cascade ordering, watcher

@@ -7,7 +7,7 @@ This document explains why UFFS is a high-performance MFT search engine, the eng
 > **See also:**
 > - [`docs/benchmarks/`](../../benchmarks/) — publication-grade competitive-benchmark hub (UFFS vs Everything vs UFFS C++); current canonical report: [`2026-06-v0.5.120-vs-everything.md`](../../benchmarks/2026-06-v0.5.120-vs-everything.md).
 > - [User-manual performance page](../../user-manual/performance.md) — full benchmark reference with per-drive tables and validation throughput.
-> - [`docs/research/cross-tool-benchmark-analysis.md`](../../research/cross-tool-benchmark-analysis.md) — engineering-detail source (internal).
+> - `docs/research/cross-tool-benchmark-analysis.md` — engineering-detail source (internal).
 
 ---
 

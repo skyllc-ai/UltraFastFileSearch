@@ -368,7 +368,7 @@ remain the latest phase measurements.
 Daemon-side targeted latency is unchanged from v0.5.4 — the CLI e2e
 gap is the Phase 1+ thin-client cold-spawn floor (~17–28 ms on Windows).
 The `*` fullscan regression is tracked as the top bounded-heap target
-in [`docs/research/cross-tool-benchmark-analysis.md`](../../research/cross-tool-benchmark-analysis.md) §7 (internal engineering detail) and [`docs/benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md`](../../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md) §Known regressions (public summary).
+in `docs/research/cross-tool-benchmark-analysis.md` §7 (internal engineering detail) and [`docs/benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md`](../../benchmarks/archive/2026-04-v0.5.66-vs-everything-and-cpp.md) §Known regressions (public summary).
 
 HOT in-memory scan throughput: **167 million records/second** when
 not materialising rows.  End-to-end throughput with disk write-out is

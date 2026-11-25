@@ -394,7 +394,7 @@ The older C++ implementation remains useful as a parity and regression baseline,
 
 ## Contributing
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the pinned toolchain, `just`/`cargo` workflows, and Windows/Admin caveats. For the broader docs map, see [docs/README.md](docs/README.md) and [docs/dev/README.md](docs/dev/README.md).
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the pinned toolchain, `just`/`cargo` workflows, and Windows/Admin caveats. For the rest of the documentation, see the [user manual](docs/user-manual/README.md), the [architecture notes](docs/architecture/) and the [benchmark hub](docs/benchmarks/).
 
 ---
 

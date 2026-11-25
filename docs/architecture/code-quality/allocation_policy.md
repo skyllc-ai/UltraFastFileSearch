@@ -13,7 +13,7 @@ The companion docs:
   rustc, clippy, rustdoc, cargo-deny).
 
 For the per-crate strategy that produced the current posture, see
-[`../../dev/architecture/code_clean/phase_6_ownership_borrowing_allocation_implementation_plan.md`](../../dev/architecture/code_clean/phase_6_ownership_borrowing_allocation_implementation_plan.md)
+`../../dev/architecture/code_clean/phase_6_ownership_borrowing_allocation_implementation_plan.md`
 *(local-only — internal plan)*.
 
 ---

@@ -17,7 +17,7 @@ The companion docs cover the broader posture:
   * [`dependency_policy.md`](dependency_policy.md) — feature additivity + dep duplication.
   * [`build_codegen_policy.md`](build_codegen_policy.md) — build.rs / macro / env-var justification.
 
-For the per-phase strategy that produced the current posture, see [`../../dev/architecture/code_clean/phase_10_async_concurrency_shared_state_implementation_plan.md`](../../dev/architecture/code_clean/phase_10_async_concurrency_shared_state_implementation_plan.md) *(local-only — internal plan)*.
+For the per-phase strategy that produced the current posture, see `../../dev/architecture/code_clean/phase_10_async_concurrency_shared_state_implementation_plan.md` *(local-only — internal plan)*.
 
 ---
 

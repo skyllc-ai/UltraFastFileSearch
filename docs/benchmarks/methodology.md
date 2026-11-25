@@ -181,6 +181,6 @@ These are not excuses; they're the backlog. Every canonical report re-evaluates 
 - **The shareable charts:** [`charts/2026-06-v0.5.120/`](charts/2026-06-v0.5.120/).
 - **The raw logs that back every number:** [`raw/`](raw/).
 - **The hub overview:** [`README.md`](README.md).
-- **Internal engineering-detail source:** [`docs/research/cross-tool-benchmark-analysis.md`](../research/cross-tool-benchmark-analysis.md) — the forensic version of this document, currently kept internal. If you're reviewing a specific cell and suspect a methodology bug, contact the project and we'll share the relevant engineering-internal context for that cell.
+- **Internal engineering-detail source:** `docs/research/cross-tool-benchmark-analysis.md` — the forensic version of this document, currently kept internal. If you're reviewing a specific cell and suspect a methodology bug, contact the project and we'll share the relevant engineering-internal context for that cell.
 
 If you find an error in any of the above — a misleading chart, a number that doesn't reconcile to the raw log, a methodology gap we haven't addressed here — please open an issue. Methodology documents that get corrected over time are worth more than methodology documents that claim to be final.

@@ -18,7 +18,7 @@ generates*, *which* `macro_rules!` declarations the workspace allows,
 *every* environment variable the workspace reads.
 
 For the per-crate strategy that produced the current posture, see
-[`../../dev/architecture/code_clean/phase_9_build_scripts_macros_codegen_implementation_plan.md`](../../dev/architecture/code_clean/phase_9_build_scripts_macros_codegen_implementation_plan.md)
+`../../dev/architecture/code_clean/phase_9_build_scripts_macros_codegen_implementation_plan.md`
 *(local-only — internal plan)*.
 
 ---

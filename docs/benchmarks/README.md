@@ -69,4 +69,4 @@ Frozen snapshots of prior canonical reports, never retroactively edited. See [`a
 - **No WizFile numbers yet** — WizFile has no automated-comparison flag (`--out` equivalent). When we add harness support, results land here.
 - **No "bring your own drives" comparison** — all numbers come from the same test machine. Per-user results will vary with CPU, drive topology, and drive fullness.
 
-For the full positioning story (competitor landscape, claim framework, what to amplify vs qualify), see the internal strategy docs: [`docs/dev/architecture/ntfs_mcp_marketing_strategy_deep_dive.md`](../dev/architecture/ntfs_mcp_marketing_strategy_deep_dive.md) and [`docs/dev/architecture/marketing_strategy_adjustment_after_benchmark_update.md`](../dev/architecture/marketing_strategy_adjustment_after_benchmark_update.md).
+For the full positioning story (competitor landscape, claim framework, what to amplify vs qualify), see the internal strategy docs: `docs/dev/architecture/ntfs_mcp_marketing_strategy_deep_dive.md` and `docs/dev/architecture/marketing_strategy_adjustment_after_benchmark_update.md`.

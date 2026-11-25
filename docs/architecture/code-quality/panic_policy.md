@@ -12,7 +12,7 @@ file zooms in on the panic-family rules — they are strict enough that
 they deserve their own contract.
 
 For the per-crate strategy that produced the current posture, see
-[`../../dev/architecture/code_clean/phase_5_error_handling_panic_policy_implementation_plan.md`](../../dev/architecture/code_clean/phase_5_error_handling_panic_policy_implementation_plan.md)
+`../../dev/architecture/code_clean/phase_5_error_handling_panic_policy_implementation_plan.md`
 *(local-only — internal plan)*.
 
 ---

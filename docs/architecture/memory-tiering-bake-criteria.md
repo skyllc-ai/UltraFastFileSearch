@@ -9,7 +9,7 @@ between dual-platform readiness validation
 and the v0.6.0 release cut.
 
 **Reference:**
-[`memory-tiering-implementation-plan.md`](../refactor/memory-tiering-implementation-plan.md)
+`memory-tiering-implementation-plan.md`
 §6.2 — *"Per epic (v0.6.0 release): topic branch baked one week with no
 regressions."*
 
