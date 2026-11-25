@@ -635,11 +635,6 @@ impl Default for ShardRegistry {
 
 #[cfg(test)]
 mod tests {
-    #![expect(
-        clippy::min_ident_chars,
-        reason = "test code — short names like `a`/`b` are clearer than \
-                  long names in equality assertions."
-    )]
 
     use super::*;
 
@@ -660,10 +655,10 @@ mod tests {
     /// `Default` matches `new()`.
     #[test]
     fn default_matches_new() {
-        let a = ShardRegistry::default();
-        let b = ShardRegistry::new();
-        assert_eq!(a.len(), b.len());
-        assert_eq!(a.is_empty(), b.is_empty());
+        let first = ShardRegistry::default();
+        let bucket = ShardRegistry::new();
+        assert_eq!(first.len(), bucket.len());
+        assert_eq!(first.is_empty(), bucket.is_empty());
     }
 
     /// `from_shards(empty)` produces the empty registry.

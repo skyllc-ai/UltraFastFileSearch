@@ -3,11 +3,6 @@
 
 // Search handler: Arc clones are intentional for task-spawning; bool negation
 // is clearer than `!` for readability in complex conditionals.
-#![allow(
-    clippy::clone_on_ref_ptr,
-    clippy::if_not_else,
-    reason = "search handler: Arc clones for task boundaries, readable conditionals"
-)]
 
 //! Search execution: query dispatch, profile construction, and drive info.
 
@@ -251,7 +246,7 @@ impl IndexManager {
         let whole_word = effective_params.whole_word;
         let match_path = effective_params.match_path;
         let drives = effective_params.drives.clone();
-        let agg_snapshot = snapshot.clone();
+        let agg_snapshot = Arc::clone(&snapshot);
         // Cooperative cancellation: the flag travels inside `filters`
         // into every per-drive scan loop; raised below if the budget
         // expires, so the rayon workers stop instead of finishing a

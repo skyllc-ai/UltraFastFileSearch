@@ -21,13 +21,7 @@
 //! directory is **never** touched — a "forget drive C" call against
 //! the platform paths would be catastrophic in CI.
 
-#![expect(
-    clippy::std_instead_of_alloc,
-    reason = "test fixtures — `std::sync::Arc` matches the rest of the daemon's \
-              test fixtures, no need to switch to `alloc::sync::Arc` for tests"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::{FixedBodyLoader, build_test_drive, build_test_drive_d, build_test_drive_e};
 use crate::cache::ShardState;

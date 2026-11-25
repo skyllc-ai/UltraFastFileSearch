@@ -17,13 +17,7 @@
 //! [`super::FixedBodyLoader`] (or
 //! [`super::body_loader_fakes::MissingBodyLoader`] for the `LoadFailed` case).
 
-#![expect(
-    clippy::std_instead_of_alloc,
-    reason = "test fixtures — `std::sync::Arc` matches the rest of the daemon's \
-              test fixtures, no need to switch to `alloc::sync::Arc` for tests"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::body_loader_fakes::MissingBodyLoader;
 use super::{FixedBodyLoader, build_test_drive, build_test_drive_d, build_test_drive_e};

@@ -11,16 +11,7 @@
 //! * `search_records_query_on_every_active_shard` (Task 1.5).
 //! * Phase 3 Commit B `demote_letter` / `promote_letter` unit contracts.
 
-#![expect(
-    clippy::indexing_slicing,
-    clippy::min_ident_chars,
-    clippy::std_instead_of_alloc,
-    reason = "test code — assertions index into known-shape vectors, use short \
-              drive-letter idents, and pull `Arc` from `std` to match the rest \
-              of the daemon's test fixtures"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::{IndexManager, build_test_drive, build_test_drive_d};
 
@@ -142,7 +133,7 @@ async fn shard_registry_search_two_drives_returns_rows_from_each() {
     let snap = mgr.snapshot().await;
     assert_eq!(snap.drives.len(), 2);
     let letters: std::collections::HashSet<uffs_mft::platform::DriveLetter> =
-        snap.drives.iter().map(|d| d.letter).collect();
+        snap.drives.iter().map(|drive| drive.letter).collect();
     assert!(
         letters.contains(&uffs_mft::platform::DriveLetter::C),
         "C drive must be in the snapshot"
@@ -218,7 +209,7 @@ fn demote_letter_warm_to_parked_drops_body_and_preserves_stats() {
     // rebuild.
     let c_shard_pre = reg
         .iter()
-        .find(|s| s.drive == uffs_mft::platform::DriveLetter::C)
+        .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .expect("C present pre-demote");
     for _ in 0_u32..5_u32 {
         c_shard_pre.stats.record_query();
@@ -232,14 +223,18 @@ fn demote_letter_warm_to_parked_drops_body_and_preserves_stats() {
     // Active index now only contains D.
     assert_eq!(reg.active_index().drives.len(), 1);
     assert_eq!(
-        reg.active_index().drives[0].letter,
+        reg.active_index()
+            .drives
+            .first()
+            .expect("drives has an element 0")
+            .letter,
         uffs_mft::platform::DriveLetter::D
     );
 
     // Both shards are still loaded; C is Parked, body lifted.
     let c_shard = reg
         .iter()
-        .find(|s| s.drive == uffs_mft::platform::DriveLetter::C)
+        .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .expect("C still loaded post-demote");
     assert_eq!(c_shard.state(), ShardState::Parked);
     assert!(c_shard.body().is_none());
@@ -266,7 +261,7 @@ fn demote_letter_warm_to_cold_drops_body() {
     assert_eq!(reg.active_index().drives.len(), 0);
     let c_shard = reg
         .iter()
-        .find(|s| s.drive == uffs_mft::platform::DriveLetter::C)
+        .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .expect("C still loaded");
     assert_eq!(c_shard.state(), ShardState::Cold);
     assert!(c_shard.body().is_none());
@@ -348,7 +343,7 @@ fn promote_letter_parked_to_warm_restores_body_and_preserves_stats() {
     // verify across the round trip.
     let pre = reg
         .iter()
-        .find(|s| s.drive == uffs_mft::platform::DriveLetter::C)
+        .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .unwrap();
     for _ in 0_u32..3_u32 {
         pre.stats.record_query();
@@ -364,14 +359,14 @@ fn promote_letter_parked_to_warm_restores_body_and_preserves_stats() {
         .expect("promote");
 
     assert_eq!(reg.active_index().drives.len(), 1);
-    let c = reg
+    let drive_c = reg
         .iter()
-        .find(|s| s.drive == uffs_mft::platform::DriveLetter::C)
+        .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .unwrap();
-    assert_eq!(c.state(), ShardState::Warm);
-    assert!(c.body().is_some());
+    assert_eq!(drive_c.state(), ShardState::Warm);
+    assert!(drive_c.body().is_some());
     assert_eq!(
-        c.stats.queries_total(),
+        drive_c.stats.queries_total(),
         3,
         "round-trip demote+promote must preserve query stats",
     );
@@ -437,13 +432,17 @@ fn promote_letter_to_hot_bumps_promotions_total_when_source_is_cold() {
         .promote_letter_to_hot(uffs_mft::platform::DriveLetter::C, Arc::clone(&body_c))
         .expect("promote_letter_to_hot from Cold");
 
-    let c = reg
+    let drive_c = reg
         .iter()
         .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .expect("C present post-promote");
-    assert_eq!(c.state(), ShardState::Hot, "post-promote tier must be Hot");
     assert_eq!(
-        c.stats.promotions_total(),
+        drive_c.state(),
+        ShardState::Hot,
+        "post-promote tier must be Hot"
+    );
+    assert_eq!(
+        drive_c.stats.promotions_total(),
         1,
         "Cold → Hot promote must bump promotions_total by exactly one",
     );
@@ -472,13 +471,13 @@ fn promote_letter_to_hot_does_not_bump_promotions_total_when_source_is_warm() {
         .promote_letter_to_hot(uffs_mft::platform::DriveLetter::C, Arc::clone(&body_c))
         .expect("promote_letter_to_hot from Warm");
 
-    let c = reg
+    let drive_c = reg
         .iter()
         .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .expect("C present post-promote");
-    assert_eq!(c.state(), ShardState::Hot);
+    assert_eq!(drive_c.state(), ShardState::Hot);
     assert_eq!(
-        c.stats.promotions_total(),
+        drive_c.stats.promotions_total(),
         0,
         "Warm → Hot promote must NOT bump promotions_total \
          (the body was already in RAM)",
@@ -504,13 +503,13 @@ fn promote_letter_to_hot_bumps_promotions_total_when_source_is_parked() {
         .promote_letter_to_hot(uffs_mft::platform::DriveLetter::C, Arc::clone(&body_c))
         .expect("promote_letter_to_hot from Parked");
 
-    let c = reg
+    let drive_c = reg
         .iter()
         .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .expect("C present post-promote");
-    assert_eq!(c.state(), ShardState::Hot);
+    assert_eq!(drive_c.state(), ShardState::Hot);
     assert_eq!(
-        c.stats.promotions_total(),
+        drive_c.stats.promotions_total(),
         1,
         "Parked → Hot promote must bump promotions_total by exactly one",
     );
@@ -532,13 +531,13 @@ fn promote_letter_bumps_promotions_total_from_parked_and_cold() {
         reg = reg
             .promote_letter(uffs_mft::platform::DriveLetter::C, Arc::clone(&body_c))
             .expect("promote_letter from a demoted tier");
-        let c = reg
+        let drive_c = reg
             .iter()
             .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
             .expect("C present post-promote");
-        assert_eq!(c.state(), ShardState::Warm);
+        assert_eq!(drive_c.state(), ShardState::Warm);
         assert_eq!(
-            c.stats.promotions_total(),
+            drive_c.stats.promotions_total(),
             round,
             "after promote from {source}"
         );
@@ -568,13 +567,13 @@ fn promote_letter_to_hot_accumulates_across_repeated_cold_to_hot_cycles() {
             .expect("promote_letter_to_hot");
     }
 
-    let c = reg
+    let drive_c = reg
         .iter()
         .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .expect("C present post-cycle");
-    assert_eq!(c.state(), ShardState::Hot);
+    assert_eq!(drive_c.state(), ShardState::Hot);
     assert_eq!(
-        c.stats.promotions_total(),
+        drive_c.stats.promotions_total(),
         2,
         "two Cold → Hot cycles must accumulate to promotions_total = 2",
     );

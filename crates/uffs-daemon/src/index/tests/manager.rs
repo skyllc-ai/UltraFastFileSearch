@@ -12,7 +12,7 @@
 //!   `mimalloc_committed_bytes`; `total_index_heap_bytes` matches the per-drive
 //!   breakdown.
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::{IndexManager, build_test_drive};
 

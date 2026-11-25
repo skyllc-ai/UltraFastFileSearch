@@ -8,7 +8,7 @@
 //! Covers `--word`, a case-insensitive regex with escapes, an invalid regex,
 //! and `--exclude` together with `--not-contains`.
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use uffs_client::protocol::SearchParams;
 use uffs_client::protocol::response::SearchPayload;

@@ -10,14 +10,6 @@
 //! coverage.  Module path `crate::cache::shard::tests` is unchanged
 //! from the previous inline `#[cfg(test)] mod tests { ... }` block.
 
-#![expect(
-    clippy::min_ident_chars,
-    clippy::default_numeric_fallback,
-    clippy::doc_markdown,
-    reason = "test code — short loop counters and doc references like \
-              `serde_json` are clearer without the pedantic ceremony."
-)]
-
 use alloc::sync::Arc;
 use core::sync::atomic::Ordering;
 use std::path::PathBuf;
@@ -151,7 +143,7 @@ proptest! {
             after,
             before,
         );
-        prop_assert!(after >= 0.0);
+        prop_assert!(after >= 0.0_f64);
     }
 
     /// Task 1.7: every (from, to) pair outside the legal graph is
@@ -177,7 +169,7 @@ proptest! {
             (ShardState::Evicting, ShardState::Cold),
             (ShardState::Evicting, ShardState::Parked),
         ];
-        let in_graph = legal.iter().any(|&(a, b)| a == from && b == to);
+        let in_graph = legal.iter().any(|&(first, second)| first == from && second == to);
         let actual = from.can_transition_to(to);
         prop_assert_eq!(
             in_graph,
@@ -191,13 +183,13 @@ proptest! {
     }
 }
 
-/// Task 1.8: `DriveStatsSnapshot` round-trips through serde_json
+/// Task 1.8: `DriveStatsSnapshot` round-trips through `serde_json`
 /// and through the `From` conversions, including the Phase-3
 /// `last_query_at_ms` field.
 #[test]
 fn drivestats_snapshot_round_trips() {
     let stats = DriveStats::new();
-    for _ in 0..7 {
+    for _ in 0_i32..7_i32 {
         stats.record_query();
     }
     stats.rate_ema_micro_per_s.store(123_456, Ordering::Relaxed);
@@ -237,7 +229,7 @@ fn mark_query_at_updates_last_query_at_ms() {
 
 /// Phase 3: `mark_query_at` overwrites with whatever timestamp it
 /// receives — a non-monotonic clock (NTP rewind) doesn't trip an
-/// assertion, the demote controller just sees a small idle_secs
+/// assertion, the demote controller just sees a small `idle_secs`
 /// or temporarily-negative-clamped-to-zero on the next tick.
 #[test]
 fn mark_query_at_overwrites_with_later_timestamp() {
@@ -289,7 +281,7 @@ fn drivestats_snapshot_legacy_json_back_compat() {
 #[test]
 fn record_query_is_monotone() {
     let stats = DriveStats::new();
-    for _ in 0..10 {
+    for _ in 0_i32..10_i32 {
         stats.record_query();
     }
     assert_eq!(stats.queries_total(), 10);
@@ -304,8 +296,8 @@ fn decay_ema_first_call_returns_stored_value() {
         .rate_ema_micro_per_s
         .store(5_000_000, Ordering::Relaxed);
     // last_decay_ms == 0 means "never decayed".
-    let v = stats.decay_ema(1_000_000);
-    assert!((v - 5.0).abs() < 1e-9, "first call returned {v}");
+    let ema = stats.decay_ema(1_000_000);
+    assert!((ema - 5.0).abs() < 1e-9_f64, "first call returned {ema}");
 }
 
 /// Phase 6 fix regression test (2026-05-07 24-h soak finding).
@@ -341,7 +333,7 @@ fn decay_ema_integrates_new_queries_into_rate_estimate() {
     let t0_ms = 1_000_000_u64;
     let v0 = stats.decay_ema(t0_ms);
     assert!(
-        v0.abs() < 1e-9,
+        v0.abs() < 1e-9_f64,
         "first call must return 0 (no rate sample yet); got {v0}",
     );
 
@@ -363,7 +355,7 @@ fn decay_ema_integrates_new_queries_into_rate_estimate() {
     let t1_ms = t0_ms + 60_000;
     let v1 = stats.decay_ema(t1_ms);
     assert!(
-        v1 >= 0.4,
+        v1 >= 0.4_f64,
         "EMA must integrate new queries — expected ≥ 0.4 q/s after \
          60 queries / 60s sustained sample; got {v1} q/s",
     );
@@ -375,9 +367,9 @@ fn decay_ema_integrates_new_queries_into_rate_estimate() {
     // 1 q/s integrated rate must surface as ≥ 24 q/min when the
     // raw read is ≥ 0.4.
     assert!(
-        (v1 * 60.0) >= 24.0,
+        (v1 * 60.0_f64) >= 24.0_f64,
         "qpm conversion must reflect integrated rate; got {} q/min",
-        v1 * 60.0,
+        v1 * 60.0_f64,
     );
 }
 
@@ -385,7 +377,7 @@ fn decay_ema_integrates_new_queries_into_rate_estimate() {
 /// `decay_ema` is non-increasing — the integration term contributes
 /// `(1 - decay)·0 = 0`, so we fall back to pure decay.  This pins
 /// that the Phase-6 fix didn't accidentally turn the EMA into a
-/// random walk when delta_queries == 0.
+/// random walk when `delta_queries` == 0.
 #[test]
 fn decay_ema_idle_run_only_decays() {
     let stats = DriveStats::new();
@@ -401,7 +393,7 @@ fn decay_ema_idle_run_only_decays() {
     let v_after_60s = stats.decay_ema(1_060_000);
     let v_after_120s = stats.decay_ema(1_120_000);
 
-    assert!(v_after_30s <= 2.0, "30s decay: {v_after_30s} > 2.0");
+    assert!(v_after_30s <= 2.0_f64, "30s decay: {v_after_30s} > 2.0");
     assert!(v_after_60s < v_after_30s, "60s ≥ 30s — not decaying");
     assert!(v_after_120s < v_after_60s, "120s ≥ 60s — not decaying");
 }
@@ -418,9 +410,9 @@ fn shardstate_fromstr_round_trips() {
         ShardState::Hot,
         ShardState::Evicting,
     ] {
-        let s = state.to_string();
-        let parsed: ShardState = s.parse().expect("parse round-trip");
-        assert_eq!(state, parsed, "{s} did not round-trip");
+        let text = state.to_string();
+        let parsed: ShardState = text.parse().expect("parse round-trip");
+        assert_eq!(state, parsed, "{text} did not round-trip");
     }
     let err = "foobar".parse::<ShardState>().unwrap_err();
     assert_eq!(err.0, "foobar");

@@ -15,14 +15,7 @@
 //! [`super::idle_demote_tracing`] module; the shared `EventLog` /
 //! `CapturedEvent` capture scaffold is in [`super::tracing_capture`].
 
-#![expect(
-    clippy::min_ident_chars,
-    clippy::std_instead_of_alloc,
-    reason = "test code — short drive-letter idents like `c`/`d`, and `Arc` \
-              pulled from `std` to match the rest of the daemon's test fixtures"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::{IndexManager, build_test_drive, build_test_drive_d, build_test_drive_e};
 
@@ -270,7 +263,7 @@ fn demote_then_promote_round_trips_query_stats() {
     // Arc is what the new shard's `.stats` points at.
     for round in 0_u64..3_u64 {
         reg.iter()
-            .find(|s| s.drive == uffs_mft::platform::DriveLetter::C)
+            .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
             .unwrap()
             .stats
             .mark_query_at(1_000 + round);
@@ -278,7 +271,7 @@ fn demote_then_promote_round_trips_query_stats() {
             .demote_letter(uffs_mft::platform::DriveLetter::C, ShardState::Parked)
             .expect("demote");
         reg.iter()
-            .find(|s| s.drive == uffs_mft::platform::DriveLetter::C)
+            .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
             .unwrap()
             .stats
             .mark_query_at(2_000 + round);
@@ -289,7 +282,7 @@ fn demote_then_promote_round_trips_query_stats() {
 
     let final_c = reg
         .iter()
-        .find(|s| s.drive == uffs_mft::platform::DriveLetter::C)
+        .find(|shard| shard.drive == uffs_mft::platform::DriveLetter::C)
         .unwrap();
     // 6 mark_query_at calls total across 3 rounds (3 pre-demote +
     // 3 post-demote-pre-promote).

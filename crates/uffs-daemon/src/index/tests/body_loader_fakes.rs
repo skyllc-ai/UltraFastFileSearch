@@ -26,13 +26,7 @@
 //! "fixtures shared by ≥ 2 sibling test modules live in `mod.rs`"
 //! convention.
 
-#![expect(
-    clippy::std_instead_of_alloc,
-    reason = "test fixtures — `std::sync::Arc` matches the rest of the daemon's \
-              test fixtures, no need to switch to `alloc::sync::Arc` for tests"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::IndexManager;
 

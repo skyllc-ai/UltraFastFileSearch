@@ -28,14 +28,8 @@
 //! tests that need a richer capture surface should extend this
 //! module rather than re-implement.
 
-#![expect(
-    clippy::std_instead_of_alloc,
-    reason = "test fixtures — `std::sync::{Arc, Mutex}` matches the rest of \
-              the daemon's test fixtures, no need to switch to `alloc::sync::Arc` \
-              for tests"
-)]
-
-use std::sync::{Arc, Mutex};
+use alloc::sync::Arc;
+use std::sync::Mutex;
 
 /// One captured tracing event.
 #[derive(Debug, Clone)]

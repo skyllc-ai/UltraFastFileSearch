@@ -17,15 +17,7 @@
 //! Shared `EventLog` / `CapturedEvent` capture scaffold lives in
 //! [`super::tracing_capture`].
 
-#![expect(
-    clippy::indexing_slicing,
-    clippy::std_instead_of_alloc,
-    reason = "test code — assertions index into known-shape `EventLog` \
-              vectors, and `Arc` pulled from `std` to match the rest of \
-              the daemon's test fixtures"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::tracing_capture::{CapturedEvent, EventLog};
 use super::{FixedBodyLoader, IndexManager, build_test_drive};
@@ -145,7 +137,7 @@ async fn shard_transition_events_emitted_on_demote_and_promote() {
     // (`warm`, `parked`, `cold`, …) — that's the wire contract this
     // test pins.  See `impl fmt::Display for ShardState` in
     // `cache/shard.rs`.
-    let demote = transitions[0];
+    let demote = *transitions.first().expect("transitions has an element 0");
     assert_eq!(demote.level, tracing::Level::INFO);
     assert_eq!(demote.field("reason"), Some("demote"));
     assert_eq!(demote.field("from"), Some("warm"));
@@ -164,7 +156,7 @@ async fn shard_transition_events_emitted_on_demote_and_promote() {
         "demote event must carry last_query_at_ms field (G4 follow-up)",
     );
 
-    let promote = transitions[1];
+    let promote = *transitions.get(1).expect("transitions has an element 1");
     assert_eq!(promote.level, tracing::Level::INFO);
     assert_eq!(promote.field("reason"), Some("promote"));
     assert_eq!(promote.field("from"), Some("parked"));

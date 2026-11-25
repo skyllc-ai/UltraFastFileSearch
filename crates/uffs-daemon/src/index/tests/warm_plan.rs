@@ -8,12 +8,7 @@
 //! ([`super::ensure_warm::build_test_drive_with_tight_bloom`]) so the
 //! plan tests and the dispatch tests exercise identical shards.
 
-#![expect(
-    clippy::std_instead_of_alloc,
-    reason = "test code — `std::sync::Arc` matches the rest of the daemon's test fixtures"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::IndexManager;
 use super::body_loader_fakes::PanickingBodyLoader;

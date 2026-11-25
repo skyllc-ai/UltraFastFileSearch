@@ -15,14 +15,7 @@
 //! The shared `tracing::Subscriber` capture scaffold (`EventLog` /
 //! `CapturedEvent`) lives in [`super::tracing_capture`].
 
-#![expect(
-    clippy::indexing_slicing,
-    clippy::std_instead_of_alloc,
-    reason = "test code — assertions index into known-shape vectors, and pull \
-              `Arc` from `std` to match the rest of the daemon's test fixtures"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::tracing_capture::{CapturedEvent, EventLog};
 use super::{IndexManager, build_test_drive};
@@ -102,7 +95,7 @@ async fn shard_ttl_event_emits_all_three_thresholds() {
         ttl_events.len(),
         ttl_events,
     );
-    let event = ttl_events[0];
+    let event = *ttl_events.first().expect("ttl_events has an element 0");
 
     // Phase 6 fix contract: all four TTL fields present.
     // `chosen_ttl_sec` stays for back-compat, plus the three new
@@ -228,7 +221,7 @@ async fn below_ttl_event_pins_target_level_message_and_reason() {
         events.len(),
         events,
     );
-    let event = ttl_events[0];
+    let event = *ttl_events.first().expect("ttl_events has an element 0");
 
     // Contract 1 + 2: target = "shard.ttl" at TRACE level so the
     // soak harness's `shard.ttl=trace` env filter is both necessary

@@ -23,13 +23,7 @@
 //! `wait_for_in_flight_clear` PR-e polling helper live in the
 //! sibling [`super::body_loader_fakes`] module.
 
-#![expect(
-    clippy::std_instead_of_alloc,
-    reason = "test code — `std::sync::Arc` matches the rest of the daemon's test \
-              fixtures, no need to switch to `alloc::sync::Arc` for tests"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::body_loader_fakes::{
     CountingBodyLoader, MissingBodyLoader, PanickingBodyLoader, SlowBodyLoader,

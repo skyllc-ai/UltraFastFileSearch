@@ -15,16 +15,7 @@
 //! * Owner ruling 2026-10-03 — the pressure subscriber only observes: a `Low`
 //!   transition demotes nothing and trims nothing.
 
-#![expect(
-    clippy::indexing_slicing,
-    clippy::min_ident_chars,
-    clippy::std_instead_of_alloc,
-    reason = "test code — assertions index into known-shape vectors, use short \
-              drive-letter idents, and pull `Arc` from `std` to match the rest \
-              of the daemon's test fixtures"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use super::{
     FixedBodyLoader, IndexManager, build_test_drive, build_test_drive_d, build_test_drive_e,
@@ -95,31 +86,37 @@ async fn drives_rpc_enumerates_warm_parked_and_cold_shards_with_tier_markers() {
 
     // C — Warm: body present, records nonzero, tier=Warm,
     // source from the body's IndexSource (live MFT path "C:").
-    let c = &response.drives[0];
-    assert_eq!(c.letter, uffs_mft::platform::DriveLetter::C);
-    assert_eq!(c.tier, Some(ShardTier::Warm), "C remains Warm");
-    assert!(c.records > 0, "Warm shard reports its body's records.len()");
-    assert_eq!(c.source, "live", "Warm shard's body source flows through");
+    let drive_c = response.drives.first().expect("drives has an element 0");
+    assert_eq!(drive_c.letter, uffs_mft::platform::DriveLetter::C);
+    assert_eq!(drive_c.tier, Some(ShardTier::Warm), "C remains Warm");
+    assert!(
+        drive_c.records > 0,
+        "Warm shard reports its body's records.len()"
+    );
+    assert_eq!(
+        drive_c.source, "live",
+        "Warm shard's body source flows through"
+    );
 
     // D — Parked: no body, records=0, tier=Parked,
     // source synthesized as "parked".
-    let d = &response.drives[1];
-    assert_eq!(d.letter, uffs_mft::platform::DriveLetter::D);
-    assert_eq!(d.tier, Some(ShardTier::Parked), "D demoted to Parked");
-    assert_eq!(d.records, 0, "Parked shard has no body in RAM");
+    let drive_d = response.drives.get(1).expect("drives has an element 1");
+    assert_eq!(drive_d.letter, uffs_mft::platform::DriveLetter::D);
+    assert_eq!(drive_d.tier, Some(ShardTier::Parked), "D demoted to Parked");
+    assert_eq!(drive_d.records, 0, "Parked shard has no body in RAM");
     assert_eq!(
-        d.source, "parked",
+        drive_d.source, "parked",
         "Parked shard surfaces a synthetic source label"
     );
 
     // E — Cold: no body, no filters, records=0, tier=Cold,
     // source synthesized as "cold".
-    let e = &response.drives[2];
-    assert_eq!(e.letter, uffs_mft::platform::DriveLetter::E);
-    assert_eq!(e.tier, Some(ShardTier::Cold), "E demoted to Cold");
-    assert_eq!(e.records, 0, "Cold shard has nothing in RAM");
+    let drive_e = response.drives.get(2).expect("drives has an element 2");
+    assert_eq!(drive_e.letter, uffs_mft::platform::DriveLetter::E);
+    assert_eq!(drive_e.tier, Some(ShardTier::Cold), "E demoted to Cold");
+    assert_eq!(drive_e.records, 0, "Cold shard has nothing in RAM");
     assert_eq!(
-        e.source, "cold",
+        drive_e.source, "cold",
         "Cold shard surfaces a synthetic source label"
     );
 }
@@ -294,7 +291,7 @@ async fn ensure_warm_for_dispatch_invokes_prefetch_with_records_and_names_region
         1,
         "exactly one Prefetch::hint() call per promoted shard"
     );
-    let regions = &calls[0];
+    let regions = calls.first().expect("calls has an element 0");
     assert_eq!(
         regions.len(),
         2,
@@ -307,12 +304,12 @@ async fn ensure_warm_for_dispatch_invokes_prefetch_with_records_and_names_region
     let expected_names_len = body.names.as_slice().len();
 
     assert_eq!(
-        regions[0],
+        *regions.first().expect("regions has an element 0"),
         (expected_records_ptr, expected_records_len),
         "records region matches the body's records.as_slice()",
     );
     assert_eq!(
-        regions[1],
+        *regions.get(1).expect("regions has an element 1"),
         (expected_names_ptr, expected_names_len),
         "names region matches the body's names.as_slice()",
     );

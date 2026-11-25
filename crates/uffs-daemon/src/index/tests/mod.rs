@@ -28,13 +28,7 @@
 //!   `CapturedEvent`) used by [`idle_demote_tracing`] and other
 //!   observability-contract tests.
 
-#![expect(
-    clippy::std_instead_of_alloc,
-    reason = "test fixtures — `std::sync::Arc` matches the rest of the daemon's \
-              test fixtures, no need to switch to `alloc::sync::Arc` for tests"
-)]
-
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use uffs_client::protocol::AggregateSpecWire;
 use uffs_core::compact::build_compact_index;

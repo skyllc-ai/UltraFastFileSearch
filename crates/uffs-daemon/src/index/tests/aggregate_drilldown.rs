@@ -8,13 +8,6 @@
 //! stays under the 800 LOC policy.  Both files share the same
 //! `test_index` + `spec` fixtures from `super`.
 
-#![expect(
-    clippy::indexing_slicing,
-    clippy::min_ident_chars,
-    reason = "test code — assertions index into known-shape vectors and use short \
-              field-name idents like `c`/`d` for histogram buckets"
-)]
-
 use uffs_client::protocol::AggregateSpecWire;
 use uffs_core::aggregate::AggregateFilter;
 use uffs_core::aggregate::spec::AggregateKind;
@@ -40,15 +33,15 @@ fn rollup_path_with_sample_via_wire() {
     );
     let result = results
         .iter()
-        .find(|r| r.kind == "rollup")
+        .find(|result| result.kind == "rollup")
         .expect("should have a rollup result");
     // Sample rows should be bounded.
-    for b in &result.buckets {
+    for bucket in &result.buckets {
         assert!(
-            b.sample_rows.len() <= 2,
+            bucket.sample_rows.len() <= 2,
             "rollup bucket '{}' should have ≤2 sample rows, got {}",
-            b.key,
-            b.sample_rows.len()
+            bucket.key,
+            bucket.sample_rows.len()
         );
     }
 }
@@ -67,10 +60,15 @@ fn convert_wire_spec_terms_with_sample_fields() {
     let converted = IndexManager::convert_wire_spec(&ws).unwrap();
     assert_eq!(converted.len(), 1);
     assert!(
-        matches!(&converted[0].kind, AggregateKind::Terms { .. }),
+        matches!(
+            &converted.first().expect("converted has an element 0").kind,
+            AggregateKind::Terms { .. }
+        ),
         "expected Terms variant"
     );
-    if let AggregateKind::Terms { sample, .. } = &converted[0].kind {
+    if let AggregateKind::Terms { sample, .. } =
+        &converted.first().expect("converted has an element 0").kind
+    {
         let top_hits = sample.as_ref().expect("sample should be Some");
         assert_eq!(top_hits.count, 3);
         assert_eq!(top_hits.sort_field, FieldId::Size);
@@ -101,18 +99,18 @@ fn query_predicates_forwarded_to_drilldown() {
         });
     let result = results
         .iter()
-        .find(|r| r.kind == "buckets")
+        .find(|result| result.kind == "buckets")
         .expect("should have buckets");
     // Each bucket's drilldown should include the query predicate for "name".
-    for b in &result.buckets {
-        let has_name_pred = b
+    for bucket in &result.buckets {
+        let has_name_pred = bucket
             .drilldown
             .iter()
-            .any(|d| d.field == "name" && d.op == "glob");
+            .any(|pred| pred.field == "name" && pred.op == "glob");
         assert!(
             has_name_pred,
             "bucket '{}' should have query predicate for 'name' in drilldown",
-            b.key
+            bucket.key
         );
     }
 }
@@ -157,7 +155,7 @@ fn raw_power_syntax_stats_size() {
     let (results, _matched) =
         IndexManager::run_aggregations(&index, None, &specs, AggregationRequest::default());
     assert!(!results.is_empty(), "raw stats:size should return results");
-    let stats = results.iter().find(|r| r.kind == "stats");
+    let stats = results.iter().find(|result| result.kind == "stats");
     assert!(stats.is_some(), "should have a stats result");
 }
 
@@ -177,7 +175,10 @@ fn page_size_paginates_terms_buckets() {
             agg_page_size: Some(2),
             ..AggregationRequest::default()
         });
-    let terms = results.iter().find(|r| r.kind == "buckets").unwrap();
+    let terms = results
+        .iter()
+        .find(|result| result.kind == "buckets")
+        .unwrap();
     assert!(
         terms.buckets.len() <= 2,
         "expected ≤2 buckets, got {}",
@@ -205,7 +206,10 @@ fn cursor_returns_next_page() {
             agg_page_size: Some(2),
             ..AggregationRequest::default()
         });
-    let terms1 = page1.iter().find(|r| r.kind == "buckets").unwrap();
+    let terms1 = page1
+        .iter()
+        .find(|result| result.kind == "buckets")
+        .unwrap();
     let cursor = terms1
         .next_cursor
         .as_deref()
@@ -218,11 +222,22 @@ fn cursor_returns_next_page() {
             agg_page_size: Some(2),
             ..AggregationRequest::default()
         });
-    let terms2 = page2.iter().find(|r| r.kind == "buckets").unwrap();
+    let terms2 = page2
+        .iter()
+        .find(|result| result.kind == "buckets")
+        .unwrap();
 
     // Second page should have different keys than first page.
-    let keys1: Vec<&str> = terms1.buckets.iter().map(|b| b.key.as_str()).collect();
-    let keys2: Vec<&str> = terms2.buckets.iter().map(|b| b.key.as_str()).collect();
+    let keys1: Vec<&str> = terms1
+        .buckets
+        .iter()
+        .map(|bucket| bucket.key.as_str())
+        .collect();
+    let keys2: Vec<&str> = terms2
+        .buckets
+        .iter()
+        .map(|bucket| bucket.key.as_str())
+        .collect();
     assert!(
         !keys2.is_empty(),
         "second page should have at least 1 bucket"
@@ -245,10 +260,17 @@ fn page_size_does_not_affect_non_bucket_results() {
             ..AggregationRequest::default()
         });
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0].kind, "count");
+    assert_eq!(
+        results.first().expect("results has an element 0").kind,
+        "count"
+    );
     // Count results should not have next_cursor.
     assert!(
-        results[0].next_cursor.is_none(),
+        results
+            .first()
+            .expect("results has an element 0")
+            .next_cursor
+            .is_none(),
         "count results should never have next_cursor"
     );
 }
@@ -264,7 +286,10 @@ fn no_pagination_returns_all_buckets() {
     // Without pagination, all buckets returned.
     let (results, _matched) =
         IndexManager::run_aggregations(&index, None, &specs, AggregationRequest::default());
-    let terms = results.iter().find(|r| r.kind == "buckets").unwrap();
+    let terms = results
+        .iter()
+        .find(|result| result.kind == "buckets")
+        .unwrap();
     assert!(
         terms.buckets.len() >= 4,
         "expected ≥4 extension buckets without pagination, got {}",
@@ -290,7 +315,10 @@ fn last_page_has_no_next_cursor() {
             agg_page_size: Some(100),
             ..AggregationRequest::default()
         });
-    let terms = results.iter().find(|r| r.kind == "buckets").unwrap();
+    let terms = results
+        .iter()
+        .find(|result| result.kind == "buckets")
+        .unwrap();
     assert!(
         terms.next_cursor.is_none(),
         "page_size larger than total buckets should produce no next_cursor"
@@ -335,8 +363,14 @@ fn cache_hit_on_identical_second_call() {
         second.len(),
         "hit must return same number of results as miss"
     );
-    let first_buckets = first.iter().find(|r| r.kind == "buckets").unwrap();
-    let second_buckets = second.iter().find(|r| r.kind == "buckets").unwrap();
+    let first_buckets = first
+        .iter()
+        .find(|result| result.kind == "buckets")
+        .unwrap();
+    let second_buckets = second
+        .iter()
+        .find(|result| result.kind == "buckets")
+        .unwrap();
     assert_eq!(
         first_buckets.buckets.len(),
         second_buckets.buckets.len(),
