@@ -81,10 +81,6 @@ fn is_index_warming_abort(err: &ClientError) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #![expect(
-        clippy::default_numeric_fallback,
-        reason = "test module — relaxed linting"
-    )]
 
     use uffs_client::error::ClientError;
 
@@ -96,18 +92,18 @@ mod tests {
     #[test]
     fn warming_abort_matches_only_daemon_reported_995() {
         assert!(is_index_warming_abort(&ClientError::DaemonError {
-            code: -32000,
+            code: -32_000_i32,
             message: "I/O error: ... (os error 995)".to_owned(),
         }));
         assert!(is_index_warming_abort(&ClientError::DaemonError {
-            code: -32000,
+            code: -32_000_i32,
             message: "The I/O operation has been aborted because of either a thread exit \
                       or an application request."
                 .to_owned(),
         }));
         // Real failures are NOT retried.
         assert!(!is_index_warming_abort(&ClientError::DaemonError {
-            code: -32000,
+            code: -32_000_i32,
             message: "permission denied (os error 5)".to_owned(),
         }));
         assert!(!is_index_warming_abort(&ClientError::Io(

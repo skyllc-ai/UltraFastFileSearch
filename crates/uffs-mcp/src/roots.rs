@@ -290,10 +290,6 @@ fn longest_common_prefix(paths: &[&String]) -> Option<String> {
 }
 
 #[cfg(test)]
-#[expect(
-    clippy::indexing_slicing,
-    reason = "test code with known-valid indices"
-)]
 mod tests {
     use super::*;
 
@@ -352,16 +348,48 @@ mod tests {
         assert!(state.advertised);
         assert_eq!(state.roots.len(), 3);
         // First two are mappable
-        assert_eq!(state.roots[0].drive_letter, Some('C'));
         assert_eq!(
-            state.roots[0].ntfs_prefix.as_deref(),
+            state
+                .roots
+                .first()
+                .expect("roots has an element 0")
+                .drive_letter,
+            Some('C')
+        );
+        assert_eq!(
+            state
+                .roots
+                .first()
+                .expect("roots has an element 0")
+                .ntfs_prefix
+                .as_deref(),
             Some(r"C:\Users\me\project")
         );
-        assert_eq!(state.roots[1].drive_letter, Some('D'));
+        assert_eq!(
+            state
+                .roots
+                .get(1)
+                .expect("roots has an element 1")
+                .drive_letter,
+            Some('D')
+        );
         // Third is unmappable
-        assert!(state.roots[2].ntfs_prefix.is_none());
+        assert!(
+            state
+                .roots
+                .get(2)
+                .expect("roots has an element 2")
+                .ntfs_prefix
+                .is_none()
+        );
         assert_eq!(state.warnings.len(), 1);
-        assert!(state.warnings[0].contains("Unix Root"));
+        assert!(
+            state
+                .warnings
+                .first()
+                .expect("warnings has an element 0")
+                .contains("Unix Root")
+        );
     }
 
     #[test]
@@ -411,10 +439,28 @@ mod tests {
 
         assert_eq!(params.drives, vec![uffs_mft::platform::DriveLetter::C]);
         assert_eq!(params.predicates.len(), 1);
-        assert_eq!(params.predicates[0].field, "path");
-        assert_eq!(params.predicates[0].op, SearchPredicateOp::StartsWith);
         assert_eq!(
-            params.predicates[0].value,
+            params
+                .predicates
+                .first()
+                .expect("predicates has an element 0")
+                .field,
+            "path"
+        );
+        assert_eq!(
+            params
+                .predicates
+                .first()
+                .expect("predicates has an element 0")
+                .op,
+            SearchPredicateOp::StartsWith
+        );
+        assert_eq!(
+            params
+                .predicates
+                .first()
+                .expect("predicates has an element 0")
+                .value,
             SearchPredicateValue::String(r"C:\Users\me\project".to_owned())
         );
     }
@@ -469,7 +515,14 @@ mod tests {
 
         // Should NOT add another path predicate.
         assert_eq!(params.predicates.len(), 1);
-        assert_eq!(params.predicates[0].op, SearchPredicateOp::Contains);
+        assert_eq!(
+            params
+                .predicates
+                .first()
+                .expect("predicates has an element 0")
+                .op,
+            SearchPredicateOp::Contains
+        );
     }
 
     #[test]
@@ -488,7 +541,11 @@ mod tests {
         // Common prefix is "C:\Users\me\" (truncated at last separator).
         assert_eq!(params.predicates.len(), 1);
         assert_eq!(
-            params.predicates[0].value,
+            params
+                .predicates
+                .first()
+                .expect("predicates has an element 0")
+                .value,
             SearchPredicateValue::String(r"C:\Users\me\".to_owned())
         );
     }

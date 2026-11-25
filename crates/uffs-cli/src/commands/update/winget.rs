@@ -187,11 +187,7 @@ mod windows_impl {
 
     /// How long the elevated helper waits for the release file before
     /// restarting anyway (an abandoned update must not leave the broker down).
-    #[expect(
-        clippy::duration_suboptimal_units,
-        reason = "no stable Duration::from_mins; seconds reads clearly here"
-    )]
-    const RELEASE_WAIT: Duration = Duration::from_secs(1_800);
+    const RELEASE_WAIT: Duration = Duration::from_mins(30);
 
     /// Spinner + result-file poll interval.
     const POLL: Duration = Duration::from_millis(150);

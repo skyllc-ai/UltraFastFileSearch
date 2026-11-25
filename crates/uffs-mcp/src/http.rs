@@ -43,9 +43,6 @@ pub(crate) struct AppState {
     auth_token: Option<Arc<str>>,
     /// Server boot time (for uptime reporting).
     boot: Instant,
-    /// Daemon spawn args forwarded to lazy `UffsClient` connections.
-    #[expect(dead_code, reason = "reserved for lazy UffsClient connection init")]
-    spawn_args: Arc<[std::ffi::OsString]>,
     /// Shared MCP stats across all sessions.
     stats: Arc<McpStats>,
 }
@@ -80,7 +77,6 @@ pub struct HttpGatewayConfig {
 /// The router is returned without binding — call [`run_gateway`] to serve.
 pub(crate) fn build_router(config: &HttpGatewayConfig) -> Router {
     let spawn_args: Arc<[std::ffi::OsString]> = config.daemon_spawn_args.clone().into();
-    let spawn_args_clone = Arc::clone(&spawn_args);
     let stats = Arc::new(McpStats::default());
     let stats_for_factory = Arc::clone(&stats);
 
@@ -88,7 +84,7 @@ pub(crate) fn build_router(config: &HttpGatewayConfig) -> Router {
         StreamableHttpService::new(
             move || {
                 Ok(UffsMcpServer::new_lazy_with_stats(
-                    spawn_args_clone.to_vec(),
+                    spawn_args.to_vec(),
                     Arc::clone(&stats_for_factory),
                 ))
             },
@@ -98,7 +94,6 @@ pub(crate) fn build_router(config: &HttpGatewayConfig) -> Router {
     let app_state = AppState {
         auth_token: config.auth_token.as_deref().map(Into::into),
         boot: Instant::now(),
-        spawn_args,
         stats,
     };
 

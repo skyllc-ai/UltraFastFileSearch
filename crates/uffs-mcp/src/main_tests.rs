@@ -234,7 +234,11 @@ fn aggregate_tool_schema_valid() {
         },
         "required": []
     });
-    let props = schema_json["properties"].as_object().unwrap();
+    let props = schema_json
+        .get("properties")
+        .expect("schema has properties")
+        .as_object()
+        .unwrap();
     assert!(props.contains_key("pattern"));
     assert!(props.contains_key("preset"));
     assert!(props.contains_key("aggregations"));
@@ -251,13 +255,17 @@ fn facet_values_tool_schema_valid() {
             "field": { "type": "string" },
             "pattern": { "type": "string", "default": "*" },
             "prefix": { "type": "string" },
-            "top": { "type": "integer", "default": 20 },
+            "top": { "type": "integer", "default": 20_i32 },
             "cursor": { "type": "string" },
             "page_size": { "type": "integer" }
         },
         "required": ["field"]
     });
-    let props = schema_json["properties"].as_object().unwrap();
+    let props = schema_json
+        .get("properties")
+        .expect("schema has properties")
+        .as_object()
+        .unwrap();
     assert!(props.contains_key("field"));
     assert!(props.contains_key("top"));
     assert!(
@@ -268,11 +276,15 @@ fn facet_values_tool_schema_valid() {
         props.contains_key("page_size"),
         "page_size param missing from schema"
     );
-    let required = schema_json["required"].as_array().unwrap();
-    assert!(required.iter().any(|v| v.as_str() == Some("field")));
+    let required = schema_json
+        .get("required")
+        .expect("schema has required")
+        .as_array()
+        .unwrap();
+    assert!(required.iter().any(|ema| ema.as_str() == Some("field")));
     // cursor and page_size should NOT be required
-    assert!(!required.iter().any(|v| v.as_str() == Some("cursor")));
-    assert!(!required.iter().any(|v| v.as_str() == Some("page_size")));
+    assert!(!required.iter().any(|ema| ema.as_str() == Some("cursor")));
+    assert!(!required.iter().any(|ema| ema.as_str() == Some("page_size")));
 }
 
 /// `format_aggregate_summary` includes cursor hint when `next_cursor`

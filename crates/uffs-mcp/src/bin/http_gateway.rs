@@ -51,22 +51,16 @@ impl Args {
         clippy::print_stderr,
         reason = "CLI binary — stderr is the correct output for help/errors"
     )]
-    #[expect(
-        clippy::indexing_slicing,
-        reason = "index i is bounded by while i < args.len()"
-    )]
     fn parse() -> Self {
         let mut bind: SocketAddr = ([127, 0, 0, 1], 8080).into();
         let mut auth_token: Option<String> = None;
         let mut extra_daemon_args = Vec::new();
 
-        let args: Vec<String> = std::env::args().skip(1).collect();
-        let mut idx = 0;
-        while idx < args.len() {
-            match args[idx].as_str() {
+        let mut args = std::env::args().skip(1);
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
                 "--bind" | "-b" => {
-                    idx += 1;
-                    if let Some(val) = args.get(idx) {
+                    if let Some(val) = args.next() {
                         bind = val.parse().unwrap_or_else(|err| {
                             eprintln!("error: invalid --bind address '{val}': {err}");
                             std::process::exit(1);
@@ -74,15 +68,13 @@ impl Args {
                     }
                 }
                 "--auth-token" | "-t" => {
-                    idx += 1;
-                    auth_token = args.get(idx).cloned();
+                    auth_token = args.next();
                 }
                 "--data-dir" => {
                     // Forward --data-dir to daemon spawn args.
                     extra_daemon_args.push("--data-dir".to_owned());
-                    idx += 1;
-                    if let Some(val) = args.get(idx) {
-                        extra_daemon_args.push(val.clone());
+                    if let Some(val) = args.next() {
+                        extra_daemon_args.push(val);
                     }
                 }
                 "--help" | "-h" => {
@@ -99,7 +91,6 @@ impl Args {
                     eprintln!("warning: unknown argument '{other}' (ignored)");
                 }
             }
-            idx += 1;
         }
 
         // Also check env vars as fallback.

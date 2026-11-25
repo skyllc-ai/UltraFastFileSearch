@@ -628,11 +628,5 @@ fn mcp_kill(port: u16, _bind: &str) {
 }
 
 #[cfg(test)]
-#[expect(
-    clippy::default_numeric_fallback,
-    clippy::indexing_slicing,
-    clippy::min_ident_chars,
-    reason = "test code"
-)]
 #[path = "main_tests.rs"]
 mod tests;

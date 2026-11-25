@@ -220,8 +220,7 @@ pub(crate) async fn run(
 }
 
 /// Create a default `AggregateSpecWire` with all optional fields zeroed.
-#[expect(clippy::missing_const_for_fn, reason = "String::new() is not const")]
-fn default_agg_spec() -> AggregateSpecWire {
+const fn default_agg_spec() -> AggregateSpecWire {
     AggregateSpecWire {
         kind: String::new(),
         label: None,

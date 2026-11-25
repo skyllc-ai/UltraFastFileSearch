@@ -140,7 +140,7 @@ mod prompt_tests {
     #[test]
     fn str_arg_returns_none_for_non_string() {
         let mut map = serde_json::Map::new();
-        map.insert("key".to_owned(), serde_json::json!(42));
+        map.insert("key".to_owned(), serde_json::json!(42_i32));
         assert_eq!(str_arg(&map, "key"), None);
     }
 
@@ -171,7 +171,7 @@ mod prompt_tests {
         let args = serde_json::Map::new();
         let msgs = build_prompt_messages("find_large_files", &args).unwrap();
         assert_eq!(msgs.len(), 1);
-        let text = format!("{:?}", msgs[0]);
+        let text = format!("{:?}", *msgs.first().expect("msgs has an element 0"));
         assert!(text.contains("50"), "default limit 50: {text}");
     }
 
@@ -180,7 +180,7 @@ mod prompt_tests {
         let mut args = serde_json::Map::new();
         args.insert("limit".to_owned(), serde_json::json!("10"));
         let msgs = build_prompt_messages("find_large_files", &args).unwrap();
-        let text = format!("{:?}", msgs[0]);
+        let text = format!("{:?}", *msgs.first().expect("msgs has an element 0"));
         assert!(text.contains("10"), "custom limit: {text}");
     }
 
@@ -188,7 +188,7 @@ mod prompt_tests {
     fn recent_changes_default() {
         let args = serde_json::Map::new();
         let msgs = build_prompt_messages("recent_changes", &args).unwrap();
-        let text = format!("{:?}", msgs[0]);
+        let text = format!("{:?}", *msgs.first().expect("msgs has an element 0"));
         assert!(text.contains("1 day"), "default 1 day: {text}");
     }
 
@@ -197,7 +197,7 @@ mod prompt_tests {
         let mut args = serde_json::Map::new();
         args.insert("extension".to_owned(), serde_json::json!("pdf"));
         let msgs = build_prompt_messages("find_by_extension", &args).unwrap();
-        let text = format!("{:?}", msgs[0]);
+        let text = format!("{:?}", *msgs.first().expect("msgs has an element 0"));
         assert!(text.contains("*.pdf"), "pdf pattern: {text}");
     }
 
@@ -206,7 +206,7 @@ mod prompt_tests {
         let mut args = serde_json::Map::new();
         args.insert("drive".to_owned(), serde_json::json!("C"));
         let msgs = build_prompt_messages("disk_usage_report", &args).unwrap();
-        let text = format!("{:?}", msgs[0]);
+        let text = format!("{:?}", *msgs.first().expect("msgs has an element 0"));
         assert!(text.contains("drive C:"), "drive scope: {text}");
         assert!(text.contains("Step 1"), "multi-step: {text}");
     }
@@ -216,7 +216,7 @@ mod prompt_tests {
         let mut args = serde_json::Map::new();
         args.insert("min_size_mb".to_owned(), serde_json::json!("500"));
         let msgs = build_prompt_messages("cleanup_report", &args).unwrap();
-        let text = format!("{:?}", msgs[0]);
+        let text = format!("{:?}", *msgs.first().expect("msgs has an element 0"));
         assert!(text.contains("500MB"), "custom min_size: {text}");
     }
 
@@ -225,7 +225,7 @@ mod prompt_tests {
         let mut args = serde_json::Map::new();
         args.insert("extension".to_owned(), serde_json::json!("jpg"));
         let msgs = build_prompt_messages("duplicate_investigation", &args).unwrap();
-        let text = format!("{:?}", msgs[0]);
+        let text = format!("{:?}", *msgs.first().expect("msgs has an element 0"));
         assert!(text.contains("*.jpg"), "ext filter: {text}");
     }
 
@@ -241,7 +241,7 @@ mod prompt_tests {
         let defs = crate::handler::definitions::prompt_definitions();
         assert_eq!(defs.len(), 7, "expected 7 prompts, got {}", defs.len());
 
-        let names: Vec<_> = defs.iter().map(|p| p.name.as_ref()).collect();
+        let names: Vec<_> = defs.iter().map(|prompt| prompt.name.as_ref()).collect();
         assert!(names.contains(&"find_large_files"));
         assert!(names.contains(&"recent_changes"));
         assert!(names.contains(&"find_by_extension"));
@@ -278,7 +278,7 @@ mod tool_def_tests {
     #[test]
     fn expected_tools_present() {
         let tools = tool_definitions();
-        let names: Vec<_> = tools.iter().map(|t| t.name.as_ref()).collect();
+        let names: Vec<_> = tools.iter().map(|tool| tool.name.as_ref()).collect();
         for expected in &[
             "uffs_search",
             "uffs_info",
@@ -337,7 +337,7 @@ mod tool_args_tests {
             "case_sensitive": true,
             "sort": "size",
             "sort_desc": false,
-            "limit": 25,
+            "limit": 25_i32,
             "filter": "files"
         }))
         .unwrap();
@@ -453,7 +453,7 @@ mod idle_timeout_tests {
     fn now_epoch() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs())
+            .map_or(0, |pred| pred.as_secs())
     }
 
     #[tokio::test]

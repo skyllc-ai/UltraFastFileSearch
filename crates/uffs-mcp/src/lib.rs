@@ -420,11 +420,5 @@ pub async fn run_mcp_server() -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
-#[expect(
-    clippy::default_numeric_fallback,
-    clippy::min_ident_chars,
-    clippy::indexing_slicing,
-    reason = "test code — relaxed for readability"
-)]
 #[path = "lib_tests.rs"]
 mod tests;
