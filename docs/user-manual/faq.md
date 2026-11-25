@@ -26,8 +26,9 @@ a Windows machine.
 
 On Windows, **once** — reading the MFT requires elevated access, but
 installing the Access Broker (`uffs-broker --install`) grants it a
-single time, after which every search, daemon start/stop, and update
-runs unelevated with no UAC prompt.  Without the broker you need an
+single time, after which every search and daemon start/stop runs
+unelevated with no UAC prompt.  Updating the broker itself needs one
+elevation (see [Updating](updating.md)).  Without the broker you need an
 Administrator terminal each time.  On macOS and Linux, no — UFFS reads
 regular files (MFT captures).
 
@@ -36,8 +37,13 @@ regular files (MFT captures).
 ### Why does the first search take so long?
 
 The daemon is loading the MFT and building the in-memory index.  This
-only happens once (~7 s from cache, or ~66 s cold for a large system).
+happens once per drive (~7 s from cache, or ~66 s cold for a large system).
 Every subsequent search completes in ~200 ms end-to-end.
+
+A drive left idle for 30 minutes or more is parked to save memory, and the
+next search that needs it pages it back in, which can take a while.  `uffs`
+waits silently and prints only the result; the wait is capped by
+`UFFS_CLIENT_TIMEOUT_SECS` (default 10 minutes).
 See [Performance](performance.md) for full benchmark data.
 
 ### How much memory does UFFS use?
@@ -50,7 +56,10 @@ It depends on the number of files.  Rough benchmarks:
 | 5 million | ~1.2 GB |
 | 25 million | ~4–6 GB |
 
-The daemon retires after 2 hours idle, releasing all memory.
+The daemon retires after 2 hours idle, releasing all memory, unless you
+made it [resident](daemon.md#permanent-residency-start-at-login-never-retire).
+Idle drives also release memory on their own (see
+[Daemon](daemon.md#memory-tiers-and-why-you-never-see-hot)).
 
 ### Can I search file contents?
 
@@ -81,12 +90,12 @@ Bulkiness = (SizeOnDisk / Size) × 100.  It measures allocation waste.
 
 ### Does UFFS see recently created files?
 
-The daemon loads the MFT at startup and holds it in memory.  Files
-created after startup are not visible until you restart the daemon:
+Yes, on Windows live drives: the daemon follows each drive's USN change
+journal, so new, renamed and deleted files show up without a restart.
 
-```bash
-uffs --daemon restart
-```
+Offline MFT captures (macOS, Linux, or `--data-dir` / `--mft-file`) are
+snapshots of the moment they were taken.  To see newer files, take a fresh
+capture and restart the daemon on it (next question).
 
 ### Can UFFS delete or move files?
 
@@ -107,12 +116,15 @@ the raw MFT data.
 
 ### How do I update the index after file changes?
 
-```bash
-# Restart daemon (re-reads MFT or cache)
-uffs --daemon restart
+On Windows live drives you do not need to: the index follows the USN
+change journal on its own.
 
-# Force re-parse (bypass .iocp cache)
-uffs --daemon restart --no-cache
+For offline MFT captures, take a fresh capture, then restart the daemon on
+it, bypassing the old cache:
+
+```bash
+uffs --daemon stop
+uffs --daemon start --no-cache --data-dir ~/uffs_data
 ```
 
 ### Can multiple users share one daemon?
@@ -130,8 +142,8 @@ from the same user share one daemon.
 | Timestamps | ✓ | Created, modified, accessed |
 | File sizes | ✓ | Logical and allocated |
 | NTFS attributes | ✓ | All 19 boolean flags |
-| Hard links | ✓ | With `--full` mode |
-| Alternate Data Streams | ✓ | With `--full` mode |
+| Hard links | ✓ | Each name is listed as its own result |
+| Alternate Data Streams | ✓ | Listed by default; hide them with `--hide-ads` |
 | Compressed files | ✓ | Detected via attribute flag |
 | Encrypted files | ✓ | Detected via attribute flag |
 | Sparse files | ✓ | Detected via attribute flag |

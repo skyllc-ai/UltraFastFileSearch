@@ -16,7 +16,7 @@ setup beyond a single config line.
 
 ```
 ┌──────────────┐                    ┌──────────────┐              ┌─────────────┐
-│ AI Agent     │   MCP (stdio or    │ UFFS MCP     │  IPC socket  │ uffs-daemon  │
+│ AI Agent     │   MCP (stdio or    │ UFFS MCP     │  IPC socket  │ uffsd        │
 │ (Claude,     ├───HTTP)───────────▶│ Server       ├─────────────▶│ (in-memory   │
 │  Cursor, …)  │   JSON-RPC 2.0    │ (bridge)     │              │  MFT index)  │
 └──────────────┘                    └──────────────┘              └─────────────┘
@@ -34,8 +34,8 @@ The daemon must be running (it auto-starts when needed).
 | **Lifecycle** | You manage: `uffs --mcp start` / `stop` | AI host manages: spawns and kills |
 | **Persistence** | Stays running between agent restarts | Dies when agent disconnects |
 | **Setup** | One `start`, then point hosts at URL | Config per host with `command` + `args` |
-| **Auth** | Optional bearer token | No auth (pipe is private) |
-| **Best for** | Production, shared environments, many hosts | Quick setup, single-agent use |
+| **Access** | No authentication; listens on `127.0.0.1` (this machine only) unless you pass `--bind` | No network at all (private pipe) |
+| **Best for** | Several AI hosts on this machine sharing one server | Quick setup, single-agent use |
 
 ## 2. Quick start
 
@@ -52,9 +52,6 @@ uffs --mcp start --data-dir ~/uffs_data
 # Custom port:
 uffs --mcp start --port 9090
 
-# With authentication:
-uffs --mcp start --auth-token MY_SECRET_TOKEN
-
 # Check status:
 uffs --mcp status
 
@@ -64,6 +61,14 @@ uffs --mcp stats
 # Stop:
 uffs --mcp stop
 ```
+
+`start` also takes `--bind <address>` (default `127.0.0.1`), `--no-cache`
+(build the daemon's index without its cache) and `--mft-file <path>` (search
+an offline MFT file). If a healthy gateway already answers on the port,
+`start` reuses it instead of starting a second one; an unhealthy process on
+the port is killed and replaced. The gateway has no authentication, so keep
+it on `127.0.0.1` unless you trust every machine that can reach the address
+you bind to.
 
 ### stdio mode
 
@@ -118,7 +123,7 @@ Add to `settings.json` or `claude_desktop_config.json`:
   "mcpServers": {
     "uffs": {
       "command": "uffs",
-      "args": ["mcp", "run", "--data-dir", "/path/to/uffs_data"]
+      "args": ["--mcp", "run", "--data-dir", "/path/to/uffs_data"]
     }
   }
 }
@@ -130,7 +135,7 @@ Windows (no `--data-dir` needed):
   "mcpServers": {
     "uffs": {
       "command": "uffs",
-      "args": ["mcp", "run"]
+      "args": ["--mcp", "run"]
     }
   }
 }
@@ -173,7 +178,7 @@ HTTP mode is auto-detected when the server is running.  Stdio mode:
   "mcpServers": {
     "uffs": {
       "command": "uffs",
-      "args": ["mcp", "run", "--data-dir", "/path/to/uffs_data"]
+      "args": ["--mcp", "run", "--data-dir", "/path/to/uffs_data"]
     }
   }
 }
@@ -181,17 +186,23 @@ HTTP mode is auto-detected when the server is running.  Stdio mode:
 
 ### Standalone binary (alternative)
 
-The `uffs-mcp` binary can be used instead of `uffs --mcp run`:
+The `uffsmcp` binary (the program `uffs --mcp` runs) can be used directly
+instead of `uffs --mcp run`:
 
 ```json
 {
   "mcpServers": {
     "uffs": {
-      "command": "uffs-mcp"
+      "command": "uffsmcp",
+      "args": ["run"]
     }
   }
 }
 ```
+
+Bare `uffsmcp` (no `run`) also serves stdio, but exits after 2 hours without
+MCP messages; `uffsmcp run` has no idle timeout unless you set one
+(see §11).
 
 ## 4. Tools
 
@@ -218,11 +229,13 @@ not `Warm`/`Hot`, the tool:
 1. **starts the re-warm immediately** in a detached request that
    survives whatever the host does to the tool call, and
 2. **returns an error right away**: *"⏳ Index warming — drive(s) D, S
-   were parked/cold … Poll `uffs_status` until every drive reports
-   'warm', then retry this exact query."*
+   were parked/cold and are being re-warmed now … Poll uffs_status until
+   its `index_ready` field is true … then retry this exact query
+   unchanged."* (The `status` field is not the signal: it reads "Ready"
+   for the daemon process even while every drive is parked.)
 
 So an agent's loop is: query → warming error → poll `uffs_status`
-(never gated) → retry → millisecond answer.  Repeat triggers are free —
+(never gated) until `index_ready` is true → retry → millisecond answer.  Repeat triggers are free —
 the daemon's single-flight per-drive dedup joins the in-flight load
 instead of starting another.  Queries scoped to warm drives are never
 gated by some *other* drive being cold.
@@ -249,7 +262,7 @@ Key parameters:
 | `path_contains` | `"Users\\rnio"` | Scope to a subtree |
 | `drives` | `["C", "D"]` | Scope to specific drives |
 | `sort` | `"-size"`, `"modified"`, `"-treesize"` | Sort field (prefix `-` for descending) |
-| `limit` | `50` | Max results (default 50, cap 500) |
+| `limit` | `50` | Max results (default 50, hard cap 100; larger values are clamped with a warning) |
 | `projection` | `["name", "size", "path"]` | Columns to return |
 | `whole_word` | `true` | Word-boundary matching |
 | `attr` | `"hidden"`, `"compressed"` | NTFS attribute filter |
@@ -323,11 +336,11 @@ and then execute step-by-step.
 | Prompt | Parameters | Workflow |
 |--------|-----------|----------|
 | `find_large_files` | `limit` (default 50) | Search for largest files |
-| `find_by_extension` | `extension`, `limit` | Find all files with a given extension |
+| `find_by_extension` | `extension`, `limit` (default 100) | Find all files with a given extension |
 | `recent_changes` | `days` (default 1) | Files modified in the last N days |
 | `find_duplicates_by_name` | `filename` | Find files with the same name across drives |
-| `disk_usage_report` | `drive` (optional) | Multi-step: overview → type → extension → largest files |
-| `cleanup_report` | `min_size_mb` (default 100) | Temp files, zero-byte, cleanup preset |
+| `disk_usage_report` | `drive` (optional) | Multi-step: `overview` → `by_type` → `by_extension` → `storage` presets |
+| `cleanup_report` | `min_size_mb` (default 100) | Multi-step: `cleanup` preset → largest files over `min_size_mb` → `duplicates` preset |
 | `duplicate_investigation` | `extension` (optional) | Aggregate duplicates → search candidates |
 
 Agents request a prompt via `prompts/get`, receive structured instructions,
@@ -339,84 +352,90 @@ then execute the steps using the tools above.
 
 | Command | Description |
 |---------|-------------|
-| `uffs --mcp start` | Start the HTTP gateway as a background process |
-| `uffs --mcp status` | Show PID, uptime, HTTP health, and load stats |
-| `uffs --mcp stats` | Show performance metrics (queries, timing, sessions) |
-| `uffs --mcp stop` | Graceful shutdown via HTTP `/shutdown` |
-| `uffs --mcp kill` | Hard kill (SIGKILL / taskkill) + PID file cleanup |
-| `uffs --mcp restart` | Stop → start with the same configuration |
-| `uffs --mcp reload` | SIGHUP all stdio sessions + restart HTTP gateway |
+| `uffs --mcp start` | Start the HTTP gateway as a background process (reuses a healthy one already on the port) |
+| `uffs --mcp status` | Show the gateway's PID, transport, uptime and `/health` result, and whether the daemon is reachable and its state |
+| `uffs --mcp stats` | Show the daemon's performance counters (uptime, records, queries served, query times) |
+| `uffs --mcp stop` | Stop the HTTP gateway (signals its PID) and record that it was stopped on purpose, so the watchdog leaves it down |
+| `uffs --mcp kill` | Hard kill + PID file cleanup; `--port <n>` also clears an orphaned process on that port (default 8080) |
+| `uffs --mcp restart` | Kill the running server; your AI host respawns it, or run `uffs --mcp start` |
+| `uffs --mcp reload` | Pick up a new binary: only parts older than the installed binary are touched. A stale daemon is stopped (the next request starts the new one), a stale HTTP gateway is restarted, stale stdio sessions are told to reload |
+
+`stop` and `kill` act on the HTTP gateway. Stdio servers are owned by their
+AI host and stop when the host ends the session. Stopping the gateway does
+not stop the daemon.
 
 ### Status
 
 ```
 $ uffs --mcp status
-MCP HTTP Server
-  PID:         89234
+uffs-mcp v0.6.47
+
+MCP server:    running (PID 89234)
   Transport:   http:127.0.0.1:8080
-  Uptime:      4h 23m
-  Health:      200 OK
-  Sessions:    3 active
+  Uptime:       4h 23m 10s
+  Health:      ✓ (http://127.0.0.1:8080/health)
+
+Daemon:        reachable (PID 51200)
+  Status:      Ready
 ```
 
 ### Stats
 
 ```
 $ uffs --mcp stats
-═══ MCP Server Stats ═══
-Uptime:            15732s
-Tool calls:        847
-  uffs_search:     612
-  uffs_aggregate:  145
-  uffs_facet:      52
-  uffs_info:       28
-  uffs_drives:     6
-  uffs_status:     4
-Resource reads:    23
-Prompt gets:       8
-Sessions:          12 total, 3 active
-Avg tool latency:  2.4ms
+MCP server PID: 89234
+
+═══ Performance Stats ═══
+Backend uptime:     4h 22m 51s
+Startup duration:    7 s  412 ms
+Total records:     25,912,334
+Queries served:    847
+Avg query time:      1 ms 240 μs
+Total query time:    1 s   50 ms
+Queries/second:    0.05
 ```
+
+The MCP server's own counters (tool calls, errors, sessions) are in the
+gateway's `/status` endpoint (§8).
 
 ## 8. HTTP endpoints
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/mcp` | Bearer (if configured) | MCP Streamable HTTP (JSON-RPC 2.0) |
-| `GET` | `/mcp` | Bearer (if configured) | SSE event stream for server notifications |
-| `DELETE` | `/mcp` | Bearer (if configured) | Close session |
-| `GET` | `/health` | None | Liveness probe — always `200 OK` |
-| `GET` | `/status` | None | Server status + uptime JSON |
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/mcp` | MCP Streamable HTTP (JSON-RPC 2.0) |
+| `GET` | `/mcp` | SSE event stream for server notifications |
+| `DELETE` | `/mcp` | Close session |
+| `GET` | `/health` | Liveness probe — always `200 OK` with body `ok` |
+| `GET` | `/status` | Server status, uptime and MCP counters as JSON |
 
-### Authentication
-
-When started with `--auth-token`, the HTTP gateway requires a bearer token
-on all `/mcp` requests:
-
-```bash
-uffs --mcp start --auth-token MY_SECRET
-
-curl -X POST http://127.0.0.1:8080/mcp \
-  -H "Authorization: Bearer MY_SECRET" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize",...}'
-```
-
-The `/health` and `/status` endpoints are always unauthenticated.
+None of the endpoints require authentication. The gateway listens on
+`127.0.0.1` by default, so only programs on this machine can reach it.
 
 ### Health check
 
 ```bash
 $ curl http://127.0.0.1:8080/health
-OK
+ok
 
 $ curl http://127.0.0.1:8080/status
 {
-  "status": "ok",
+  "status": "running",
   "uptime_secs": 3421,
-  "sessions_active": 2,
-  "tool_calls_total": 847
+  "auth_enabled": false,
+  "version": "0.6.47",
+  "mcp_stats": {
+    "tool_calls": 847,
+    "tool_errors": 3,
+    "avg_tool_latency_us": 2400,
+    "resource_reads": 23,
+    "prompt_gets": 8,
+    "active_sessions": 2,
+    "total_sessions": 12,
+    "tools": {
+      "search": 612, "drives": 6, "status": 4,
+      "info": 28, "aggregate": 145, "facet_values": 52
+    }
+  }
 }
 ```
 
@@ -437,8 +456,8 @@ external documentation — the instructions are embedded in the protocol.
 ## 10. Cookbook
 
 The `uffs://cookbook` resource is the **single most useful resource** for
-agents learning to use UFFS.  It contains ~30 ready-to-use examples
-organized into 10 categories:
+agents learning to use UFFS.  It contains dozens of ready-to-use examples,
+organized into categories such as:
 
 | Category | Examples |
 |----------|---------|
@@ -451,30 +470,33 @@ organized into 10 categories:
 | Cleanup | Temp files, zero-byte, bulkiness, long paths |
 | Aggregation | All presets, scoped, custom specs |
 | Facets | Extensions, drives, scoped facets |
-| Advanced | Hidden files, NTFS compression, multi-step workflows |
+| Advanced & NTFS-Specific | Hidden files, NTFS compression |
+| Real-World Workflows | Multi-step investigations |
 
 Each example includes:
 - **tool** — which tool to call
 - **arguments** — a complete JSON object, copy-pasteable into `tools/call`
 - **explanation** — why each parameter was chosen
 
-Plus 12 power-user tips for combining parameters effectively.
+Plus a list of power-user tips for combining parameters effectively.
 
 ## 11. Idle timeout and auto-exit
 
 ### stdio mode
 
-The stdio server has an **idle timeout** (default: 2 hours).  If no MCP
-messages are received within the window, the server exits cleanly.
+`uffs --mcp run` (and `uffsmcp run`) has **no idle timeout** by default: it
+runs until the AI host ends the session.  To make it exit after a quiet
+period, set `--idle-timeout <seconds>`:
 
 ```json
 {
   "command": "uffs",
-  "args": ["mcp", "run", "--idle-timeout", "3600"]
+  "args": ["--mcp", "run", "--idle-timeout", "3600"]
 }
 ```
 
-Set `--idle-timeout 0` to disable.
+`--idle-timeout 0` (the default) means no timeout.  Bare `uffsmcp` with no
+subcommand uses a 2-hour idle timeout.
 
 The timeout uses a **sliding window** — every MCP request resets the
 deadline.  A busy agent will never trigger it.
@@ -503,21 +525,25 @@ UFFS_LOG=trace UFFS_LOG_FILE=/tmp/mcp-diag.log uffs --mcp run
 ```
 
 Default log file location:
-- macOS: `~/Library/Application Support/uffs/uffs_mcp.log`
-- Linux: `~/.local/share/uffs/uffs_mcp.log`
-- Windows: `%LOCALAPPDATA%\uffs\uffs_mcp.log`
+- macOS: `~/Library/Logs/uffs/uffs_mcp.log`
+- Linux: `$XDG_STATE_HOME/uffs/logs/uffs_mcp.log` (by default
+  `~/.local/state/uffs/logs/uffs_mcp.log`)
+- Windows: `%LOCALAPPDATA%\uffs\logs\uffs_mcp.log`
+
+Set `UFFS_LOG_DIR` to use another folder.  The HTTP gateway started by
+`uffs --mcp start` logs to `mcp-gateway.log` in the same folder.
 
 ## 13. Relationship to the daemon
 
 The MCP server is **not** the daemon.  They are separate processes:
 
-| | Daemon (`uffs-daemon`) | MCP Server (`uffs --mcp`) |
+| | Daemon (`uffsd`) | MCP Server (`uffs --mcp`) |
 |---|---|---|
 | **Role** | Holds MFT index in memory, executes queries | Bridges MCP protocol to daemon |
 | **Data** | Yes — full file index | No — stateless bridge |
 | **Started by** | Auto-started by first client | `uffs --mcp start` or AI host |
 | **Stopped by** | `uffs --daemon stop` or idle timeout | `uffs --mcp stop` or AI host disconnect |
-| **Multiple?** | One daemon per machine | Many MCP servers (one per AI host session) |
+| **Multiple?** | One daemon per user | Many MCP servers (one per AI host session) |
 
 When the MCP server connects, it auto-starts the daemon if needed.
 Stopping the MCP server does **not** stop the daemon — other clients

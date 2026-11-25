@@ -21,19 +21,35 @@ uffs --daemon kill
 uffs '*.txt'
 ```
 
+On Windows, if the running daemon was started from an Administrator
+terminal and no Access Broker is installed, `uffs --daemon stop`, `kill`
+and `restart` refuse to run from a normal terminal ("Daemon management
+commands require an elevated (Administrator) shell"). Run them from an
+Administrator terminal, or install the broker once (`uffs-broker --install`).
+
 ## 2. "Permission denied" (Windows)
 
-**Cause:** Reading the NTFS MFT requires Administrator privileges.
+**Symptom:** a search fails with
+`daemon needs admin privileges to read NTFS Master File Tables …`.
 
-**Fix:**
+**Cause:** Reading the NTFS MFT requires Administrator privileges, and no
+daemon is running yet to do it for you.
 
-- Right-click your terminal → **"Run as administrator"**
-- Or install [gsudo](https://github.com/gerardog/gsudo) and prefix
-  commands with `gsudo`:
+**Fix**, best first:
 
-```bash
-gsudo uffs '*.dll'
-```
+1. **Install the Access Broker once** from an elevated terminal. After that,
+   every search and daemon start/stop runs from a normal terminal with no
+   UAC prompt:
+
+   ```powershell
+   uffs-broker --install
+   ```
+
+2. Or run your terminal as Administrator (right-click → **"Run as
+   administrator"**).
+3. Or let UFFS ask for elevation with a UAC prompt when it starts the
+   daemon: `uffs --daemon start --elevate`, or set `UFFS_ELEVATE=1` so every
+   automatic start does the same.
 
 Without elevation, UFFS can still search offline MFT captures via
 `--mft-file` or `--data-dir`.
@@ -44,6 +60,14 @@ Without elevation, UFFS can still search offline MFT captures via
 the in-memory index (~7 s from cache, or ~66 s cold for a large system).
 Every subsequent search completes in ~200 ms end-to-end.
 
+A later search can also wait: a drive left idle for 30 minutes or more is
+parked to save memory, and the next search that needs it pages it back in,
+which can take a while. While it waits, `uffs` prints nothing; the result
+appears when the drive is ready. The wait is capped by
+`UFFS_CLIENT_TIMEOUT_SECS` (default 600 seconds = 10 minutes; `0` = no
+limit). When the cap is reached, `uffs` fails with an error naming what had
+not finished. See [Daemon](daemon.md#memory-tiers-and-why-you-never-see-hot).
+
 If the first search is *always* slow (even when the daemon is running),
 the daemon may be restarting each time:
 
@@ -51,7 +75,8 @@ the daemon may be restarting each time:
 # Check if daemon is running
 uffs --daemon status
 
-# Long view — uptime, restart count, and performance counters
+# Long view — build, elevation / broker mode, live-update loops,
+# memory tiers, paths, per-drive detail and performance counters
 uffs --daemon status -v
 ```
 
@@ -61,37 +86,39 @@ uffs --daemon status -v
 |---------|-------------|-----|
 | Zero results for any pattern | Wrong data source | Check `--data-dir` path; verify MFT files exist |
 | Missing files from specific drives | Drive not loaded | Check `uffs --daemon status` for loaded drives |
-| Missing hidden/system files | Filtered by default | Use `--attr hidden` or `--attr system` |
-| Missing `$` files | System files hidden | Use `--hide-system false` or search `$*` |
+| Missing `$` files | `--hide-system` given | Leave out `--hide-system` (it is off by default and hides the `$` NTFS metadata files when given) |
 | Missing directories | `--files-only` active | Remove `--files-only` or use `--dirs-only` |
 
 ## 5. Stale Results
 
-**Cause:** The daemon's in-memory index was loaded from a cached
-`.iocp` file that is older than the current MFT state.
+On Windows, live drives keep up with changes on their own: the daemon
+follows each drive's USN change journal, so new, renamed and deleted files
+show up without a restart.
 
-**Fix:**
+**Offline MFT captures** (macOS, Linux, or `--data-dir` / `--mft-file` on
+Windows) are snapshots: they show the drive as it was when the capture was
+taken. To see newer files:
+
+1. Take a fresh capture on the Windows machine (see
+   [Cache & Data Sources](cache-and-data.md)).
+2. Restart the daemon on the new data, bypassing the old cache:
 
 ```bash
-# Force re-parse of raw MFT data (bypass cache)
-uffs --daemon restart --no-cache
-
-# On Windows (re-read live MFT)
-uffs --daemon restart
+uffs --daemon stop
+uffs --daemon start --no-cache --data-dir ~/uffs_data
 ```
-
-The daemon does not watch the filesystem for changes.  If files have
-been created or deleted since the daemon started, restart it.
 
 ## 6. Build Failures
 
 ### "error: requires nightly compiler"
 
-UFFS requires Rust nightly (pinned in `rust-toolchain.toml`).
+UFFS requires the Rust nightly pinned in `rust-toolchain.toml`. You do not
+pick it yourself: in the repository folder, `rustup` installs and uses the
+pinned toolchain automatically.
 
 ```bash
-rustup install nightly
-rustup default nightly
+# In the repository folder: install the pinned toolchain
+rustup toolchain install
 # Or just build — rustup reads rust-toolchain.toml automatically
 cargo build --release
 ```
@@ -121,27 +148,36 @@ ls ~/uffs_data/drive_c/
 
 ## 8. High Memory Usage
 
-The daemon holds the entire MFT index in memory.  A machine with 7
-NTFS drives and 25 million files uses roughly 4–6 GB of RAM.
+A drive's index is fully in memory only while the drive is in use. A drive
+left idle for 30 minutes is parked, and after 24 hours it goes cold, which
+releases more memory; the next search that needs it brings it back. See
+[Daemon](daemon.md#memory-tiers-and-why-you-never-see-hot). With every drive
+in use, a machine with 7 NTFS drives and 25 million files uses roughly
+4–6 GB of RAM.
 
 **Reduce memory:**
 
-- Use `--drives C,D` to load only the drives you need.
-- The daemon retires after 2 hours idle (releases memory).
+- Start the daemon with only the drives you need (Windows):
+  `uffs --daemon start --drive C --drive D`.
+  (`--drives C,D` on a search only limits that search; it does not change
+  what the daemon loads.)
+- Release drives you are done with now: `uffs --daemon hibernate D E`.
+- The daemon retires after 2 hours idle (releases memory), unless it is
+  [resident](daemon.md#permanent-residency-start-at-login-never-retire).
 
 ## 9. The Daemon Restarts After I Stop It
 
 If you made UFFS [resident](daemon.md#permanent-residency-start-at-login-never-retire),
-a supervisor is keeping it alive on purpose.  A **deliberate** stop is
+a supervisor is keeping it alive on purpose: on Windows the UFFS watchdog,
+on macOS launchd and on Linux systemd.  A **deliberate** stop is
 still honoured — `uffs --daemon stop` and `--daemon kill` record stop
 intent, and the watchdog leaves the service down until you start it
 again.  So a daemon that comes back means something *else* started it.
 Check, in order:
 
-```bash
-# 1. What decision did the watchdog take, and on what evidence?
-#    Windows: %LOCALAPPDATA%\uffs\watchdog.log
-cat ~/.local/share/uffs/watchdog.log
+```powershell
+# 1. (Windows) What decision did the watchdog take, and on what evidence?
+Get-Content "$env:LOCALAPPDATA\uffs\watchdog.log"
 
 # 2. Is the MCP gateway up?  It starts a daemon when a tool call needs one.
 uffs --mcp status
@@ -164,7 +200,25 @@ uffs --daemon resident off
 uffs --daemon stop
 ```
 
-## 10. Getting Help
+## 10. After an Update
+
+### `winget upgrade` fails with `remove_all: Access is denied`
+
+The running daemon and broker hold the program files open, so WinGet cannot
+replace them. Use `uffs --update` instead: it stops them, runs the WinGet
+upgrade for you, and starts them again. See [Updating](updating.md).
+
+### The MCP HTTP gateway is down after `uffs --update`
+
+The update stops the HTTP gateway and does not start it again. Start it:
+
+```bash
+uffs --mcp start
+```
+
+Stdio MCP sessions started by your AI host are not affected.
+
+## 11. Getting Help
 
 ```bash
 # Show all available flags

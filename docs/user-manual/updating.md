@@ -11,14 +11,18 @@ inconsistent — it downloads, SHA-256-verifies, and atomically swaps every core
 binary in place (journaled, with automatic rollback on failure). If you're
 already current, it does nothing and touches no services.
 
-> **WinGet installs:** use `uffs --update` here too — it updates the WinGet
-> install in place (the binaries live in a per-user `…\WinGet\Links` location
-> UFFS treats as an ordinary unmanaged install). Prefer it over `winget upgrade
-> SkyLLC.UFFS`, which can fail with `remove_all: Access is denied` because the
-> running daemon and broker hold the binaries open while WinGet tries to replace
-> them. `uffs --update` stops those services first, then swaps. If you do want
-> `winget upgrade`, stop UFFS first: elevated `uffs --daemon stop` +
-> `uffs-broker --stop`.
+> **WinGet installs:** use `uffs --update` here too. UFFS recognises a WinGet
+> install (its files live under `…\WinGet\Packages\…`) and hands the upgrade
+> to WinGet itself: it stops the daemon, stops the broker if it runs from the
+> package (one UAC prompt), runs `winget upgrade SkyLLC.UFFS`, then starts
+> them again. When the `uffs.exe` you are running is itself part of the
+> package, the WinGet upgrade runs right after `uffs` exits. A per-user
+> WinGet install must be updated from a **normal (non-elevated)** terminal:
+> WinGet refuses to upgrade a user package from an elevated one, so an
+> elevated `uffs --update` skips it and prints a note saying so.
+> A bare `winget upgrade SkyLLC.UFFS` can fail with `remove_all: Access is
+> denied`, because the running daemon and broker hold the files open; that is
+> why `uffs --update` stops them first.
 
 ## What `uffs --update` guarantees
 
@@ -58,6 +62,7 @@ end-to-end (the everyday command). The actions expose the phases:
 | `uffs --update doctor` | Health-check the install (versions, dirs, journal, backups, services, broker, release reach). If it's out of date / inconsistent it points you to `uffs --update` (asks first on a terminal). |
 | `uffs --update repair` | `doctor` + self-heal: resume/roll back an interrupted update, sweep stale backups, restart stopped services — and run the update flow if the install is out of date. |
 | `uffs --update apply --version <tag>` | Install a **specific** release (see *Pinning* below). |
+| `uffs --update apply` | Without `--version`: install the latest release now, skipping the "already up to date" check. Use it when `uffs --update` says it could not check for updates. |
 | `uffs --update recover` | Finish or roll back an interrupted update now (foreground). |
 | `uffs --update bins` | Print the core binary stems (one per line) — for scripts/tooling. |
 | `uffs --update snapshot` / `acquire` | Inspect the individual phases (freeze state / download + verify into staging). |
@@ -67,7 +72,9 @@ breakdown.
 
 ## Pinning or switching to a specific version
 
-Bare `uffs --update` always targets the **latest** release and won't downgrade.
+Bare `uffs --update` always moves you to the **latest** published release. If
+you run a build that is newer than that release (for example one you built
+yourself), it is replaced with the latest release too.
 To install an exact release — including rolling **back** to an older one — use
 the `apply` action with `--version`:
 
@@ -105,22 +112,33 @@ Add `--offline` to skip every network check (and the update redirect).
 
 ## Notes and edge cases
 
-- **MCP server:** the stdio MCP server (`uffsmcp`) is launched on demand by your
-  LLM client (Claude Desktop / Cursor / Windsurf), so the updater stops it to
-  free the file lock during a swap and lets the client respawn it — it does not
-  try to restart it.
+- **MCP server:** the updater runs `uffs --mcp stop`, which stops only the
+  HTTP gateway, and does **not** start the gateway again afterwards. If you
+  use the HTTP gateway, run `uffs --mcp start` after the update. Stdio MCP
+  sessions (the ones your AI host launches) keep running: their supervisor
+  picks up the new `uffsmcp` on its own (see
+  [MCP Server](mcp.md#zero-downtime-upgrades-stdio-supervisor)).
 - **Windows broker:** if `uffs --update doctor` warns the broker pipe isn't
   serving, install it from an elevated PowerShell with `uffs-broker --install`.
-  The broker is a `LocalSystem` service, so refreshing **it** needs elevation: a
-  **non-elevated** `uffs --update` updates every binary *except* the broker —
-  the running broker keeps serving (its wire protocol is back-compatible) and
-  the update prints a reminder. Run `uffs --update` once from an **elevated**
-  shell to bring the broker up to date too. (Everything else — daemon included —
-  updates without elevation once the broker is installed.)
+  The broker is a `LocalSystem` service, so stopping and replacing **it**
+  needs elevation. What a **non-elevated** `uffs --update` does depends on
+  where the running broker lives:
+  - **In the folder being updated:** the update cannot stop it, so it lists
+    that folder as needing Administrator and asks you to continue without it
+    (that folder is not updated) or abort. Run `uffs --update` from an
+    **elevated** terminal to update it.
+  - **In another folder:** everything else is updated, the running broker
+    keeps serving (its wire protocol is back-compatible), and the update
+    prints a reminder to run it once elevated to bring the broker up to date.
+  - **No broker running:** nothing needs elevation and you are not asked.
+- **Elevated daemon without a broker:** if the daemon was started from an
+  Administrator terminal and no broker is installed, a non-elevated update
+  cannot stop it. The update tells you so first and asks whether to continue
+  without that folder or abort.
 - **Publisher: Unknown:** binaries aren't code-signed yet, so a fresh download
   may show a SmartScreen / UAC warning — see
-  [Installation](installation.md) for verifying a download with `CHECKSUMS.txt`
-  and SLSA provenance.
+  [Installation](installation.md#verify-a-download) for verifying a download
+  with `CHECKSUMS.txt` and SLSA provenance.
 
 ## See also
 

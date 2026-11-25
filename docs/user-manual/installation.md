@@ -1,5 +1,8 @@
 # Installation
 
+This chapter installs UFFS on Windows, macOS or Linux, checks that the
+download is genuine, and puts the programs on your PATH.
+
 **Fastest path per platform:**
 
 ```bash
@@ -18,9 +21,11 @@ the matching [GitHub Release](https://github.com/skyllc-ai/UltraFastFileSearch/r
 `~/.local/bin`. Pin a version with `UFFS_VERSION=v0.6.17`, or change the target
 with `UFFS_INSTALL_DIR=~/bin`. Remove everything later with `uffs --uninstall`.
 
-Pre-built binaries for all platforms are also available directly from
-[GitHub Releases](https://github.com/skyllc-ai/UltraFastFileSearch/releases) (§2),
-and you can always build from source (§5). Most users do not need to.
+Pre-built binaries are published for three platforms: **Windows x64**,
+**macOS on Apple silicon (arm64)** and **Linux x64**. You can download them
+directly from [GitHub Releases](https://github.com/skyllc-ai/UltraFastFileSearch/releases)
+(§2). On any other platform (for example an Intel Mac or Linux on ARM64) you
+build from source (§5). Most users do not need to.
 
 ## 1. WinGet (Windows: Recommended)
 
@@ -31,11 +36,16 @@ If you have the [Windows Package Manager](https://learn.microsoft.com/windows/pa
 winget install SkyLLC.UFFS
 ```
 
-This installs the `uffs` CLI (daemon + MCP + MFT tools) and puts it on
-your PATH automatically.  Upgrade later with:
+This installs the `uffs` CLI together with the programs it works with (the
+`uffsd` daemon, the `uffsmcp` MCP server, `uffs-mft`, `uffs-update`,
+`uffs-broker`, and the free `uffs-tui` demo) and puts them on your PATH
+automatically.
+
+Update later with UFFS's own command, which runs the WinGet upgrade for you
+(see [Updating](updating.md)):
 
 ```powershell
-winget upgrade SkyLLC.UFFS
+uffs --update
 ```
 
 Confirm the install:
@@ -46,19 +56,40 @@ uffs --version
 
 > Live NTFS search needs elevation **once**: install the Access Broker
 > (`uffs-broker --install`, one-time from an elevated terminal) and every later
-> search — plus daemon start/stop and non-elevated updates — runs with **no
-> UAC**. Without the broker, use an Administrator terminal. See
+> search, daemon start and daemon stop runs with **no UAC**. Updating the broker
+> itself needs one elevation (see [Updating](updating.md)). Without the broker,
+> use an Administrator terminal. See
 > [§3 Platform Requirements](#3-platform-requirements).
 
 ## 2. Pre-Built Binaries
 
-Download the latest Windows x64 binaries from the
+Download from the
 [GitHub Releases page](https://github.com/skyllc-ai/UltraFastFileSearch/releases/latest).
 
 Each release includes:
-- `uffs-windows-x64.exe` — main CLI (starts daemon + MCP)
-- `uffs-mft-windows-x64.exe` — low-level MFT tool
-- `CHECKSUMS.txt` — SHA-256 hashes for verification
+
+- **Zip bundles (recommended):** `uffs-<platform>.zip`, where `<platform>` is
+  `windows-x64`, `macos-arm64` or `linux-x64`. Each holds every program in one
+  folder. A smaller `uffs-<platform>-min.zip` and a larger
+  `uffs-<platform>-full.zip` (with extra diagnostic tools) are also published.
+- **Single programs:** `uffs`, `uffsd`, `uffsmcp`, `uffs-mft`, `uffs-update`
+  (and `uffs-broker` on Windows), each named for its platform, for example
+  `uffs-windows-x64.exe`, `uffsd-macos-arm64` or `uffsmcp-linux-x64`.
+- `CHECKSUMS.txt` and `SHA256SUMS`: SHA-256 hashes of every file.
+- SBOM files (software bills of materials).
+
+`uffs` alone cannot search: it starts the `uffsd` daemon and the `uffsmcp`
+MCP server from the same folder (or from your PATH). Keep the programs
+together, which the zip does for you.
+
+| Program | What it is |
+|---------|------------|
+| `uffs` | The main CLI; starts the sibling `uffsd` / `uffsmcp` when needed |
+| `uffsd` | The daemon that holds the index |
+| `uffsmcp` | The MCP server for AI agents |
+| `uffs-mft` | Low-level MFT tool |
+| `uffs-update` | The helper `uffs --update` uses |
+| `uffs-broker` | Windows only: the Access Broker service |
 
 ### Quick Setup (Windows)
 
@@ -74,12 +105,16 @@ This downloads the latest release binaries and installs them to `~/bin`.
 
 **Option B — Manual download:**
 
-1. Download `uffs-windows-x64.exe` from the
-   [latest release](https://github.com/skyllc-ai/UltraFastFileSearch/releases/latest).
+1. Download `uffs-windows-x64.zip` from the
+   [latest release](https://github.com/skyllc-ai/UltraFastFileSearch/releases/latest)
+   and extract it. You get a folder `uffs-windows-x64` with `uffs.exe`,
+   `uffsd.exe`, `uffsmcp.exe` and the other programs.
 
-2. Copy to a directory on your PATH and **rename to `uffs.exe`**.
+2. Put that folder's programs in a directory on your PATH (see §4).
 
-3. Open a terminal **as Administrator** (required for live NTFS access).
+3. Install the Access Broker once from an elevated terminal
+   (`uffs-broker --install`), or open a terminal **as Administrator**
+   (required for live NTFS access, see §3).
 
 4. Run your first search:
 
@@ -95,18 +130,32 @@ This downloads the latest release binaries and installs them to `~/bin`.
    uffs --mcp start
    ```
 
-   Run `uffs --mcp --help` for instructions on how to configure
-   Claude, Cursor, Windsurf, and other AI agents to connect to the
-   MCP server.
+   To connect Claude, Cursor, Windsurf and other AI agents, see
+   [MCP Server §3](mcp.md#3-host-configuration).
 
-### Verify Checksums
+### Verify a download
 
-Each release includes `CHECKSUMS.txt` with SHA-256 hashes:
+Each release lists the SHA-256 hash of every file in `CHECKSUMS.txt` (and the
+same list as `SHA256SUMS`). Compare the hash of your download with its line:
 
 ```powershell
 # PowerShell
-Get-FileHash uffs-windows-x64.exe -Algorithm SHA256
-# Compare with CHECKSUMS.txt from the release
+Get-FileHash uffs-windows-x64.zip -Algorithm SHA256
+# Compare with the line for this file in CHECKSUMS.txt
+```
+
+```bash
+# In the folder that holds the download and SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing          # Linux
+shasum -a 256 -c SHA256SUMS --ignore-missing      # macOS
+```
+
+Every release file also carries signed SLSA build provenance, which proves it
+was built by the project's release workflow from the published source. Check it
+with the [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh attestation verify uffs-windows-x64.zip --owner skyllc-ai
 ```
 
 ## 3. Platform Requirements
@@ -123,7 +172,7 @@ system structure, so reading it needs elevation — but you grant it **once**:
 
 ```powershell
 # Option A (recommended): install the Access Broker — one-time elevation, then
-# NO UAC on any later search, daemon start/stop, or non-elevated update.
+# NO UAC on any later search, daemon start or daemon stop.
 uffs-broker --install          # run once from an elevated PowerShell
 
 # Option B: run your terminal as Administrator each time
@@ -136,6 +185,7 @@ gsudo uffs "*.dll"
 With the broker installed, plain `uffs <pattern>` and `uffs --daemon …` run
 unelevated — no prompts. The broker is a `LocalSystem` service that vends the
 daemon a read-only volume handle, so the daemon itself never needs admin.
+Updating the broker itself needs one elevation; see [Updating](updating.md).
 
 ### macOS / Linux
 
@@ -152,13 +202,19 @@ See [Cache & Data Sources](cache-and-data.md) for how to set up the
 
 ## 4. Add to PATH
 
+WinGet and the macOS/Linux installer do this for you. For a manual download:
+
 ### Windows (PowerShell)
 
+Use a folder of your own, such as `%USERPROFILE%\bin`. Do not use
+`%LOCALAPPDATA%\uffs`: that is UFFS's data folder, and `uffs --uninstall`
+deletes it.
+
 ```powershell
-# Copy to a permanent location
-$uffsDir = "$env:LOCALAPPDATA\uffs"
+# Copy every program from the extracted zip to a permanent location
+$uffsDir = "$env:USERPROFILE\bin"
 New-Item -ItemType Directory -Force -Path $uffsDir
-Copy-Item dist\v0.4.105\uffs\uffs-windows-x64.exe "$uffsDir\uffs.exe"
+Copy-Item .\uffs-windows-x64\*.exe $uffsDir
 
 # Add to user PATH (persists across sessions)
 [Environment]::SetEnvironmentVariable("Path",
@@ -172,28 +228,37 @@ uffs --version
 uffs "*.txt" --limit 5
 ```
 
-### macOS / Linux (build from source: see §5)
+### macOS / Linux
+
+Copy all the programs into one directory on your PATH, for example
+`~/.local/bin`:
 
 ```bash
-ln -s "$(pwd)/target/release/uffs" /usr/local/bin/uffs
+mkdir -p ~/.local/bin
+cp uffs-macos-arm64/* ~/.local/bin/     # or uffs-linux-x64/*
+```
+
+If you built from source (§5), link every program, not just `uffs`: `uffs`
+looks for `uffsd` and `uffsmcp` next to itself or on your PATH.
+
+```bash
+for bin in uffs uffsd uffsmcp uffs-mft uffs-update; do
+  ln -sf "$(pwd)/target/release/$bin" ~/.local/bin/$bin
+done
 ```
 
 ## 5. Build from Source
 
-Building from source is needed for development, contributing, or
-running on macOS/Linux.
-
-> **⚠ Windows native build limitation:** Due to a Polars COFF archive
-> size issue, `cargo build` does **not** currently work on Windows
-> natively.  Windows binaries are cross-compiled from macOS or Linux.
-> See [xwin workaround](../xwin-msvc-rlib-size-root-cause-and-workarounds.md)
-> for technical details.
+Building from source is for development and contributing, or for a platform
+without a prebuilt binary (such as an Intel Mac or Linux on ARM64). Release
+binaries are built natively on each platform; developer notes on
+cross-compiling are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ### Prerequisites
 
 | Requirement | Version | Notes |
 |-------------|---------|-------|
-| **Rust** | Nightly (pinned in `rust-toolchain.toml`) | Polars requires `nightly` + `simd` |
+| **Rust** | The nightly pinned in `rust-toolchain.toml` | Installed automatically by `rustup` on the first build |
 | **just** | 1.0+ | Task runner — `cargo install just` |
 | **cargo-nextest** | Latest | Test runner — `cargo install cargo-nextest` |
 | **Git** | Any | To clone the repository |
@@ -208,20 +273,29 @@ cd UltraFastFileSearch
 cargo build --release
 ```
 
-| Binary | Location | Purpose |
-|--------|----------|---------|
-| `uffs` | `target/release/uffs` | CLI search tool |
-| `uffs-tui` | `target/release/uffs-tui` | Terminal UI |
+The programs land in `target/release/`:
+
+| Binary | Purpose |
+|--------|---------|
+| `uffs` | CLI search tool |
+| `uffsd` | The daemon |
+| `uffsmcp` | The MCP server |
+| `uffs-mft` | Low-level MFT tool |
+| `uffs-update` | The update helper |
+| `uffs-broker` | Windows only: the Access Broker service |
+
+A few more programs (such as the watchdog and developer tools) are built too.
 
 ### Using just (recommended)
 
 ```bash
-just build       # Release build
-just use         # Install binaries to ~/bin from the latest GitHub Release
-just use-local   # Build workspace from source and install to ~/bin (dev)
-just check       # Format + lint + build (no tests)
-just go          # Full validation: format, lint, test, coverage
-just test        # Run all tests with nextest
+just build          # Dev (debug) build of the workspace
+just build-release  # Release build of the workspace
+just use            # Install binaries to ~/bin from the latest GitHub Release
+just use-local      # Build workspace from source and install to ~/bin (dev)
+just check          # File-size policy + cargo check + format check (no clippy, no tests)
+just go             # Full validation lane
+just test           # Run all tests with nextest
 ```
 
 `just use` is the easiest way to get going on any OS — it downloads
@@ -229,10 +303,9 @@ the Release bundle that GitHub Actions built for your platform and
 installs the binaries to `~/bin`.  Those bytes are identical to what
 every other end user runs, so bug reports are reproducible.
 
-`just use-local` is the dev-loop variant — it runs a full
-`cargo build --release --workspace` and installs the just-built
-binaries to `~/bin`.  Use this when you want to test local changes
-before opening a PR.
+`just use-local` is the dev-loop variant — it builds the workspace in
+release mode and installs the just-built binaries to `~/bin`.  Use this
+when you want to test local changes before opening a PR.
 
 Because it replaces binaries that may be **running**, it manages the
 service lifecycle around the copy and puts things back as it found
@@ -240,7 +313,7 @@ them:
 
 * **Unchanged binaries are skipped.**  Only files whose contents
   actually differ are replaced, so a rebuild that changed one crate
-  does not disturb the other 23 processes — and cannot fail with
+  does not disturb the other running processes — and cannot fail with
   `os error 32` (file in use) for no reason.
 * **The Access Broker is a service**, so it cannot simply be
   overwritten: if its binary changed, the installer stops the service,
@@ -270,18 +343,6 @@ If `~/bin` is not on your PATH, either recipe prints the line to add
 to your shell profile.
 
 Run `just` with no arguments to see all available tasks.
-
-### Cross-Compiling Windows Binaries (from macOS / Linux)
-
-This is how the release binaries are cross-compiled:
-
-```bash
-cargo install cargo-xwin
-cargo xwin build --release --target x86_64-pc-windows-msvc
-```
-
-See [xwin workaround](../xwin-msvc-rlib-size-root-cause-and-workarounds.md)
-for details on the `xwin-dev` profile and COFF archive size limits.
 
 ## 6. Verify Installation
 
