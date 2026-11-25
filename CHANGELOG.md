@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- docs: the user manual reads as a handbook: `docs/user-manual/README.md` is its entry (the chapters in reading order), every chapter has one shape, the glossary is one alphabetical table, and the MFT capture runbook moved to `docs/architecture/`
+- docs: the manual checked against the code: `--sort` directions, name (not path) matching, descendants, output formats, the TUI, the daemon's sockets, logs and cache, aggregation, MCP host configuration, updating, uninstalling and troubleshooting
+
+### Fixed
+
+- docs: no links to private folders or missing files, and every link and heading anchor in the manual resolves on GitHub
+
 ## [0.6.47] - 2026-11-10
 
 ### Fixed
