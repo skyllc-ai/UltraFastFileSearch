@@ -220,12 +220,14 @@ python compare_outputs.py output_baseline.csv output_current.csv
 
 ### Chaos Testing
 
-The `--chaos-seed` flag randomizes MFT read order to verify correctness regardless of processing order:
+`uffs-mft`'s `ChaosMftReader` parses an offline MFT with its chunks in a
+seeded random, reversed or interleaved order, and the chaos tests require
+the same records as a sequential parse (the `uffs` command line has no
+chaos flag):
 
 ```bash
-uffs * --mft-file C.bin --chaos-seed 42
-uffs * --mft-file C.bin --chaos-seed 12345
-# Both should produce identical output
+UFFS_MFT_TEST_FILE=/path/to/D_mft.bin \
+  cargo test -p uffs-mft --lib -- chaos_order --ignored --nocapture
 ```
 
 ---

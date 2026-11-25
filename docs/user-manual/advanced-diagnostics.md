@@ -62,7 +62,7 @@ Useful for comparing filter strategies and sort performance.
 ## 2. MFT Read Modes
 
 `--no-bitmap` and `--full` belong to the separate `uffs-mft` tool, not
-to `uffs`.  (`uffs` ignores `--no-bitmap` and rejects `--full`.)
+to `uffs`.  (`uffs` rejects both as unknown flags.)
 
 | `uffs-mft` flag | Description |
 |------|-------------|

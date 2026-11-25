@@ -80,9 +80,7 @@ uffs * --files-only --min-size 1048576  # Files > 1MB
 |------|-------------|
 | `--profile` | Show detailed timing breakdown |
 | `--benchmark` | Skip output, measure only MFT reading |
-| `--no-bitmap` | Disable bitmap skip optimization |
 | `--no-cache` | Bypass cache, read MFT fresh |
-| `--query-mode` | Force: auto, index, or dataframe path |
 | `--tz-offset` | Override timezone for timestamp display |
 | `-v, --verbose` | Enable info-level terminal logging |
 
@@ -106,8 +104,10 @@ uffs * --files-only --min-size 1048576  # Files > 1MB
 
 ```bash
 uffs --stats                       # Live overview via the daemon
-uffs --stats saved.parquet         # Stats from a saved parquet index
+uffs --stats --data-dir ~/uffs_data
 ```
+
+`--stats` takes `--data-dir` and `--mft-file` and nothing else.
 
 ---
 

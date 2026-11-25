@@ -28,7 +28,7 @@ EXAMPLES:
 
 COMMANDS:
   --search <PATTERN>   Explicit search (same as the bare default)
-  --stats [PATH]       Show filesystem statistics
+  --stats              Show filesystem statistics (the overview preset)
   --agg <PRESET>       Run aggregate analytics
   --deleted            Forensic tombstone read: recently-deleted files from an MFT
   --snapshot           Capture the live MFT to a baseline file (Windows, for --diff)
@@ -151,17 +151,13 @@ pub(crate) fn print_daemon_help() {
 
 /// Help text for `uffs --stats`.
 const STATS_HELP: &str = "\
-uffs --stats — Show filesystem statistics
+uffs --stats — Show filesystem statistics (the `overview` aggregate preset)
 
-USAGE:  uffs --stats [PATH] [OPTIONS]
-
-ARGUMENTS:
-  [PATH]               Index file path (optional; omit to query daemon)
+USAGE:  uffs --stats [OPTIONS]
 
 OPTIONS:
-  --top <N>            Show top N largest files (default: 10)
   --data-dir <PATH>    Data directory with drive_* subdirs
-  --mft-file <PATH>    Raw MFT file(s)
+  --mft-file <PATH>    Raw MFT file(s), comma-separated; repeatable
 ";
 
 /// Print stats help.

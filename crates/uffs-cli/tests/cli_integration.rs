@@ -227,11 +227,34 @@ mod tests {
     // Stats subcommand validation is still client-side.
 
     #[test]
-    fn stats_rejects_non_numeric_top() {
+    fn stats_refuses_the_removed_path_and_top() {
+        assert_failure("stats_path", &["--stats", "saved.parquet"], &[
+            "does not take `saved.parquet`",
+        ]);
+        assert_failure("stats_top", &["--stats", "--top", "5"], &[
+            "does not take `--top`",
+        ]);
+    }
+
+    /// `uffs -- <PATTERN>`: after `--` a token that looks like a flag is the
+    /// pattern. Without a daemon the search fails at connect, but never with
+    /// the parser's unknown-flag / did-you-mean error.
+    #[test]
+    fn double_dash_pattern_is_not_parsed_as_a_flag() {
+        let output = run_cli("double_dash", &["--", "--updat"]);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            !stderr.contains("not a known search flag") && !stderr.contains("Unknown flag"),
+            "a pattern after -- must not be read as a flag: {stderr}"
+        );
+    }
+
+    #[test]
+    fn daemon_start_refuses_unknown_flags() {
         assert_failure(
-            "stats_invalid_top",
-            &["--stats", "saved.parquet", "--top", "abc"],
-            &["Bad --top"],
+            "daemon_start_unknown",
+            &["--daemon", "start", "--idle-timeout", "0"],
+            &["does not take `--idle-timeout`"],
         );
     }
 
