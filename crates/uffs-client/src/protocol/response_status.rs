@@ -183,6 +183,18 @@ pub struct StatusResponse {
     /// log dir), so the operator can find the index, connect, and read logs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paths: Option<DaemonPaths>,
+    /// The command-line arguments the daemon process was started with
+    /// (after the program name), exactly as the OS handed them over.
+    ///
+    /// `uffs --daemon restart` starts the new daemon with these, so a
+    /// restart keeps every launch flag (`--drive`, `--data-dir`,
+    /// `--no-cache`, `--log-level`, `--log-file`, `--no-retire`, ...)
+    /// instead of rebuilding a partial command line from the loaded drives.
+    /// `OsString` so a path that is not UTF-8 survives the round trip
+    /// (client and daemon run on the same machine). Absent from daemons
+    /// that predate this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch_args: Option<Vec<std::ffi::OsString>>,
 }
 
 /// Live-update (USN journal) liveness, surfaced in [`StatusResponse`].

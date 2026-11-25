@@ -47,8 +47,8 @@ uffs "*.dll" --data-dir ~/uffs_data
 
 The `--data-dir` flag points to a directory with `drive_c/`, `drive_d/`, etc.
 subdirectories, each containing an MFT capture file.  `--mft-file` takes
-one path or a comma-separated list; give it once (a second `--mft-file`
-replaces the first).  The daemon reads `.iocp`, `.bin`, `.raw`, `.mft`
+one path or a comma-separated list, and may be given more than once: every
+file named is loaded.  `--drive` adds drives the same way.  The daemon reads `.iocp`, `.bin`, `.raw`, `.mft`
 and `.uffs` files; see [Cache & Data Sources](cache-and-data.md).
 
 ### Windows (Live NTFS Drives)
@@ -74,8 +74,8 @@ uffs --daemon start --drive C --drive D
 > --elevate` (or `UFFS_ELEVATE=1`) ask for elevation.
 
 `uffs --daemon start` accepts `--mft-file`, `--data-dir`, `--drive`,
-`--no-cache`, `--elevate`, `--log-level` and `--log-file`.  It ignores
-any other flag without a warning.
+`--no-cache`, `--elevate`, `--log-level` and `--log-file`, and refuses
+any other flag with a usage error (as `uffs --daemon load` does).
 
 ## 3. Auto-Start
 
@@ -85,8 +85,10 @@ any client), the auto-start mechanism handles everything:
 1. CLI checks if a daemon is already running (reads PID file, probes
    socket).
 2. If no daemon is found, the CLI **spawns one in the background**,
-   passing along `--data-dir`, `--mft-file`, `--drive`, `--no-cache`
-   and the log flags from the current command.
+   passing along `--data-dir`, `--mft-file`, `--drive` / `--drives`,
+   `--no-cache` and the log flags from the current command (a list such
+   as `--mft-file C.bin,D.bin` reaches the daemon as one `--mft-file` per
+   file).
 3. The CLI waits for the daemon to become "Ready" (MFT loaded, index
    built).
 4. The CLI sends the search query over IPC.
@@ -115,7 +117,7 @@ file and socket are removed on exit.
 
 These are flags of the daemon program `uffsd` itself, for people who
 start it by hand.  `uffs --daemon start` does not accept them (it
-ignores them), and auto-start passes only the `--no-retire` that
+refuses them), and auto-start passes only the `--no-retire` that
 `resident on` records (see below).
 
 ```bash
@@ -314,7 +316,7 @@ rather get that error sooner, for example `UFFS_CLIENT_TIMEOUT_SECS=120`.
 | `uffs --daemon status_drives` | Per-drive tier + telemetry table (resident bytes, query rate, pins) |
 | `uffs --daemon stop` | Graceful shutdown via RPC (records stop intent) |
 | `uffs --daemon kill` | Hard kill + remove PID/socket files (records stop intent) |
-| `uffs --daemon restart` | Stop, then start again with the same capture files; other start flags (`--drive`, `--data-dir`, `--no-cache`, log flags) are not kept |
+| `uffs --daemon restart` | Stop, then start again with the command line the daemon was started with (every flag kept) |
 | `uffs --daemon resident on\|off\|status` | Login autostart + no idle retire; arms the watchdog |
 | `uffs --daemon preload <DRIVES>` | Promote drive(s) to `Hot` and pin the tier; at least one drive is required |
 | `uffs --daemon hibernate [DRIVES]` | Demote drive(s) to `Cold` (frees RAM, cache stays); with no drive, every drive |

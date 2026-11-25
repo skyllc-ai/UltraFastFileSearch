@@ -152,6 +152,7 @@ impl IndexManager {
             reading_via_broker,
             live_update: crate::live_update::snapshot(),
             paths: Some(crate::live_update::daemon_paths()),
+            launch_args: Some(std::env::args_os().skip(1).collect()),
         }
     }
 

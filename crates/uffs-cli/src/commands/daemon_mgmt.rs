@@ -595,15 +595,15 @@ fn daemon_restart() -> Result<()> {
             .drives()
             .with_context(|| "Failed to query drives before restart")?;
 
-        let mut args: Vec<std::ffi::OsString> = Vec::new();
-        for dr in &drives_resp.drives {
-            if let Some(path) = dr.source.strip_prefix("file:") {
-                args.push(std::ffi::OsString::from("--mft-file"));
-                args.push(std::ffi::OsString::from(path));
-            }
-        }
-
-        let daemon_pid = client.status().map_or(0, |status_resp| status_resp.pid);
+        let status = client.status().ok();
+        let daemon_pid = status.as_ref().map_or(0, |status_resp| status_resp.pid);
+        // The daemon's own command line is the launch to repeat: every
+        // flag it was started with survives the restart.  A daemon that
+        // predates `launch_args` gets the old reconstruction from its
+        // loaded file sources.
+        let args = status
+            .and_then(|status_resp| status_resp.launch_args)
+            .unwrap_or_else(|| file_sources_as_args(&drives_resp.drives));
         println!("Stopping daemon (PID {daemon_pid})...");
 
         client.shutdown().with_context(|| {
@@ -654,6 +654,19 @@ fn daemon_restart() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// The `--mft-file` arguments that reload the file-backed drives a daemon
+/// reports; the restart fallback for a daemon that does not report its
+/// own launch arguments.
+fn file_sources_as_args(
+    drives: &[uffs_client::protocol::response::DriveInfo],
+) -> Vec<std::ffi::OsString> {
+    drives
+        .iter()
+        .filter_map(|drive| drive.source.strip_prefix("file:"))
+        .flat_map(|path| ["--mft-file", path].map(std::ffi::OsString::from))
+        .collect()
 }
 
 /// Normalise an env-var probe so `Some("")` becomes `None`.

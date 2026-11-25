@@ -99,9 +99,10 @@ uffs --daemon — Manage the UFFS background daemon
 USAGE:  uffs --daemon <ACTION> [OPTIONS]
 
 ACTIONS:
-  start              Start the daemon
+  start              Start the daemon (any other flag is refused)
     --data-dir PATH    Data directory with drive_* subdirs
-    --mft-file PATH    Raw MFT file(s), comma-separated
+    --mft-file PATH    Raw MFT file(s), comma-separated; repeatable
+    --drive LETTER     Live drive(s) to load (Windows); repeatable
     --no-cache         Skip cached index, re-parse MFT
     --elevate          Request a UAC prompt (Windows) if not elevated
                        [env: UFFS_ELEVATE=1]
@@ -110,7 +111,7 @@ ACTIONS:
     --json             Machine-readable status + drives + stats
   stop               Gracefully stop the daemon
   kill               Hard kill + remove PID/socket files
-  restart            Stop then restart (re-loads all indices)
+  restart            Stop then start with the same launch flags
   load               Hot-load additional MFT file(s) into running daemon
     --mft-file PATH    Raw MFT file(s) to load
     --data-dir PATH    Data directory with drive_* subdirs

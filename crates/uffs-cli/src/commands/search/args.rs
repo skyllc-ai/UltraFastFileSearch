@@ -68,32 +68,49 @@ pub(crate) fn with_default_format(mut args: Vec<String>, terminal: bool) -> Vec<
     args
 }
 
-/// Extract daemon-spawn-relevant flags from raw CLI args.
+/// Extract daemon-spawn-relevant flags from raw CLI args, written the way
+/// `uffsd` reads them.
 ///
 /// The daemon auto-start needs `--data-dir`, `--mft-file`, `--no-cache`,
-/// `--drive`, and log env vars. Everything else is irrelevant for spawn.
+/// the drives, and the log settings. Everything else is irrelevant for
+/// spawn. A search takes lists (`--mft-file C.bin,D.bin`, `--drives C,D`,
+/// `--drive C:`) where `uffsd` takes one value per flag (`--mft-file C.bin
+/// --mft-file D.bin`, `--drive C --drive D`), so each list is split here;
+/// a drive letter that does not parse is left for the search parser to
+/// report.
 pub(crate) fn extract_spawn_args(args: &[String]) -> Vec<std::ffi::OsString> {
     let mut spawn: Vec<std::ffi::OsString> = Vec::new();
-    let mut iter = options(args).iter().peekable();
+    let mut iter = options(args).iter();
     while let Some(arg) = iter.next() {
-        let flag = arg.split('=').next().unwrap_or(arg.as_str());
+        let (flag, inline) = arg
+            .split_once('=')
+            .map_or((arg.as_str(), None), |(flag, val)| (flag, Some(val)));
+        let mut value = || inline.or_else(|| iter.next().map(String::as_str));
         match flag {
-            "--data-dir" | "--mft-file" | "--drive" | "--drives" | "--log-level" | "--log-file" => {
-                spawn.push(std::ffi::OsString::from(arg));
-                // If not `--flag=val` form, consume the next token as value.
-                if !arg.contains('=')
-                    && iter.peek().is_some_and(|peeked| {
-                        !peeked.starts_with('-') || flag == "--drive" || flag == "--drives"
-                    })
-                {
-                    // peek() confirmed the value exists, so next() is safe.
-                    spawn.push(
-                        iter.next()
-                            .map_or_else(std::ffi::OsString::new, std::ffi::OsString::from),
-                    );
+            "--mft-file" => {
+                for part in value().into_iter().flat_map(|list| list.split(',')) {
+                    let path = part.trim();
+                    if !path.is_empty() {
+                        spawn.extend(["--mft-file", path].map(std::ffi::OsString::from));
+                    }
                 }
             }
-            "--no-cache" => spawn.push(std::ffi::OsString::from(arg)),
+            "--drive" | "-d" | "--drives" => {
+                for part in value().into_iter().flat_map(|list| list.split(',')) {
+                    let trimmed = part.trim();
+                    let bare = trimmed.strip_suffix(':').unwrap_or(trimmed);
+                    if let Ok(letter) = bare.parse::<uffs_mft::platform::DriveLetter>() {
+                        spawn.push("--drive".into());
+                        spawn.push(letter.to_string().into());
+                    }
+                }
+            }
+            "--data-dir" | "--log-level" | "--log-file" => {
+                if let Some(val) = value() {
+                    spawn.extend([flag, val].map(std::ffi::OsString::from));
+                }
+            }
+            "--no-cache" => spawn.push(std::ffi::OsString::from(flag)),
             _ => {}
         }
     }
@@ -205,8 +222,41 @@ fn resolve_to_absolute(path_str: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        maybe_inject_no_output, resolve_out_path, resolve_to_absolute, with_default_format,
+        extract_spawn_args, maybe_inject_no_output, resolve_out_path, resolve_to_absolute,
+        with_default_format,
     };
+
+    /// The spawn arguments of a search, as strings (log env vars aside).
+    fn spawn_of(args: &[&str]) -> Vec<String> {
+        extract_spawn_args(&owned(args))
+            .into_iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .take_while(|arg| arg != "--log-level" && arg != "--log-file")
+            .collect()
+    }
+
+    /// A search's list flags reach `uffsd` one value per flag, the way it
+    /// reads them.
+    #[test]
+    fn spawn_args_split_lists_for_uffsd() {
+        assert_eq!(
+            spawn_of(&["*", "--mft-file", "C.bin, D.bin", "--drives", "E:,f"]),
+            [
+                "--mft-file",
+                "C.bin",
+                "--mft-file",
+                "D.bin",
+                "--drive",
+                "E",
+                "--drive",
+                "F"
+            ]
+        );
+        assert_eq!(
+            spawn_of(&["*", "--data-dir=/data", "-d", "C:", "--no-cache"]),
+            ["--data-dir", "/data", "--drive", "C", "--no-cache"]
+        );
+    }
 
     /// Owned argument vector from string slices.
     fn owned(args: &[&str]) -> Vec<String> {
@@ -243,7 +293,7 @@ mod tests {
         assert_eq!(out, ["--", "--out", "rel.csv"]);
         let injected = maybe_inject_no_output(owned(&["--", "--rows"]), true);
         assert_eq!(injected, ["--no-output", "--", "--rows"]);
-        let spawn = super::extract_spawn_args(&owned(&["--", "--no-cache"]));
+        let spawn = extract_spawn_args(&owned(&["--", "--no-cache"]));
         assert!(
             !spawn.iter().any(|arg| arg == "--no-cache"),
             "an operand is not a spawn flag: {spawn:?}"

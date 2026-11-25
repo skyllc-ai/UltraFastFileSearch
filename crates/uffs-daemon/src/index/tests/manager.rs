@@ -283,3 +283,19 @@ async fn total_index_heap_bytes_matches_status_breakdown() {
         "status.index_heap_bytes must equal total_index_heap_bytes",
     );
 }
+
+/// `status` reports the process's own command line, which is what
+/// `uffs --daemon restart` starts the new daemon with, and it survives the
+/// JSON round trip the CLI reads it through.
+#[tokio::test]
+async fn status_reports_launch_args_for_restart() {
+    let mgr = test_manager_with_drive().await;
+    let status = mgr.status(0).await;
+    let expected: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    assert_eq!(status.launch_args.as_ref(), Some(&expected));
+
+    let wire = serde_json::to_string(&status).expect("status serialises");
+    let back: uffs_client::protocol::response::StatusResponse =
+        serde_json::from_str(&wire).expect("status deserialises");
+    assert_eq!(back.launch_args, Some(expected));
+}

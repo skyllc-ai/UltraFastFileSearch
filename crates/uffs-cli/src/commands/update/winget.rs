@@ -382,7 +382,10 @@ mod windows_impl {
             // The daemon start blocks until Ready (measured ~7s warm, up to
             // ~69s on a cold cache), so animate a spinner — a silent minute is
             // the very "looks hung" symptom this rework set out to remove.
-            spinner_while("Restarting the index daemon", restart_daemon);
+            let restarted = spinner_while("Restarting the index daemon", restart_daemon);
+            if let Err(err) = &restarted {
+                println!("\u{26a0} the index daemon did not restart ({err:#}).");
+            }
             // A daemon that needs elevation to read the MFT (no broker) cannot
             // come back from this non-elevated restart. Say so with the
             // one-time fix instead of leaving a silently-stopped
@@ -481,17 +484,15 @@ mod windows_impl {
     }
 
     /// Stop the daemon via the graceful shutdown RPC (no privileges; also stops
-    /// an elevated daemon), falling back to the kill handler. Returns whether a
-    /// stop was attempted-and-plausibly-succeeded.
+    /// an elevated daemon), falling back to the kill handler. Returns whether
+    /// either of them stopped it, so a daemon that is still running is not
+    /// "restarted" over itself after the update.
     fn stop_daemon() -> bool {
         let stopped = uffs_client::connect_sync::UffsClientSync::connect_raw()
-            .is_ok_and(|mut client| client.shutdown().is_ok());
-        if !stopped {
-            let _killed: Result<()> =
-                crate::commands::daemon_mgmt::daemon_quiet(&crate::args::DaemonAction::Kill);
-        }
+            .is_ok_and(|mut client| client.shutdown().is_ok())
+            || crate::commands::daemon_mgmt::daemon_quiet(&crate::args::DaemonAction::Kill).is_ok();
         std::thread::sleep(Duration::from_millis(750));
-        true
+        stopped
     }
 
     /// Whether the resident daemon is up: a fresh PID file naming a live
@@ -503,19 +504,22 @@ mod windows_impl {
             .is_some_and(|(pid, ..)| uffs_client::daemon_ctl::is_pid_alive(pid))
     }
 
-    /// Best-effort daemon restart after the upgrade (auto-start on the next
-    /// search covers any failure).
-    fn restart_daemon() {
-        let _started: Result<()> =
-            crate::commands::daemon_mgmt::daemon_quiet(&crate::args::DaemonAction::Start {
-                mft_file: Vec::new(),
-                data_dir: None,
-                drives: Vec::new(),
-                no_cache: false,
-                log_level: "info".to_owned(),
-                log_file: None,
-                elevate: false,
-            });
+    /// Restart the daemon after the upgrade. A failure is reported, not
+    /// fatal: the next search auto-starts it.
+    ///
+    /// # Errors
+    ///
+    /// The start's own error.
+    fn restart_daemon() -> Result<()> {
+        crate::commands::daemon_mgmt::daemon_quiet(&crate::args::DaemonAction::Start {
+            mft_file: Vec::new(),
+            data_dir: None,
+            drives: Vec::new(),
+            no_cache: false,
+            log_level: "info".to_owned(),
+            log_file: None,
+            elevate: false,
+        })
     }
 
     /// Spawn the elevated helper (one UAC) and wait for it to report the broker
