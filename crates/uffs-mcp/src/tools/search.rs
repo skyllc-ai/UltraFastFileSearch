@@ -22,7 +22,7 @@ use crate::schemas::{SearchOutput, SearchRowOutput};
 /// becomes `uffs_aggregate` (duplicates, `by_extension`, etc.).  Keeping the
 /// cap low also avoids exceeding host tool-result size limits (Claude Code
 /// rejects results > ~200 KB).
-const HARD_CAP: u32 = 100;
+pub(crate) const HARD_CAP: u32 = 100;
 
 /// Maximum number of `resource_link` entries emitted in the response.
 ///

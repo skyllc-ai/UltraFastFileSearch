@@ -66,7 +66,7 @@ KEY PARAMETERS for uffs_search:
 • exclude: drop by FILENAME glob (not path) — e.g. '~$*' for Office temp files
 • drives: ['C'] or ['C','D'] to scope to specific drives
 • sort: 'modified', '-size', 'name', '-treesize', '-descendants', '-bulkiness'
-• limit: max results (default 50, cap 500)
+• limit: max results (default 50, cap 100)
 • projection: columns to return — name, ext, type, size, modified, path, drive, \
   created, accessed, allocated, treesize, descendants, tree_allocated
 • whole_word: true → the WHOLE file name must match the pattern \
@@ -150,3 +150,19 @@ if it's worth staying current, SUGGEST it to the user; never run it yourself \
 but YOUR session keeps its current `server_version` until its host relaunches \
 the MCP server — so a version bump shows up on your next launch, not mid-session.
 ";
+
+#[cfg(test)]
+mod tests {
+    use super::AGENT_INSTRUCTIONS;
+    use crate::tools::search::HARD_CAP;
+
+    /// The limit the instructions promise is the limit the search tool
+    /// enforces.
+    #[test]
+    fn instructions_state_the_search_hard_cap() {
+        assert!(
+            AGENT_INSTRUCTIONS.contains(&format!("cap {HARD_CAP})")),
+            "AGENT_INSTRUCTIONS must state the uffs_search hard cap of {HARD_CAP}"
+        );
+    }
+}

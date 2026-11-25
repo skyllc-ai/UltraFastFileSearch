@@ -43,8 +43,12 @@ pub(crate) fn cookbook_json() -> String {
             "projection controls which columns appear in results. Default is \
              name,ext,type,size,modified,path. Add 'drive' for multi-drive queries, \
              'created' for age analysis, 'treesize'/'descendants' for directory analysis.",
-            "limit defaults to 50. Set higher (up to 500) when you need comprehensive \
-             results, lower (5-10) for quick checks.",
+            format!(
+                "limit defaults to 50. Set higher (up to {}, the hard cap) when you need \
+                 more rows, lower (5-10) for quick checks; for more than that, page with \
+                 the cursor or aggregate.",
+                crate::tools::search::HARD_CAP
+            ),
             "whole_word=true makes the WHOLE file name match the pattern: 'test.txt' \
              matches only names that are exactly 'test.txt' (any case), not \
              'test.txt.bak' or 'my_test.txt'. Globs already match the whole name.",
