@@ -87,8 +87,8 @@ impl AggregatePreset {
         }
     }
 
-    /// All preset names for help text.
-    pub(crate) const ALL_NAMES: &'static [&'static str] = &[
+    /// All preset names, in help-text order.
+    pub const ALL_NAMES: &'static [&'static str] = &[
         "overview",
         "by_type",
         "by_extension",

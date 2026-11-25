@@ -53,6 +53,7 @@ mod idle_demote;
 mod idle_demote_tracing;
 mod lifecycle_hooks;
 mod manager;
+mod preset_names;
 mod registry;
 mod search_semantics;
 mod shard_ttl_events;

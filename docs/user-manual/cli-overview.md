@@ -229,8 +229,16 @@ uffs --agg by_type          # Breakdown by file type
 uffs --agg by_drive         # Per-drive totals
 uffs --agg by_size          # Size distribution
 uffs --agg by_age           # Age distribution
+uffs --agg storage          # Allocated vs logical size, waste
+uffs --agg activity         # Recent activity timelines
+uffs --agg top_folders      # Largest top-level folders
+uffs --agg duplicates       # Duplicate candidates (size + name)
+uffs --agg media            # Pictures, audio and video summary
+uffs --agg cleanup          # Zero-byte, extensionless and old files
 uffs --agg count            # Simple total count
 ```
+
+`uffs --agg --help` lists every preset with its other spellings.
 
 > **Full guide:** [Aggregation](aggregation.md)
 

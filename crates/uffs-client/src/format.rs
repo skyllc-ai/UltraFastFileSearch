@@ -331,43 +331,88 @@ pub fn parse_size(spec: &str) -> Result<u64, ParseSizeError> {
     Ok(count.saturating_mul(multiplier))
 }
 
-/// Check whether a string is a recognized aggregate preset name.
+/// One aggregate preset as the command line names it: its name and the
+/// other spellings accepted for it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AggregatePresetName {
+    /// The preset's name (`by_extension`), as help text lists it.
+    pub name: &'static str,
+    /// Other accepted spellings (`byextension`, `extension`, `by_ext`, `ext`).
+    pub aliases: &'static [&'static str],
+}
+
+/// Every aggregate preset, in the order help text lists them.
+///
+/// The one list the client side reads: [`is_aggregate_preset`] validates
+/// against it and `uffs --agg --help` prints it, so the two cannot drift.
+/// The daemon expands presets with `uffs_core::aggregate::AggregatePreset`;
+/// a test in `uffs-daemon` holds that parser to this list.
+pub const AGGREGATE_PRESETS: &[AggregatePresetName] = &[
+    AggregatePresetName {
+        name: "overview",
+        aliases: &[],
+    },
+    AggregatePresetName {
+        name: "by_type",
+        aliases: &["bytype", "type"],
+    },
+    AggregatePresetName {
+        name: "by_extension",
+        aliases: &["byextension", "extension", "by_ext", "ext"],
+    },
+    AggregatePresetName {
+        name: "by_drive",
+        aliases: &["bydrive", "drive"],
+    },
+    AggregatePresetName {
+        name: "by_size",
+        aliases: &["bysize", "size"],
+    },
+    AggregatePresetName {
+        name: "by_age",
+        aliases: &["byage", "age"],
+    },
+    AggregatePresetName {
+        name: "storage",
+        aliases: &[],
+    },
+    AggregatePresetName {
+        name: "activity",
+        aliases: &[],
+    },
+    AggregatePresetName {
+        name: "top_folders",
+        aliases: &["topfolders", "folders"],
+    },
+    AggregatePresetName {
+        name: "duplicates",
+        aliases: &["dups"],
+    },
+    AggregatePresetName {
+        name: "media",
+        aliases: &[],
+    },
+    AggregatePresetName {
+        name: "cleanup",
+        aliases: &[],
+    },
+];
+
+/// Check whether a string is a recognized aggregate preset name (any case,
+/// any spelling in [`AGGREGATE_PRESETS`]).
 ///
 /// The full expansion and execution of presets happens on the daemon side;
 /// this is a lightweight check so the thin CLI can validate user input
 /// before sending it over the wire.
 #[must_use]
 pub(crate) fn is_aggregate_preset(spec: &str) -> bool {
-    matches!(
-        spec.to_ascii_lowercase().as_str(),
-        "overview"
-            | "by_type"
-            | "bytype"
-            | "type"
-            | "by_extension"
-            | "byextension"
-            | "extension"
-            | "by_ext"
-            | "ext"
-            | "by_drive"
-            | "bydrive"
-            | "drive"
-            | "by_size"
-            | "bysize"
-            | "size"
-            | "by_age"
-            | "byage"
-            | "age"
-            | "storage"
-            | "activity"
-            | "top_folders"
-            | "topfolders"
-            | "folders"
-            | "duplicates"
-            | "dups"
-            | "media"
-            | "cleanup"
-    )
+    AGGREGATE_PRESETS.iter().any(|preset| {
+        preset.name.eq_ignore_ascii_case(spec)
+            || preset
+                .aliases
+                .iter()
+                .any(|alias| alias.eq_ignore_ascii_case(spec))
+    })
 }
 
 /// Extract a drive letter from a search pattern, if present.

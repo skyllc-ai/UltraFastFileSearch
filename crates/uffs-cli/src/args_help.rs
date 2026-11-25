@@ -237,8 +237,8 @@ uffs --agg — Run aggregate analytics on the filesystem index
 USAGE:  uffs --agg <PRESET> [OPTIONS]
 
 ARGUMENTS:
-  <PRESET>             overview, by_type, by_extension, by_drive,
-                       by_size, by_age, count
+  <PRESET>             a preset (listed below), `count`, or a raw spec
+                       such as 'terms:extension,top=2000'
 
               Each preset has a built-in top-N cap (e.g. by_extension
               caps at 50 buckets). --agg-cursor/--agg-page-size page
@@ -254,10 +254,33 @@ OPTIONS:
   --agg-page-size <N>  Max buckets per page (within the preset's cap)
 ";
 
-/// Print aggregate help.
+/// Print aggregate help: [`AGGREGATE_HELP`], then the presets from
+/// `uffs_client::format::AGGREGATE_PRESETS`, the list the parser itself
+/// accepts, so the help cannot name a preset that is not there or miss one
+/// that is.
 #[expect(clippy::print_stdout, reason = "intentional help output")]
 pub(crate) fn print_aggregate_help() {
-    print!("{AGGREGATE_HELP}");
+    print!("{AGGREGATE_HELP}{}", aggregate_presets_help());
+}
+
+/// The `PRESETS:` section of `uffs --agg --help`, one line per preset with
+/// its other spellings.
+fn aggregate_presets_help() -> String {
+    let lines: String = uffs_client::format::AGGREGATE_PRESETS
+        .iter()
+        .map(|preset| {
+            if preset.aliases.is_empty() {
+                format!("  {}\n", preset.name)
+            } else {
+                format!(
+                    "  {:<20} (also: {})\n",
+                    preset.name,
+                    preset.aliases.join(", ")
+                )
+            }
+        })
+        .collect();
+    format!("\nPRESETS:\n{lines}")
 }
 
 /// Help text for `uffs --status`.
@@ -280,4 +303,26 @@ OPTIONS:
 #[expect(clippy::print_stdout, reason = "intentional help output")]
 pub(crate) fn print_status_help() {
     print!("{STATUS_HELP}");
+}
+
+#[cfg(test)]
+mod tests {
+    /// The help lists every preset the parser accepts.
+    #[test]
+    fn aggregate_help_lists_every_preset() {
+        let help = super::aggregate_presets_help();
+        for preset in uffs_client::format::AGGREGATE_PRESETS {
+            assert!(help.contains(preset.name), "help misses {}", preset.name);
+        }
+        for name in [
+            "storage",
+            "activity",
+            "top_folders",
+            "duplicates",
+            "media",
+            "cleanup",
+        ] {
+            assert!(help.contains(name), "help misses {name}");
+        }
+    }
 }
