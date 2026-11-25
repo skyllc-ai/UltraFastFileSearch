@@ -820,6 +820,31 @@ hint when missing.
 """
 
 [[gate]]
+id = "doc-links"
+label = "Markdown relative links + heading anchors"
+command = ["python3", "-B", "scripts/ci/check_doc_links.py", "--self-test"]
+tiers = ["pre-commit", "pre-push"]
+gate_when = "always"
+hard = true
+tool = "python3"
+expected_runtime_secs = 1
+bucket = "bg"
+order = 65
+notes = """
+Every relative link and heading anchor in the tracked Markdown must
+resolve: the target is a tracked file or directory (a link into a
+gitignored or untracked place fails), and `file.md#anchor` / `#anchor`
+names a heading id as GitHub computes it (github-slugger) or an explicit
+HTML `id=`.  External links are not fetched (no network).
+`--self-test` runs the checker's own cases
+(`scripts/ci/check_doc_links_test.py`) first; `-B` keeps Python from
+writing `__pycache__` into the tree.  Runs over the whole
+repository at both tiers (well under a second): deleting or renaming a
+file can break a link in Markdown that was not touched.  Local hooks
+only: no pr-fast mirror (as `typos` / `reuse`).
+"""
+
+[[gate]]
 id = "taplo"
 label = "taplo TOML format check (staged scope)"
 command = ["taplo", "fmt", "--check", "{{STAGED_TOML}}"]

@@ -147,8 +147,8 @@ A: No.  Per-crate vs workspace-root changelog structure is an open R4-blocking d
 | release-plz config | [`release-plz.toml`](../../release-plz.toml) (workspace root) |
 | Shadow workflow (R3) | [`.github/workflows/release-plz.yml`](../../.github/workflows/release-plz.yml) |
 | Live release workflow (current) | [`.github/workflows/release.yml`](../../.github/workflows/release.yml) |
-| Live tag-creation workflow (current) | [`.github/workflows/auto-tag-release.yml`](../../.github/workflows/auto-tag-release.yml) |
-| Bespoke version bumper (will be retired in R5) | [`build/update_all_versions.rs`](../../build/update_all_versions.rs) |
+| Tag-creation workflow | `auto-tag-release.yml`, retired in R5 (#379) |
+| Bespoke version bumper | `build/update_all_versions.rs`, retired in R5 (#379) |
 | Multi-phase migration plan | [`release-automation-plan.md`](release-automation-plan.md) |
 | Per-phase validation evidence | [`release-automation-baseline.md`](release-automation-baseline.md) |
 

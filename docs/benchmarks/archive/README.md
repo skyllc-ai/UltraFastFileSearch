@@ -37,7 +37,7 @@ Exactly the same template as the current canonical report:
 7. **Test environment details + reproduce instructions** — exact scripts and raw log paths.
 8. **References back to product docs + competitor sources.**
 
-See [`../2026-04-v0.5.66-vs-everything-and-cpp.md`](../2026-04-v0.5.66-vs-everything-and-cpp.md) for the first example.
+See [`2026-04-v0.5.66-vs-everything-and-cpp.md`](2026-04-v0.5.66-vs-everything-and-cpp.md) for the first example.
 
 ## The no-backfill rule
 

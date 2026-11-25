@@ -122,6 +122,8 @@ if command -v reuse >/dev/null 2>&1; then
     spawn "reuse" reuse lint --quiet
 fi
 
+spawn "doc-links" python3 -B scripts/ci/check_doc_links.py --self-test
+
 if has_staged_toml_nonvet && command -v taplo >/dev/null 2>&1; then
     # shellcheck disable=SC2086
     spawn "taplo" bash -c "taplo fmt --check $(printf '%s ' $STAGED_TOML_NONVET)"

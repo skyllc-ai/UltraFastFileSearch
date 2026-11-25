@@ -359,8 +359,6 @@ The older C++ implementation remains useful as a parity and regression baseline,
 | **Forensic MFT tools** | [MFTECmd (Eric Zimmerman)](https://ericzimmerman.github.io/), [analyzeMFT](https://github.com/dkovar/analyzeMFT) | UFFS is an interactive search engine, not a one-shot parser; includes daemon, TUI, and live queries |
 | **Linux / macOS** | [FSearch](https://github.com/cboxdoerfer/fsearch), [Recoll](https://www.recoll.org/), [DocFetcher](https://docfetcher.sourceforge.net/), [Catfish](https://docs.xfce.org/apps/catfish/start), [Find Any File](https://findanyfile.app/), [HoudahSpot](https://www.houdah.com/houdahSpot/) | UFFS supports offline MFT analysis on macOS/Linux via cached index files |
 
-> 📖 **[Full competitor landscape analysis](docs/mft_competitor_landscape_deep_research.md)** — 12 tools, corporate adoption data, market positioning.
-
 ---
 
 ## Requirements
@@ -420,7 +418,7 @@ UFFS is developed and maintained by **[Sky, LLC](https://github.com/skyllc-ai)**
 
 ## Acknowledgments
 
-UFFS benefits from the broader NTFS tooling ecosystem, including [SwiftSearch](https://sourceforge.net/projects/swiftsearch/) by wfunction. Deep competitive landscape analysis in [docs/mft_competitor_landscape_deep_research.md](docs/mft_competitor_landscape_deep_research.md).
+UFFS benefits from the broader NTFS tooling ecosystem, including [SwiftSearch](https://sourceforge.net/projects/swiftsearch/) by wfunction.
 
 ---
 

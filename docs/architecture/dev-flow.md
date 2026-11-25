@@ -158,6 +158,7 @@ and `.github/workflows/tier-2.yml` (all as of commit `185ed8825`).
 | `taplo fmt --check` | ✅ if *.toml staged | — | — | — |
 | `typos` | ✅ optional | ✅ optional | — | — |
 | `reuse lint` (SPDX) | ✅ optional | ✅ optional | — | — |
+| `doc-links` (Markdown links + anchors) | ✅ | ✅ | — | — |
 | CodeQL Rust SAST | — | — | `codeql.yml` on PR | — |
 | `cargo llvm-cov` | — | — | — | ✅ |
 | `cargo udeps` | — | — | — | ✅ |

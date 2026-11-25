@@ -236,6 +236,7 @@ spawn_bg "vet-audit-discipline" bash scripts/ci/check_vet_audit_discipline.sh pr
 spawn_bg "machete" cargo-machete --skip-target-dir
 command -v typos >/dev/null 2>&1 && spawn_bg "typos" typos .
 command -v reuse >/dev/null 2>&1 && spawn_bg "reuse" reuse lint --quiet
+spawn_bg "doc-links" python3 -B scripts/ci/check_doc_links.py --self-test
 
 # Bucket 2 — sequential, fail-fast.  Only runs when code
 # changed (rust | dep | infra).  Pure-docs-only pushes skip
