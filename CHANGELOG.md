@@ -19,9 +19,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs: the user manual reads as a handbook: `docs/user-manual/README.md` is its entry (the chapters in reading order), every chapter has one shape, the glossary is one alphabetical table, and the MFT capture runbook moved to `docs/architecture/`
 - docs: the manual checked against the code: `--sort` directions, name (not path) matching, descendants, output formats, the TUI, the daemon's sockets, logs and cache, aggregation, MCP host configuration, updating, uninstalling and troubleshooting
 
+- cli: `uffs --daemon start` and `load` refuse a flag they do not take; `--mft-file` and `--drive` may be repeated (each adds); `restart` takes no flags
+- cli: `uffs --stats` takes `--data-dir` and `--mft-file` only (the `PATH` argument and `--top` did nothing); the search parser refuses `--query-mode`, `--no-bitmap`, `--debug-tree`, `--chaos-seed` and `--reserved-allocated`, which it accepted and ignored
+- cli: `uffs --agg --help` lists all twelve presets, from the table the parser accepts
+- daemon: `uffsd --idle-timeout 0` means never retire (as `--no-retire`)
+- daemon: tracing setup reports each fallback (bad log filter, log dir not creatable, subscriber already set) on stderr instead of dropping it
+- release: `uffs-watchdog` ships in every Windows zip (and as a raw binary, and in the WinGet alias list); `uffs --update` replaces it and stops it first, `uffs --uninstall` stops and removes it
+- hooks: a `doc-links` gate (pre-commit and pre-push, local only) checks every relative Markdown link and heading anchor in the repository against the tracked tree
+
 ### Fixed
 
 - docs: no links to private folders or missing files, and every link and heading anchor in the manual resolves on GitHub
+- search: `--word` works on the command line (it was parsed and dropped); the whole file name must match
+- search: a case-insensitive `>regex` keeps `\d \w \s \b` (the pattern was upper-folded before it was compiled), and an invalid regex is an error, not an empty result
+- search: `--exclude` drops names with letters in them (the pattern and the names were folded to different cases), and `--exclude` with `--not-contains` combines as alternatives
+- cli: `uffs -- <PATTERN>` searches for a pattern that starts with `-`, as the help says
+- cli: the default format reaches the daemon (a table on a terminal, CSV when piped or with `--out`), and CSV without `--columns` has every standard column whichever side wrote it
+- cli: a search that auto-starts the daemon passes `--mft-file a,b`, `--drives` and `--drive C:` the way `uffsd` reads them; `--daemon restart` keeps every flag the daemon was started with
+- mcp: the server instructions and cookbook state the search cap the tool enforces (100, not 500) and what `whole_word` does
+- scripts: the readiness and benchmark scripts call `uffs --daemon status -v` instead of the removed `--daemon stats`
+- docs: five broken links (README, release-automation flow, benchmark archive) found by the new gate
 
 ## [0.6.47] - 2026-11-10
 
